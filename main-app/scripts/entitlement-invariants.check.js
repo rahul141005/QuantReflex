@@ -23,6 +23,19 @@ function ok(name, cond, detail) {
   if (cond) { pass++; } else { fail++; console.log('  FAIL ' + name + (detail ? ' — ' + detail : '')); }
 }
 
+/* Every .js under main-app/ except node_modules — used by the single-definition ratchets. */
+function walkJs(dir, out) {
+  out = out || [];
+  fs.readdirSync(dir).forEach(function (name) {
+    if (name === 'node_modules' || name === '.git') return;
+    const full = path.join(dir, name);
+    const st = fs.statSync(full);
+    if (st.isDirectory()) walkJs(full, out);
+    else if (/\.js$/.test(name)) out.push(full);
+  });
+  return out;
+}
+
 /* ---- 1. Admin grants finite-only (no permanent tier) ---- */
 const entSrc = RR('super-admin-app/api/admin/entitlements.js');
 const actionsM = entSrc.match(/VALID_ACTIONS\s*=\s*\[([^\]]*)\]/);
@@ -206,6 +219,83 @@ ok('a payments composite index is declared for the ledger replay [uid, status, c
     const f = i.fields.map((x) => x.fieldPath).join(',');
     return f === 'uid,status,claimedAt';
   }), payIdx.map((i) => i.fields.map((x) => x.fieldPath).join(',')).join(' | ') || 'none');
+
+/* ---- 10. Refund ELIGIBILITY must never gate refund EXECUTION (ADR-143) ----
+   The 24-hour window governs whether a user may ASK for a refund. It says nothing about whether a
+   refund that ALREADY HAPPENED at the provider should be honoured. Google can refund through its own
+   support long after our window closes, a voidedPurchasesNotification can arrive weeks later, and a
+   Razorpay dashboard refund can be issued at any time — in every case the money has already gone
+   back, so the entitlement must be revoked however old the purchase is.
+
+   A window check inside revokePayment would therefore silently ignore a day-40 Google refund and leave
+   the user holding both Premium and their money — inverting ADR-141. It is a very easy mistake to make
+   (it reads like consistency), so it is ratcheted at source rather than left to review. */
+const revokeSrc = (function () {
+  const m = aiSrc.match(/async function revokePayment\([\s\S]*?\n\}\n/);
+  return m ? m[0] : '';
+})();
+ok('revokePayment is locatable for the refund-policy ratchet', revokeSrc.length > 500);
+ok('revokePayment NEVER calls refundPolicy.eligibility (eligibility must not gate execution)',
+  !/refundPolicy\.eligibility\s*\(/.test(revokeSrc));
+ok('revokePayment contains no refund-window comparison of its own',
+  !/REFUND_WINDOW_MS/.test(revokeSrc));
+ok('revokePayment never returns early on an out-of-window refund',
+  !/skipped\s*=\s*['"]outside_refund_window/.test(revokeSrc) && !/STATE_EXPIRED/.test(revokeSrc));
+ok('revokePayment DOES annotate the policy verdict (recorded, never enforced)',
+  /refundPolicy\.isWithinWindow\(/.test(revokeSrc) && /refundWithinPolicy/.test(revokeSrc));
+ok('an out-of-policy refund raises a securityEvent rather than being refused',
+  /refund_out_of_policy/.test(aiSrc));
+
+/* the window itself is declared exactly once in the repo */
+const policySrc = R('services/refundPolicy.js');
+ok('the 24-hour window is declared in services/refundPolicy.js',
+  /REFUND_WINDOW_HOURS\s*=\s*24\b/.test(policySrc));
+const windowDefiners = walkJs(path.join(__dirname, '..')).filter(function (f) {
+  /* `=(?!=)` so a comparison (`=== 24`) in a check script is not mistaken for a definition. */
+  return /REFUND_WINDOW_(MS|HOURS)\s*=(?!=)/.test(fs.readFileSync(f, 'utf8'));
+}).map(function (f) { return path.relative(path.join(__dirname, '..'), f); });
+ok('exactly one module DEFINES the refund window (no second definition of 24 hours)',
+  windowDefiners.length === 1 && windowDefiners[0] === 'services/refundPolicy.js',
+  windowDefiners.join(', ') || 'none');
+
+/* the clock's origin: capture time, never our grant time */
+ok('activatePremium records the gateway capture time',
+  /capturedAtMs:\s*capturedAtMs/.test(aiSrc) && /capturedAtSource:/.test(aiSrc));
+ok('a capture-time correction may only move EARLIER (never extends the refund window)',
+  /capturedAtMs\s*<\s*existingCaptured/.test(aiSrc));
+
+/* the workflow: approval authorises, the provider confirms, and only then is anything revoked */
+const rrSrc = R('services/refundRequests.js').replace(/\/\*[\s\S]*?\*\//g, '');
+ok('approving a refund request never touches the entitlement pipeline',
+  !/revokePayment\s*\(/.test(rrSrc));
+ok('the refund-request writer never requires aiService (one direction of dependency)',
+  !/require\(['"]\.\/aiService/.test(rrSrc));
+const refundSchema = require('../api/_lib/refund-schema');
+ok('the six specified statuses are declared, exactly',
+  refundSchema.STATUSES.join(',') === 'pending,approved,rejected,refunded,failed,cancelled');
+ok('pending cannot jump straight to refunded (a refund passes through review)',
+  !refundSchema.canTransition('pending', 'refunded', 'provider').ok);
+ok('only the provider may mark a request refunded (never an admin)',
+  refundSchema.canTransition('approved', 'refunded', 'admin').reason === 'wrong_actor');
+
+/* the request record is server-owned, exactly like payments */
+const rrMatch = rules.match(/match\s+\/refundRequests\/\{[^}]*\}\s*\{([\s\S]*?)\n\s*\}/);
+ok('firestore.rules refundRequests block parses', !!rrMatch);
+if (rrMatch) {
+  ok('refundRequests denies every client write (status is server-owned)',
+    /allow\s+create,\s*update,\s*delete:\s*if\s+false/.test(rrMatch[1]));
+  ok('refundRequests is readable only by its owner',
+    /allow read:\s*if\s+request\.auth\s*!=\s*null[\s\S]*?resource\.data\.uid\s*==\s*request\.auth\.uid/.test(rrMatch[1]));
+}
+
+/* A4: the ledger replay runs inside a transaction during a refund — the worst moment to discover a
+   missing composite index. The refund queue needs its own. */
+const idx143 = JSON.parse(RR('firestore/indexes/firestore.indexes.json'));
+const rrIdx = idx143.indexes.filter((i) => i.collectionGroup === 'refundRequests')
+  .map((i) => i.fields.map((x) => x.fieldPath).join(','));
+ok('refundRequests composite indexes are declared (owner history + admin queue)',
+  rrIdx.indexOf('uid,createdAtMs') !== -1 && rrIdx.indexOf('status,createdAtMs') !== -1,
+  rrIdx.join(' | ') || 'none');
 
 /* ---- 6. qr_premium write-only mirror removed (one source of truth) ---- */
 const store = R('js/state/store.js');

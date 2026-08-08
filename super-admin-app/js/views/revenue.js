@@ -60,7 +60,17 @@ var RevenueCenter = (function () {
     var m = (_dash && _dash.metrics) || {};
     var g = _intel.growth || {};
     el.innerHTML = '<div class="stat-grid" style="margin-bottom:1.25rem;">' +
-      _tile('Revenue total', _inr(m.revenueTotalINR), _inr(m.revenueTodayINR) + ' today', 'var(--success-strong)') +
+      /* ADR-143: NET is the headline — realised revenue, after refunds. Gross and Refunded sit beside
+         it rather than replacing it, so a number that looks lower than yesterday is explainable at a
+         glance instead of alarming. Pre-ADR-143 snapshots carry no net field; fall back to gross so
+         the historical series still renders rather than showing a blank tile. */
+      _tile('Net revenue', _inr(m.revenueNetINR != null ? m.revenueNetINR : m.revenueTotalINR),
+        _inr(m.revenueNetTodayINR != null ? m.revenueNetTodayINR : m.revenueTodayINR) + ' today', 'var(--success-strong)') +
+      _tile('Gross revenue', _inr(m.revenueGrossINR != null ? m.revenueGrossINR : m.revenueTotalINR),
+        'before refunds', 'var(--accent-primary)') +
+      _tile('Refunded', _inr(m.revenueRefundedINR || 0),
+        ((m.refundedCount || 0) + (m.partialRefundCount || 0)) + ' refund(s)',
+        ((m.revenueRefundedINR || 0) > 0 ? 'var(--warn-primary)' : 'var(--text-muted)')) +
       _tile('Active premium', (_intel.premiumUsers != null ? _intel.premiumUsers : (m.premiumUsers || 0)), (_intel.trialUsers || m.trialUsers || 0) + ' on trial', 'var(--accent-primary)') +
       _tile('Conversion', (_intel.conversionRate != null ? _intel.conversionRate : 0) + '%', 'premium share of base', 'var(--accent-ai)') +
       _tile('Expiring ≤7d', (_intel.expiring7d != null ? _intel.expiring7d : 0), (_intel.expiring30d || 0) + ' within 30d', (_intel.expiring7d > 0 ? 'var(--warn-primary)' : 'var(--success-primary)')) +
@@ -68,6 +78,8 @@ var RevenueCenter = (function () {
     '<div class="card" style="padding:1rem;"><div class="cc-section-title">Plan mix &amp; growth (' + (g.windowDays || 0) + 'd window)</div>' +
       '<div class="cc-feed-row"><span>6-month plans sold</span><span>' + (m.revenue6mCount || 0) + '</span></div>' +
       '<div class="cc-feed-row"><span>12-month plans sold</span><span>' + (m.revenue12mCount || 0) + '</span></div>' +
+      '<div class="cc-feed-row"><span>Full refunds</span><span>' + (m.refundedCount || 0) + '</span></div>' +
+      '<div class="cc-feed-row"><span>Partial refunds</span><span>' + (m.partialRefundCount || 0) + '</span></div>' +
       '<div class="cc-feed-row"><span>Revenue growth</span><span>' + _growth(g.revenuePct) + '</span></div>' +
       '<div class="cc-feed-row"><span>Premium-base growth</span><span>' + _growth(g.premiumPct) + '</span></div>' +
       '<div class="cc-feed-row"><span>Failed grants (30d)</span><span>' + (_intel.failedGrants != null ? _intel.failedGrants : '—') + '</span></div>' +

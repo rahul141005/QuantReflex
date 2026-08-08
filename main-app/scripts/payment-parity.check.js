@@ -114,6 +114,49 @@ if (ps6 && ps12 && aiPrice && pw6 && pw12 && sh6 && sh12) {
     offenders.length === 0, offenders.join(', '));
 }
 
+/* ---- ADR-143: exactly ONE refund policy is stated anywhere -------------------------------------
+   The paywall advertised a "7-Day Refund" in all three locales while no refund policy existed in code
+   at all. Copy IS policy — it is what a customer relies on and what a chargeback dispute is judged
+   against — so a stale refund promise is a commercial liability, not a typo. Both the locale copy and
+   the current-state docs are scanned for any refund window other than 24 hours.
+
+   Narrowly scoped to refund CONTEXT: "7-day" also legitimately describes the accuracy chart and the
+   rolling accuracy average, which have nothing to do with refunds and must not trip this. */
+{
+  const REFUND_WINDOW_WRONG = /(?:\b\d+\s*[- ]?\s*(?:day|days|hour|hours|दिन|दिवस|घंटे|तास)[^.\n]{0,40}(?:refund|रिफ़ंड|परतावा))|(?:(?:refund|रिफ़ंड|परतावा)[^.\n]{0,40}\b\d+\s*[- ]?\s*(?:day|days|hour|hours|दिन|दिवस|घंटे|तास))/i;
+  const CORRECT = /24[\s-]*(?:hour|hours|घंटे|तास)/i;
+  const offenders = [];
+
+  ['locales/en.js', 'locales/hi.js', 'locales/mr.js'].forEach((rel) => {
+    R(rel).split('\n').forEach((line, i) => {
+      if (REFUND_WINDOW_WRONG.test(line) && !CORRECT.test(line)) offenders.push(rel + ':' + (i + 1));
+    });
+  });
+  ok('no locale advertises a refund window other than 24 hours',
+    offenders.length === 0, offenders.join(', '));
+
+  /* Same rule for the docs a human executes from. History files stay period-accurate, as above. */
+  const docOffenders = [];
+  const docExempt = /ADR-143|previously|correction|used to|historical|no longer|SUPERSEDED/i;
+  ['docs/BIBLE/PAYMENT_ARCHITECTURE.md', 'docs/BIBLE/PAYMENT_READINESS.md',
+   'docs/BIBLE/FIRESTORE_BLUEPRINT.md', 'docs/BIBLE/TECHNICAL_BIBLE.md'].forEach((rel) => {
+    const p = path.join(__dirname, '..', '..', rel);
+    if (!fs.existsSync(p)) return;
+    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+      if (REFUND_WINDOW_WRONG.test(line) && !CORRECT.test(line) && !docExempt.test(line)) {
+        docOffenders.push(rel + ':' + (i + 1));
+      }
+    });
+  });
+  ok('no current-state doc states a refund window other than 24 hours',
+    docOffenders.length === 0, docOffenders.join(', '));
+
+  /* And the policy the code enforces agrees with the copy the customer was shown. */
+  const refundPolicy = require('../services/refundPolicy');
+  ok('the enforced refund window is 24 hours', refundPolicy.REFUND_WINDOW_HOURS === 24);
+  ok('the advertised refund window matches the enforced one', /24-Hour Refund/.test(R('locales/en.js')));
+}
+
 /* ---- historical-fallback exemption stays documented ---- */
 const metricsSrc = RR('super-admin-app/api/_lib/metrics.js');
 ok('metrics.js historical fallback exemption documented',

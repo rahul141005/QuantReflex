@@ -6,6 +6,52 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-04 — 24-hour refund policy + manual refund workflow (ADR-143)
+
+A canonical business rule, applied consistently across the architecture. WS4-WS6 stay paused until it
+is integrated, per instruction.
+
+- **The policy.** A user may **request** a refund only within **24 hours of gateway capture** —
+  identically for Razorpay, Google Play and any future provider. New pure `services/refundPolicy.js`
+  is the only definition of the window in the repo, and is provider-neutral *by construction*: it takes
+  a timestamp and has no provider parameter to branch on.
+- **Fixed — the paywall promised a refund policy that did not exist.** All three locales advertised
+  "7-Day Refund" while no refund policy existed in code at all. Copy is policy — it is what a customer
+  relies on and what a chargeback dispute is judged against. Now "24-Hour Refund", with a
+  `payment-parity` ratchet that fails the build if any locale or current-state doc states a different
+  window (scoped to refund context, so the 7-day *accuracy chart* is untouched).
+- **Eligibility never gates execution.** Google refunds through its own support long after our window
+  closes; a voided-purchase notification can arrive weeks later. `revokePayment` therefore honours any
+  provider-reported refund **at any age** and only annotates `refundWithinPolicy`/`refundAgeMs` plus a
+  `refund_out_of_policy` securityEvent. A window check there would leave a refunded user holding both
+  Premium and their money — it reads like consistency, which is why it is ratcheted at source.
+- **Three eligibility states, never a boolean** — `eligible` / `expired` / `unknown_capture_time`.
+  Rows written before this change have no capture time: neither auto-approved nor auto-denied, but
+  badged for manual review. Guessing either way is wrong.
+- **The clock starts at GATEWAY CAPTURE.** New additive `capturedAtMs`/`capturedAtSource` from
+  Razorpay's `payment.created_at` (epoch seconds). Never `claimedAt` — a `'pending'` row completed days
+  later would be handed a fresh 24 hours. `?action=verify` cannot supply it, so the webhook back-fills,
+  and a correction may only ever move it **earlier**.
+- **Added — `refundRequests` + a declared state machine** (`api/_lib/refund-schema.js`):
+  `pending / approved / rejected / refunded / failed / cancelled`. `approved` is **open, not terminal**.
+  `pending -> refunded` is not a legal transition, and only the *provider* actor may mark one refunded.
+- **Approval changes NO entitlement.** It authorises a human to issue the refund at the provider; the
+  entitlement is revoked later, and only on provider confirmation, through the same canonical path a
+  Google-initiated refund takes. `refundRequests.js` does not even require `aiService`, so the coupling
+  cannot appear by accident.
+- **Added — user surface** (`api/payment.js` `?action=refund-eligibility|refund-request|refund-cancel`,
+  folded in rather than a new Vercel function; main-app stays at 10 of 12) and **Super Admin review**
+  (`super-admin-app/api/admin/refunds.js`), with `auditLogs` and a user notification on every decision.
+  Settings shows the expired state **disabled and explained** rather than hiding it — a control that
+  silently vanishes reads as a bug.
+- **Revenue is now gross / refunded / net.** Full refunds subtract `amount`, partials subtract only
+  `amountRefunded`, tombstones are excluded from gross entirely. Net is the admin headline with Gross
+  and Refunded beside it. `revenueTotalINR` **keeps its gross meaning** — redefining it would silently
+  rewrite what every past daily snapshot meant.
+- npm test 0 failed · **new** `refund-policy.check` 45, `refund-workflow.check` 78 (drives the real
+  services and the real payment API against a buffered-write Firestore stub) · `entitlement-invariants`
+  59 to 78 · `payment-parity` 26 to 30. Five mutation runs confirm every guard bites.
+
 ## 2026-08-04 — One platform truth; Restore reachable (ADR-142, PR-2 WS1+WS3)
 
 Built on the pipeline ADR-141 hardened. **WS1 and WS3 complete; WS4–WS6 not started; WS7 deferred by

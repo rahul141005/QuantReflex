@@ -72,7 +72,23 @@ async function computeDailySnapshot(db) {
   /* Revenue — full scan of payments (one doc per lifetime sale; sum `amount`, fall back to
      plan→price for historical docs). Recomputed each run; ROADMAP tracks an incremental
      counter before payment volume grows large. */
+  /* ADR-143 — GROSS, REFUNDED and NET are computed in this one pass. Definitions (also stated in
+     PAYMENT_ARCHITECTURE.md §11, so reporting cannot silently drift from the business rule again):
+
+       GROSS    every captured payment, whatever happened to it afterwards. Never decreases.
+       REFUNDED money given back. A FULL refund subtracts the whole `amount`; a PARTIAL refund
+                subtracts only `amountRefunded`, because the rest of that sale is still real revenue.
+       NET      gross − refunded. This is realised revenue and the headline figure.
+
+     `revenueTotalINR` deliberately KEEPS its original gross meaning. The daily snapshots form a
+     historical series, and redefining an existing field would silently rewrite what every past row
+     meant — a chart that changed shape retroactively is worse than one extra column. New readers use
+     the explicit `revenueGrossINR` / `revenueRefundedINR` / `revenueNetINR`.
+
+     Tombstones (`tombstone:true`) are refunds that arrived before their capture, so no money was ever
+     recognised for them: excluded from gross entirely rather than counted and then subtracted. */
   let revenueTotalPaise = 0, revenueTodayPaise = 0, revenue6mCount = 0, revenue12mCount = 0;
+  let revenueRefundedPaise = 0, revenueRefundedTodayPaise = 0, refundedCount = 0, partialRefundCount = 0;
   /* Safety cap (ADR-023): the daily cron must never be sunk by an enormous payments collection.
      50k lifetime sales is far beyond Spark/Hobby scale; the durable fix is a day-bucketed incremental
      revenue counter (ROADMAP). If the cap is hit, revenueTotal under-reports → `revenueTruncated`. */
@@ -81,12 +97,31 @@ async function computeDailySnapshot(db) {
   const revenueTruncated = paymentsSnap.size >= PAYMENTS_CAP;
   paymentsSnap.forEach(function (doc) {
     const p = doc.data();
+    /* A refund-before-capture tombstone is not a sale — it never contributed revenue to undo. */
+    if (p.tombstone === true) return;
     const amt = (typeof p.amount === 'number' && p.amount > 0) ? p.amount : (PREMIUM_PRICE_PAISE[p.plan] || 0);
     revenueTotalPaise += amt;
     if (p.plan === 'premium_12m') revenue12mCount++;
     else if (p.plan === 'premium_6m') revenue6mCount++;
     const claimedMs = p.claimedAt ? (Date.parse(p.claimedAt) || 0) : 0;
-    if (claimedMs >= startOfDayUTC.getTime()) revenueTodayPaise += amt;
+    const isToday = claimedMs >= startOfDayUTC.getTime();
+    if (isToday) revenueTodayPaise += amt;
+
+    /* Refunds are attributed to the day of the SALE, not the day of the refund, so today's net stays
+       consistent with today's gross — otherwise refunding an old sale would push today's net below
+       zero for reasons invisible in today's row. */
+    if (p.status === 'refunded') {
+      revenueRefundedPaise += amt;
+      if (isToday) revenueRefundedTodayPaise += amt;
+      refundedCount++;
+    } else if (p.status === 'partially_refunded') {
+      const back = (typeof p.amountRefunded === 'number' && p.amountRefunded > 0)
+        ? Math.min(p.amountRefunded, amt)      /* never subtract more than was ever charged */
+        : 0;
+      revenueRefundedPaise += back;
+      if (isToday) revenueRefundedTodayPaise += back;
+      partialRefundCount++;
+    }
   });
 
   /* AI cost — already pre-aggregated for today (single doc read). */
@@ -112,8 +147,18 @@ async function computeDailySnapshot(db) {
     dau: dau,
     mau: mau,
     newToday: newToday,
+    /* GROSS (unchanged meaning — the historical series depends on it) */
     revenueTotalINR: Math.round(revenueTotalPaise / 100),
     revenueTodayINR: Math.round(revenueTodayPaise / 100),
+    /* ADR-143 — explicit gross / refunded / net. See the definitions above the scan. */
+    revenueGrossINR: Math.round(revenueTotalPaise / 100),
+    revenueRefundedINR: Math.round(revenueRefundedPaise / 100),
+    revenueNetINR: Math.round((revenueTotalPaise - revenueRefundedPaise) / 100),
+    revenueGrossTodayINR: Math.round(revenueTodayPaise / 100),
+    revenueRefundedTodayINR: Math.round(revenueRefundedTodayPaise / 100),
+    revenueNetTodayINR: Math.round((revenueTodayPaise - revenueRefundedTodayPaise) / 100),
+    refundedCount: refundedCount,
+    partialRefundCount: partialRefundCount,
     revenueTruncated: revenueTruncated,
     revenue6mCount: revenue6mCount,
     revenue12mCount: revenue12mCount,

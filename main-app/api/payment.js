@@ -1,8 +1,15 @@
 /**
  * Payment domain API (ADR-017) — consolidates payment/create-order + payment/verify into ONE
  * serverless function. withAuth (JWT + entitlement). Both actions are POST.
- *   POST ?action=create-order → create a Razorpay order
- *   POST ?action=verify       → verify the signature + activate the plan
+ *   POST ?action=create-order        → create a Razorpay order
+ *   POST ?action=verify              → verify the signature + activate the plan
+ *   POST ?action=refund-eligibility  → (ADR-143) may this user request a refund, and until when?
+ *   POST ?action=refund-request      → (ADR-143) create a refund request (never issues a refund)
+ *   POST ?action=refund-cancel       → (ADR-143) withdraw one's own pending request
+ *
+ * The refund actions live HERE rather than in their own function on purpose: main-app is at 10 of the
+ * 12 Vercel Hobby functions, and WS6's Play RTDN endpoint still needs #11. Folding related actions
+ * into an existing domain function is the same pattern ADR-017 used for create-order/verify.
  *
  * NOTE: payment/webhook.js stays a SEPARATE function (HMAC verification + `bodyParser:false`).
  * Its path remains /api/payment/webhook so the Razorpay dashboard needs no reconfiguration.
@@ -11,6 +18,8 @@
 const { withAuth, methodGuard } = require('./_lib/middleware');
 const aiService = require('../services/aiService');
 const paymentService = require('../services/paymentService');
+const refundRequests = require('../services/refundRequests');   // ADR-143
+const refundPolicy = require('../services/refundPolicy');       // ADR-143: THE 24h rule
 const { setEntitlementClaims } = require('../services/claimsService');
 const admin = require('firebase-admin');
 const { isEnabled } = require('./_lib/config-flags');
@@ -147,11 +156,149 @@ async function _verify(req, res) {
   }
 }
 
+/* ── Refunds (ADR-143) ──────────────────────────────────────────────────────────────────────────
+   The app NEVER issues a refund. These actions only create and read a REQUEST, which a Super Admin
+   reviews; the entitlement is revoked later, and only when the provider confirms the money moved.
+
+   The 24-hour window is recomputed here from the STORED gateway capture time on every call. The
+   client's opinion about its own eligibility is never trusted — it is display state, and a request
+   that arrives one second after the window closes must be refused by the server regardless of what
+   the UI believed when it rendered. */
+
+/** The user's most recent payment row. Refunds are always about a specific purchase. */
+async function _latestPaymentFor(uid) {
+  var snap = await admin.firestore().collection('payments').where('uid', '==', uid).get();
+  var best = null;
+  snap.forEach(function (d) {
+    var v = d.data() || {};
+    /* Tombstones (a refund that beat its capture) are not purchases and can never be refunded. */
+    if (v.tombstone === true) return;
+    var at = (typeof v.capturedAtMs === 'number' && v.capturedAtMs > 0)
+      ? v.capturedAtMs : Date.parse(v.claimedAt || '') || 0;
+    if (!best || at > best.sortAt) best = { id: d.id, data: v, sortAt: at };
+  });
+  return best;
+}
+
+function _paymentSummary(p) {
+  return {
+    paymentId: p.id,
+    provider: p.data.provider || 'razorpay',
+    plan: p.data.plan || null,
+    amountPaise: (typeof p.data.amount === 'number') ? p.data.amount : null,
+    currency: p.data.currency || 'INR',
+    status: p.data.status || 'paid',
+    capturedAtMs: (typeof p.data.capturedAtMs === 'number') ? p.data.capturedAtMs : null,
+    claimedAt: p.data.claimedAt || null
+  };
+}
+
+/* ── ?action=refund-eligibility ── */
+async function _refundEligibility(req, res) {
+  try {
+    var p = await _latestPaymentFor(req.userId);
+    if (!p) {
+      return res.json({
+        state: 'no_purchase', windowHours: refundPolicy.REFUND_WINDOW_HOURS,
+        windowEndsAtMs: null, msRemaining: 0, payment: null, openRequest: null
+      });
+    }
+    var el = refundRequests.eligibilityFor(p.data);
+    var open = await refundRequests.findOpenForPayment(req.userId, p.id);
+    return res.json({
+      state: el.state,
+      windowHours: refundPolicy.REFUND_WINDOW_HOURS,
+      windowEndsAtMs: el.windowEndsAtMs,
+      msRemaining: el.msRemaining,
+      /* Already refunded / partially refunded purchases are not requestable again. */
+      alreadyRefunded: p.data.status === 'refunded' || p.data.status === 'partially_refunded',
+      payment: _paymentSummary(p),
+      openRequest: open ? { id: open.id, status: open.status, createdAtMs: open.createdAtMs } : null
+    });
+  } catch (err) {
+    console.error('Refund eligibility error:', err.message);
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not check refund eligibility.', retryable: true } });
+  }
+}
+
+/* ── ?action=refund-request ── */
+async function _refundRequest(req, res) {
+  try {
+    var body = req.body || {};
+    var p = await _latestPaymentFor(req.userId);
+    if (!p) {
+      return res.status(404).json({ error: { code: 'NO_PURCHASE', message: 'No purchase found on this account.', retryable: false } });
+    }
+    /* If a specific payment was named, it must be the caller's own. Falling back to "their latest"
+       silently would let a stale client request a refund for the wrong purchase. */
+    if (body.paymentId && String(body.paymentId) !== p.id) {
+      return res.status(400).json({ error: { code: 'PAYMENT_MISMATCH', message: 'That purchase is not the one available for refund.', retryable: false } });
+    }
+    if (p.data.status === 'refunded' || p.data.status === 'partially_refunded') {
+      return res.status(409).json({ error: { code: 'ALREADY_REFUNDED', message: 'This purchase has already been refunded.', retryable: false } });
+    }
+
+    var el = refundRequests.eligibilityFor(p.data);
+    var created = await refundRequests.create({
+      uid: req.userId,
+      paymentId: p.id,
+      provider: p.data.provider || 'razorpay',
+      orderId: p.data.orderId || null,
+      plan: p.data.plan || null,
+      amountPaise: (typeof p.data.amount === 'number') ? p.data.amount : null,
+      currency: p.data.currency || 'INR',
+      capturedAtMs: (typeof p.data.capturedAtMs === 'number') ? p.data.capturedAtMs : null,
+      capturedAtSource: p.data.capturedAtSource || 'unknown',
+      eligibility: el,
+      reason: body.reason
+    });
+    return res.json({
+      success: true, requestId: created.id, status: created.status,
+      needsManualReview: created.needsManualEligibilityReview === true
+    });
+  } catch (err) {
+    if (err.code === 'REFUND_WINDOW_EXPIRED') {
+      return res.status(403).json({ error: { code: 'REFUND_WINDOW_EXPIRED', message: err.message, retryable: false } });
+    }
+    if (err.code === 'REFUND_REQUEST_EXISTS') {
+      return res.status(409).json({ error: { code: 'REFUND_REQUEST_EXISTS', message: err.message, retryable: false }, requestId: err.requestId });
+    }
+    console.error('Refund request error:', err.message);
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not submit your refund request.', retryable: true } });
+  }
+}
+
+/* ── ?action=refund-cancel ── */
+async function _refundCancel(req, res) {
+  try {
+    var body = req.body || {};
+    var id = typeof body.requestId === 'string' ? body.requestId.trim() : '';
+    if (!id) return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'requestId is required.', retryable: false } });
+
+    /* Ownership is checked before the transition so one user can never cancel another's request. */
+    var doc = await admin.firestore().collection(refundRequests.COLLECTION).doc(id).get();
+    if (!doc.exists || doc.data().uid !== req.userId) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Refund request not found.', retryable: false } });
+    }
+    var out = await refundRequests.cancel(id, req.userId);
+    return res.json({ success: true, status: out.to });
+  } catch (err) {
+    if (err.code === 'REFUND_TRANSITION_INVALID') {
+      return res.status(409).json({ error: { code: 'REFUND_TRANSITION_INVALID', message: err.message, retryable: false } });
+    }
+    console.error('Refund cancel error:', err.message);
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not cancel the request.', retryable: true } });
+  }
+}
+
 module.exports = withAuth(async function (req, res) {
   if (methodGuard(req, res, 'POST')) return;
 
   var action = req.query.action || '';
   if (action === 'create-order') return _createOrder(req, res);
   if (action === 'verify') return _verify(req, res);
+  if (action === 'refund-eligibility') return _refundEligibility(req, res);
+  if (action === 'refund-request') return _refundRequest(req, res);
+  if (action === 'refund-cancel') return _refundCancel(req, res);
   return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown payment action: ' + action, retryable: false } });
 });

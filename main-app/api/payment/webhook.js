@@ -38,6 +38,7 @@
 const crypto = require('crypto');
 const aiService = require('../../services/aiService');
 const paymentService = require('../../services/paymentService');
+const refundRequests = require('../../services/refundRequests');   // ADR-143: the ONE refund-request writer
 const admin = require('firebase-admin');
 
 /**
@@ -193,7 +194,11 @@ async function handler(req, res) {
          `payment.amount` is in paise and is the authoritative capture figure. */
       await aiService.activatePremium(uid, plan, paymentId, orderId, {
         amountPaise: Number(payment.amount),
-        currency: payment.currency || 'INR'
+        currency: payment.currency || 'INR',
+        /* ADR-143: Razorpay reports `created_at` in EPOCH SECONDS. This is the authoritative capture
+           time and therefore the origin of the 24-hour refund window. `?action=verify` cannot supply
+           it (it never holds the payment entity), so this webhook is what back-fills it. */
+        capturedAtMs: Number(payment.created_at) > 0 ? Number(payment.created_at) * 1000 : null
       });
 
       /* Set JWT custom claim so token reflects entitlement immediately */
@@ -337,9 +342,30 @@ async function handler(req, res) {
         refundId: refund.id ? String(refund.id) : undefined,
         plan: rPlan || undefined
       });
+      /* ADR-143: close the refund-request loop. The entitlement is already revoked above — this only
+         moves the REQUEST record to its terminal state so the admin queue and the user's status view
+         agree with reality.
+         A missing request is completely normal and must never be treated as an error: Google support
+         refunds, Razorpay dashboard refunds and voided purchases all arrive with no request behind
+         them. Those are recorded `outOfBand` and the revocation stands. Best-effort — the ack must
+         not fail because a bookkeeping write did. */
+      var reqOutcome = 'none';
+      try {
+        reqOutcome = await refundRequests.markRefunded(refPaymentId, {
+          uid: rUid,
+          refundId: refund.id ? String(refund.id) : null,
+          amountRefundedPaise: isFinite(refundedPaise) ? refundedPaise : null
+        });
+      } catch (linkErr) {
+        console.error('[webhook] refund-request link failed (non-fatal, entitlement already revoked):', linkErr.message);
+      }
+
       console.info('[PaymentFlow] REFUND_PROCESSED | uid: ' + rUid + ' | paymentId: ' + refPaymentId +
-        ' | revoked: ' + revokeResult.revoked + ' | skipped: ' + (revokeResult.skipped || 'none'));
-      return res.status(200).json({ status: 'ok', revoked: revokeResult.revoked, skipped: revokeResult.skipped });
+        ' | revoked: ' + revokeResult.revoked + ' | skipped: ' + (revokeResult.skipped || 'none') +
+        ' | request: ' + reqOutcome + ' | withinPolicy: ' + (revokeResult.outOfPolicy ? 'no' : 'yes'));
+      return res.status(200).json({
+        status: 'ok', revoked: revokeResult.revoked, skipped: revokeResult.skipped, request: reqOutcome
+      });
     } catch (revokeErr) {
       console.error('[PaymentFlow] PAYMENT_FAILED | refund revoke failed: ' + revokeErr.message);
       /* 500 so Razorpay retries — revokePayment is idempotent, so a retry is safe. */

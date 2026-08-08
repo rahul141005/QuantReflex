@@ -715,6 +715,12 @@ function initSettingsView() {
     });
   }
 
+  /* Refund (ADR-143) — a request, never a refund. The app cannot issue one; this only asks.
+     Everything shown here is DISPLAY state. The server recomputes eligibility from the stored gateway
+     capture time on submit, so a tab left open past the window closing cannot slip a request through:
+     the button may still look enabled, and the server answers REFUND_WINDOW_EXPIRED. */
+  _wireRefundSection(isPremiumUser);
+
   /* PWA install button */
   var installCard = document.getElementById('installCard');
   var installBtn = document.getElementById('installBtn');
@@ -732,6 +738,109 @@ function initSettingsView() {
   /* Apply reduced motion on load */
   document.body.classList.toggle('reduced-motion', !!settings.reducedMotion);
   updateAboutUserStatus();
+}
+
+/* ── Refund request (ADR-143) ────────────────────────────────────────────────────────────────────
+   The app NEVER issues a refund. This surface only creates a REQUEST, which a Super Admin reviews;
+   the entitlement is revoked later, and only when the payment provider confirms the money moved.
+
+   The 24-hour window is recomputed SERVER-SIDE from the gateway capture time on every call. What is
+   rendered here is display state and is deliberately not trusted: a tab left open past the deadline
+   still gets REFUND_WINDOW_EXPIRED from the server. */
+function _refundApi(action, body) {
+  return Auth.getIdToken().then(function (idToken) {
+    return fetch('/api/payment?action=' + action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + idToken,
+        'X-Session-Id': (window.Session ? Session.id() : '')
+      },
+      body: JSON.stringify(body || {})
+    });
+  }).then(function (resp) {
+    return resp.json().then(function (data) { return { ok: resp.ok, status: resp.status, data: data }; });
+  });
+}
+
+function _wireRefundSection(isPremiumUser) {
+  var section = document.getElementById('refundSection');
+  if (!section) return;
+  /* Hidden by default and only revealed once the server confirms a refundable purchase exists — never
+     shown speculatively, because offering a refund to someone who never paid is worse than silence. */
+  section.style.display = 'none';
+  if (!isPremiumUser || typeof Auth === 'undefined' || !Auth.getIdToken) return;
+
+  var statusEl = document.getElementById('refundStatusText');
+  var btn = document.getElementById('refundRequestBtn');
+  var form = document.getElementById('refundForm');
+  var reasonEl = document.getElementById('refundReason');
+  var submitBtn = document.getElementById('refundSubmitBtn');
+  var cancelBtn = document.getElementById('refundCancelBtn');
+  if (!statusEl || !btn || !form || !submitBtn) return;
+
+  function t(k, vars) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(k, vars) : k; }
+  function show(msg, canRequest) {
+    section.style.display = 'block';
+    statusEl.textContent = msg;
+    /* EXPIRED KEEPS THE BUTTON VISIBLE AND DISABLED. Hiding it would look like a bug and leave the
+       customer with no explanation; the disabled control plus the sentence above it is the answer. */
+    btn.disabled = !canRequest;
+    btn.style.display = 'inline-flex';
+    form.style.display = 'none';
+  }
+
+  _refundApi('refund-eligibility', {}).then(function (r) {
+    if (!r.ok || !r.data) return;                       /* stay hidden rather than guess */
+    var d = r.data;
+    if (d.state === 'no_purchase') return;
+    if (d.alreadyRefunded) { show(t('settings.refundDone'), false); return; }
+
+    if (d.openRequest) {
+      /* A request already exists — show where it stands instead of inviting a duplicate. */
+      var byStatus = { pending: 'settings.refundPending', approved: 'settings.refundApproved' };
+      show(t(byStatus[d.openRequest.status] || 'settings.refundPending'), false);
+      return;
+    }
+
+    if (d.state === 'eligible') {
+      var ends = d.windowEndsAtMs ? new Date(d.windowEndsAtMs).toLocaleString() : '';
+      show(t('settings.refundEligible', { time: ends }), true);
+    } else if (d.state === 'unknown_capture_time') {
+      /* We could not establish when this was captured, so the policy refuses to decide and a human
+         reviews it. Never silently denied — that would punish a customer for our missing data. */
+      show(t('settings.refundUnknown'), true);
+    } else {
+      show(t('settings.refundExpired'), false);
+    }
+  }).catch(function () { /* network trouble — leave the section hidden */ });
+
+  /* `onclick =` rather than addEventListener: settings re-runs its wiring on every render, so the
+     binding has to REPLACE the previous one rather than stack. Node-cloning (the pattern used
+     elsewhere in this file) would detach the very elements the `show()` closure above holds. */
+  btn.onclick = function () { form.style.display = 'block'; btn.style.display = 'none'; if (reasonEl) reasonEl.focus(); };
+  if (cancelBtn) cancelBtn.onclick = function () { form.style.display = 'none'; btn.style.display = 'inline-flex'; };
+
+  submitBtn.onclick = function () {
+    if (submitBtn.disabled) return;
+    submitBtn.disabled = true;
+    _refundApi('refund-request', { reason: reasonEl ? reasonEl.value : '' }).then(function (r) {
+      submitBtn.disabled = false;
+      if (r.ok && r.data && r.data.success) {
+        showToast(t('settings.refundSubmitted'));
+        show(t('settings.refundPending'), false);
+        return;
+      }
+      var code = r.data && r.data.error && r.data.error.code;
+      if (code === 'REFUND_WINDOW_EXPIRED') { show(t('settings.refundExpired'), false); return; }
+      if (code === 'REFUND_REQUEST_EXISTS') { show(t('settings.refundPending'), false); return; }
+      if (code === 'ALREADY_REFUNDED') { show(t('settings.refundDone'), false); return; }
+      showToast(t('settings.refundFailedToast'));
+    }).catch(function () {
+      submitBtn.disabled = false;
+      showToast(t('settings.refundFailedToast'));
+    });
+  };
 }
 
 function updateAboutUserStatus() {

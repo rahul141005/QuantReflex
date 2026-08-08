@@ -345,6 +345,17 @@ service cloud.firestore {
       allow create, update, delete: if false; // Admin SDK bypasses this
     }
 
+    // ADR-143: refund requests. The owner may READ their own request (the app shows its status), but
+    // every write is server-side through /api/payment?action=refund-* and the Super Admin review API.
+    // Client writes are denied outright because `status` IS the workflow: a client that could set it
+    // would approve its own refund, and one that could set `eligibilityAtRequest` would defeat the
+    // 24-hour window the whole policy rests on. Same shape as `payments` above, for the same reason.
+    match /refundRequests/{requestId} {
+      allow read: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false; // Admin SDK bypasses this
+    }
+
     // ════════════════════════════════════════════
     // AI INSIGHTS COLLECTION
     // ════════════════════════════════════════════

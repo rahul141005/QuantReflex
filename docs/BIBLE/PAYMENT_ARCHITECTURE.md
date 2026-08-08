@@ -107,9 +107,70 @@ decides whether money is still owed as entitlement:
 **Row fields** (all additive, zero migration): `uid`, `plan`, `days` (term length, so a refund never
 re-derives it from a retired plan id), `amount` + `amountSource:'gateway'|'catalog'` (+
 `amountExpected`/`amountMismatch` when they disagree), `currency`, `status`, `expiry`, `claimedAt`,
-`orderId`; on revocation `refundedAt`, `refundReason`, `refundId`, `tombstone`.
+`orderId`; on revocation `refundedAt`, `refundedAtMs`, `refundReason`, `refundId`, `tombstone`,
+`refundWithinPolicy`, `refundAgeMs`; plus **ADR-143** `capturedAtMs` + `capturedAtSource` — the
+gateway capture time, which is the only origin the 24-hour refund window may use.
 
-## 5.1 Refunds (ADR-141)
+## 5.1 Refund policy — 24 hours, provider-neutral (ADR-143)
+
+**A user may request a refund only within 24 hours of successful payment capture.** The same rule
+governs Razorpay, Google Play and any future provider. Advertised as "24-Hour Refund" in all three
+locales, and `payment-parity.check.js` fails the build if code, copy or a current-state doc ever states
+a different window.
+
+### Eligibility is not execution
+
+| | Question | Governed by | Time limit |
+|---|---|---|---|
+| **Eligibility** | May the user *create a refund request*? | our policy (`services/refundPolicy.js`) | 24h from **gateway capture** |
+| **Execution** | A refund *happened at the provider* — revoke | the provider | **none, ever** |
+
+Google refunds through its own support long after our window closes; `voidedPurchasesNotification` can
+arrive weeks later; a Razorpay dashboard refund can be issued any time. The money has already gone
+back, so `aiService.revokePayment` honours it **whatever the purchase's age** and merely annotates
+`refundWithinPolicy` / `refundAgeMs` and raises a `refund_out_of_policy` securityEvent.
+**`revokePayment` must never gain a window check** — `entitlement-invariants.check.js` asserts it
+cannot.
+
+### The clock starts at gateway capture
+
+`payments/{id}.capturedAtMs` (+ `capturedAtSource`), from Razorpay's `payment.created_at` (epoch
+**seconds** to ms) and, later, Play's `purchaseTimeMillis`. Never `claimedAt`: a `'pending'` row
+completed days after the money moved would otherwise be handed a fresh 24 hours. `?action=verify`
+cannot supply it, so the webhook back-fills, and **only ever moves it earlier**, because a correction
+that moved it forward would silently extend the customer's window.
+
+Three states, never a boolean: `eligible`, `expired`, `unknown_capture_time`. Rows written before
+ADR-143 have no capture time; they are **neither** auto-approved nor auto-denied but badged for manual
+review in the admin queue.
+
+### The workflow, manual by design
+
+```
+User request -> Super Admin review -> Provider refund -> Provider confirmation -> Canonical revocation
+```
+
+The app **never issues a refund automatically.**
+
+- **User** (`api/payment.js` `?action=refund-eligibility|refund-request|refund-cancel` — folded in, no
+  new Vercel function; main-app stays at 10 of 12). Eligibility is recomputed **server-side from the
+  stored capture time on every call**; the client's opinion is display state only. One open request
+  per payment.
+- **Super Admin** (`super-admin-app/api/admin/refunds.js` — list / details / analytics / decide).
+  Every decision writes `auditLogs` (category `refund`) and notifies the user through the one ADR-066
+  pipeline.
+- **Approval changes NO entitlement.** It authorises a human to issue the refund at the provider. If
+  approval revoked access directly and the refund then failed at the gateway, the customer would have
+  neither their money nor their Premium.
+- **Provider confirmation** (`refund.processed`, later Play's voided-purchase RTDN) calls
+  `revokePayment` and *then* closes the request. A refund with no request behind it — Google support,
+  Razorpay dashboard — is recorded `outOfBand` and **revoked exactly the same**.
+
+States: `pending`, `approved`, `rejected`, `refunded`, `failed`, `cancelled`. `approved` is **open, not
+terminal**. `pending -> refunded` is not a legal transition (a refund passes through review), and only
+the *provider* actor may mark a request refunded.
+
+## 5.2 Refund mechanics (ADR-141)
 
 `refund.processed` → `api/payment/webhook.js`. **Full** refund (`amount_refunded >= amount`, which
 also catches several partials summing to the capture) → `aiService.revokePayment`. **Partial**, or an
@@ -198,11 +259,23 @@ The revenue rollup (the Vercel-Cron `daily-snapshot` + the admin dashboard) **su
 **ADR-141 correction:** this paragraph previously read "Refunds / chargebacks are **not** tracked yet
 (no Razorpay refund webhook wired) — `status` is always `'paid'` today". That is no longer true.
 `refund.processed` is handled, and `status` now takes `'paid'`, `'partially_refunded'`, `'refunded'` or
-`'pending'` (§5). **The rollup still sums every row regardless of status**, so a refunded purchase is
-currently counted as revenue — deliberately out of scope for WS2, which is about entitlement
-correctness, not accounting. Refund-aware revenue is a separate change to
-`super-admin-app/api/_lib/metrics.js`; until then, read the rollup as *gross* captures. Newer rows also
-carry `amountSource`, so a future pass can tell gateway-reported evidence from the catalog fallback.
+`'pending'` (§5).
+
+### Metric definitions (ADR-143) — stated here so reporting cannot silently drift from policy
+
+| Metric | Definition |
+|---|---|
+| **Gross** (`revenueGrossINR`) | Every captured payment, whatever happened to it afterwards. Never decreases. |
+| **Refunded** (`revenueRefundedINR`) | Money given back. A **full** refund subtracts the whole `amount`; a **partial** subtracts only `amountRefunded`, because the rest of that sale is still real revenue. |
+| **Net** (`revenueNetINR`) | `gross − refunded`. **Realised revenue — the headline figure** in the Super Admin revenue view. |
+| `revenueTotalINR` | **Gross**, unchanged. Kept deliberately: the daily snapshots form a historical series, and redefining an existing field would silently rewrite what every past row meant. |
+| `refundedCount` / `partialRefundCount` | Counts behind the refunded figure. |
+
+Refunds are attributed to the day of the **sale**, not the day of the refund, so today's net stays
+consistent with today's gross — otherwise refunding an old sale would push today's net below zero for
+reasons invisible in today's row. Tombstones (a refund that arrived before its capture) are excluded
+from gross entirely rather than counted and then subtracted: no money was ever recognised for them.
+`amountSource` distinguishes gateway-reported evidence from the catalog fallback.
 
 There is no recurring billing (one-time Orders API), so "revenue" in a
 window = the sum of one-time captures in that window.

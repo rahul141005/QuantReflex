@@ -206,7 +206,18 @@ completedAt, createdAt }`.
 
 `aiService.revokePayment` replays the surviving `status:'paid'` rows for a uid to recompute `planExpiry` (see [PAYMENT_ARCHITECTURE.md §5.1](PAYMENT_ARCHITECTURE.md)) — hence the composite indexes `[uid, status, claimedAt]` and `[status, claimedAt]`. **All ADR-141 fields are additive: zero migration.** `days` lets the replay avoid re-deriving a term from a plan id that may since have been retired; rows written before it recover the term from `plan`. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=34900, `premium_12m`=49900). `amountSource` records whether `amount` is gateway-reported evidence or that catalog fallback.
 
-Rules: **read: owner only; create/update/delete: denied to every client** (Admin SDK bypasses). The delete denial is load-bearing (ADR-139) — a client-erasable lock is an unbounded premium self-grant, since a replayed `(orderId, paymentId, signature)` triple would fall through to the fresh-grant branch. Asserted by `entitlement-invariants.check.js`.
+**ADR-143 additions:** `capturedAtMs` + `capturedAtSource` record the **gateway** capture time — the only origin the 24-hour refund window may use (never `claimedAt`, which is our grant time and can be days later for a completed `'pending'` row). A correction may only ever move `capturedAtMs` **earlier**. On revocation the row also gains `refundedAtMs`, `refundWithinPolicy` and `refundAgeMs` — annotations for audit and finance, never gates.
+
+### `refundRequests/{requestId}`
+`{uid, paymentId, provider, orderId, plan, amountPaise, currency, capturedAtMs, capturedAtSource, eligibilityAtRequest{state,windowEndsAtMs,msRemaining}, needsManualEligibilityReview, reason, status, createdAtMs, reviewedBy, reviewedByEmail, reviewedAtMs, decisionNote, providerRefundId, providerConfirmedAtMs, outOfBand, history[]}` — **the provider-neutral refund request record** (ADR-143). Written only by `main-app/services/refundRequests.js` and `super-admin-app/api/admin/refunds.js`.
+
+`status` is a state machine, declared once in `main-app/api/_lib/refund-schema.js`: `pending` → `approved` (admin) → `refunded` | `failed` (provider); `pending` → `rejected` (admin) | `cancelled` (user). **`approved` is OPEN, not terminal** — the money has not moved yet. `pending → refunded` is deliberately not a legal transition (a refund passes through review), and only the *provider* actor may mark a request refunded.
+
+**Approving changes NO entitlement.** It authorises a human to issue the refund at the provider; the entitlement is revoked later by `aiService.revokePayment` when the provider confirms. `eligibilityAtRequest` is **frozen at submit time** so a reviewer sees what was true when the user pressed the button, not what is true now — otherwise every queued request would read "expired" and the audit trail would be worthless. `needsManualEligibilityReview` badges rows whose capture time could not be established (pre-ADR-143 payments): never auto-approved, never auto-denied.
+
+Indexes: `[uid, createdAtMs desc]`, `[status, createdAtMs desc]`, `[uid, paymentId]`. Rules: **read: owner only; create/update/delete: denied to every client** — `status` *is* the workflow, so a client that could write it would approve its own refund.
+
+Rules for `payments`: **read: owner only; create/update/delete: denied to every client** (Admin SDK bypasses). The delete denial is load-bearing (ADR-139) — a client-erasable lock is an unbounded premium self-grant, since a replayed `(orderId, paymentId, signature)` triple would fall through to the fresh-grant branch. Asserted by `entitlement-invariants.check.js`.
 
 ### AI caches
 - `explanations/{contentHash}` — `{question, answer, category, concept, steps[], mistake, tip, usageCount, createdAt}`

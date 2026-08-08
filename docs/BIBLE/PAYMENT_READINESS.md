@@ -306,3 +306,25 @@ file that looked correct in review. So this is a checklist, not a stub.
 - **Verify on a real device before release** that `document.body` carries `twa-mode`. Everything that
   suppresses Razorpay in the Play build keys off that class. It is one line to check and the single
   highest-value pre-release test in this list.
+
+### Refund policy on Play — read this before WS5/WS6 (ADR-143)
+
+QuantReflex advertises and enforces a **24-hour refund-request window** (`services/refundPolicy.js`).
+That governs what a user may *ask us* for. It does **not** — and must not — govern what Google does.
+
+Google issues refunds on its own terms: users can self-refund some purchases through Play, and Google
+support can refund at any point afterwards. `voidedPurchasesNotification` may therefore arrive **weeks**
+after a purchase, long past our window.
+
+**The required behaviour is unconditional: whenever a valid refund/void event arrives, revoke.**
+Play's voided-purchase path must call `aiService.revokePayment` exactly as Razorpay's
+`refund.processed` does, with **no eligibility check of any kind**. Our policy limits requests; it never
+filters the provider's own decisions. A window check on the revoke path would leave a refunded user
+holding Premium indefinitely, and Play policy requires honouring Google's refunds regardless.
+
+`entitlement-invariants.check.js` asserts `revokePayment` contains no window guard, so this cannot be
+introduced by accident during WS6. Out-of-policy refunds are *recorded* (`refundWithinPolicy:false`,
+a `refund_out_of_policy` securityEvent) and revoked all the same.
+
+One consequence worth planning for: a Play refund with no `refundRequests` record behind it is
+**normal**, not an error. It is closed as `outOfBand` and the revocation stands.

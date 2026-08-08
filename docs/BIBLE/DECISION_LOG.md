@@ -8,6 +8,98 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-143 — A 24-hour refund policy, and the manual refund workflow it needs (v273) (2026-08-04)
+
+**Context.** A canonical business rule: **a user may request a refund only within 24 hours of
+successful payment capture**, identically for Razorpay, Google Play and any future provider. The repo
+had no refund policy in code at all — while the paywall advertised **"7-Day Refund"** in all three
+locales. Copy *is* policy: it is what a customer relies on and what a chargeback dispute is judged
+against, so that mismatch was a commercial liability, not a typo.
+
+### The rule the whole design hangs on
+
+**Refund ELIGIBILITY and refund EXECUTION are different things and must never be merged.**
+
+| | Question | Governed by | Time limit |
+|---|---|---|---|
+| **Eligibility** | May the user *create a refund request* in our app? | our policy | **24h from gateway capture** |
+| **Execution** | A refund *has happened at the provider* — revoke entitlement | the provider | **none, ever** |
+
+Google refunds through its own support long after our window closes, `voidedPurchasesNotification`
+can arrive weeks later, and a Razorpay dashboard refund can be issued at any time. In every case the
+money **has already gone back**, so the entitlement must be revoked however old the purchase is. A
+window check inside `revokePayment` would silently ignore a day-40 Google refund and leave the user
+holding both Premium *and* their money — inverting ADR-141 entirely.
+
+It reads like consistency, which is exactly why it is dangerous, so it is ratcheted at source:
+`entitlement-invariants.check.js` asserts `revokePayment` never calls `refundPolicy.eligibility`,
+declares no window of its own, and never returns early on an out-of-window refund. It *does* annotate
+(`refundWithinPolicy`, `refundAgeMs`) and raise a `refund_out_of_policy` securityEvent — recorded,
+never enforced.
+
+### Decisions
+
+1. **`services/refundPolicy.js`** — one pure module (no Firebase, no ambient clock), the sole
+   definition of "24 hours" in the repository. Provider-neutral **by construction**: it takes a
+   timestamp and has no provider parameter to branch on.
+
+2. **Three eligibility states, never a boolean.** `eligible` · `expired` · `unknown_capture_time`.
+   Every payment row written before this ADR lacks a capture time; guessing `expired` silently denies
+   a paying customer, guessing `eligible` makes all history refundable forever. Both are wrong, so the
+   caller is *forced* to route it to a human — the same fail-safe shape as ADR-141's
+   `indeterminate_term`.
+
+3. **The clock starts at GATEWAY CAPTURE, never at our grant.** New additive `capturedAtMs` /
+   `capturedAtSource` on `payments/{id}`, from Razorpay's `payment.created_at` (epoch **seconds**) and
+   later Play's `purchaseTimeMillis`. `?action=verify` cannot supply it, so the webhook back-fills —
+   and a correction may only ever move the capture time **EARLIER**. A late or replayed webhook that
+   moved it forward would silently extend the customer's window, the one direction this must never
+   fail in.
+
+4. **`refundRequests/{id}` + a declared state machine** (`api/_lib/refund-schema.js`, modelled on
+   `report-schema.js`). Statuses `pending · approved · rejected · refunded · failed · cancelled`;
+   `approved` is **open, not terminal** — the money has not moved yet. The transition table is data,
+   not branching code, so it can be read at a glance and asserted exhaustively. `pending → refunded`
+   is deliberately **not** a transition: a refund passes through review. Only the *provider* actor may
+   mark a request refunded; an admin never can.
+
+5. **Approval changes NO entitlement.** It authorises a human to go and issue the refund at the
+   provider. Revoking on approval would look tidier and be wrong: if the refund then *failed* at the
+   gateway, the customer would be left with neither their money nor their Premium. The entitlement is
+   revoked exactly once, later, by `aiService.revokePayment` — the same canonical path a
+   Google-initiated refund takes. `services/refundRequests.js` does not even *require* `aiService`, so
+   the coupling cannot appear by accident.
+
+6. **Revenue becomes net, without rewriting history.** `metrics.js` computes gross / refunded / net in
+   its existing single scan (a full refund subtracts `amount`; a partial subtracts only
+   `amountRefunded`; tombstones are excluded from gross entirely rather than counted then subtracted).
+   `revenueTotalINR` **keeps its gross meaning** — redefining it would silently change what every past
+   daily snapshot meant, and a chart that reshapes retroactively is worse than one extra column. Net is
+   the headline in the admin view, with Gross and Refunded beside it.
+
+**Options considered.** *Refuse out-of-window provider refunds* — rejected; it is the exact failure
+this ADR exists to prevent. *Fall back to `claimedAt` when the capture time is missing* — rejected, it
+silently grants a fresh 24 hours to a grant that landed late. *Auto-deny legacy rows* — rejected, it
+punishes customers for our missing data. *Replace `revenueTotalINR` with net* — rejected, it rewrites
+the historical series.
+
+**Provider-neutrality is structural, not conventional.** No provider implements approval logic. A
+provider *executes*; eligibility and review are shared. A future provider adds a caller, never a copy.
+
+**Verification.** `refund-policy.check.js` (45, pure — including the closed exact-24h boundary and
+identical verdicts for Razorpay-seconds vs Play-millis inputs) · `refund-workflow.check.js` (78,
+driving the real services and the real `api/payment.js` against a buffered-write Firestore stub) ·
+`entitlement-invariants` 59 → 78 · `payment-parity` 26 → 30 (no locale or current-state doc may state
+a refund window other than 24 hours; scoped to refund context so the 7-day *accuracy chart* is
+untouched). Five mutation runs confirm every guard bites: removing the expiry gate fails 2, making
+approval revoke fails 3, adding a window gate to `revokePayment` fails 1 behaviour + 2 source
+assertions, letting a capture correction move later fails 1 + 1, restoring the 7-day copy fails 2.
+
+**Not done here:** no automatic refunds and no provider-side refund API call — approval hands off to
+the provider's own dashboard, and the app waits for confirmation. WS4–WS6 remain paused.
+
+---
+
 ## ADR-142 — One platform truth, and Restore becomes reachable (v272) (2026-08-04)
 
 **Context.** PR-2 of the hybrid-payment work, built on the hardened pipeline ADR-141 delivered.

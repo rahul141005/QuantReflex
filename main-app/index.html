@@ -722,6 +722,27 @@
         </div>
       </div>
 
+      <!-- SECTION 1b — Refund (ADR-143). Shown only to users who actually have a purchase, and only
+           once the eligibility API has answered. The expired state stays VISIBLE and disabled rather
+           than disappearing: a control that silently vanishes reads as a bug, and the one thing a
+           customer outside the window needs is to be told why. -->
+      <div class="settings-section" id="refundSection" style="display:none;">
+        <h3 class="settings-section-title" data-i18n="settings.sectionRefund">Refund</h3>
+        <div class="settings-section-card">
+          <p class="secondary-text" id="refundStatusText" style="margin-bottom:.75rem;"></p>
+          <button id="refundRequestBtn" class="btn-secondary" type="button" data-i18n="settings.refundRequestBtn">Request Refund</button>
+          <div id="refundForm" style="display:none;margin-top:.75rem;">
+            <textarea id="refundReason" class="qr-input" rows="3" maxlength="1000"
+              data-i18n-attr="placeholder:settings.refundReasonPlaceholder"
+              placeholder="Tell us why you'd like a refund (optional)"></textarea>
+            <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+              <button id="refundSubmitBtn" class="btn-primary" type="button" data-i18n="settings.refundSubmitBtn">Submit request</button>
+              <button id="refundCancelBtn" class="btn-secondary" type="button" data-i18n="modals.cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SECTION 2 — Appearance & Personalization (this is where the language selects live) -->
       <!-- ADR-127 removed the data-i18n-morph="hold" opt-out that used to sit here. Under ADR-126's
            whole-view fade it was a mitigation for the screen going flat all at once; with the per-section

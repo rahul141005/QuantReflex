@@ -9,11 +9,32 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.175 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.176 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.77 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.33 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.34 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.9 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.10 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.176 (2026-08-04)** — **24-hour refund policy + manual refund workflow (ADR-143).** A canonical
+> business rule: a user may REQUEST a refund only within 24 hours of gateway capture, identically for
+> Razorpay, Google Play and any future provider. The repo had no refund policy in code while the
+> paywall advertised "7-Day Refund" in all three locales — copy is policy, so that mismatch was a
+> commercial liability. New pure `services/refundPolicy.js` is the sole definition of the window and is
+> provider-neutral by construction (it takes a timestamp; there is no provider argument to branch on).
+> **Eligibility never gates execution:** Google can refund through its own support weeks later, so
+> `revokePayment` honours any provider-reported refund at any age and merely annotates
+> `refundWithinPolicy`/`refundAgeMs` — ratcheted at source so a window guard cannot be added by
+> accident. Three eligibility states, never a boolean: legacy rows with no capture time are neither
+> auto-approved nor auto-denied but badged for manual review. The clock starts at GATEWAY CAPTURE
+> (new `capturedAtMs`/`capturedAtSource`), never `claimedAt`, and a correction may only move it
+> earlier. New `refundRequests` collection + declared state machine
+> (pending/approved/rejected/refunded/failed/cancelled); **approving changes no entitlement** — it
+> authorises a human to refund at the provider, and only the provider's confirmation revokes. New
+> `super-admin-app/api/admin/refunds.js` review queue with audit + user notification. Revenue is now
+> gross/refunded/**net** (`revenueTotalINR` keeps its gross meaning so the historical series is not
+> retroactively rewritten). Firestore 2.33 to 2.34, Payment 2.9 to 2.10. `refund-policy.check` 45,
+> `refund-workflow.check` 78, `entitlement-invariants` 59 to 78, `payment-parity` 26 to 30; five
+> mutation runs confirm every guard bites.
 
 > **2.175 (2026-08-04)** — **One platform truth; Restore reachable (ADR-142, PR-2 WS1+WS3).**
 > `js/platform.js` replaces three drifting installed-app detectors, none of which could tell an

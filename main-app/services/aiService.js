@@ -5,6 +5,8 @@ const freeExplainPolicy = require('./freeExplainPolicy');   // ADR-103: pure fre
 const entitlement = require('../data/entitlement-core');    // ADR-117: THE canonical entitlement rule + grant arithmetic
                                                             // (same physical module the browser loads as window.QR_ENTITLEMENT)
 const ledger = require('./entitlementLedger');              // ADR-141: pure refund/replay algebra (WS2)
+const refundPolicy = require('./refundPolicy');             // ADR-143: THE canonical 24h refund-ELIGIBILITY rule.
+                                                            // Used here for ANNOTATION ONLY — never as a gate.
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
@@ -198,6 +200,16 @@ function _reportedPaise(gateway) {
   return (isFinite(v) && v > 0) ? Math.round(v) : null;
 }
 
+/** Read the gateway-reported CAPTURE TIME out of the provider payload (ADR-143). This — never
+    `claimedAt` — is the origin of the 24-hour refund window: a 'pending' row completed days after the
+    money moved would otherwise be handed a fresh 24 hours, and a webhook landing an hour late would
+    quietly extend it. Returns null when the caller has no gateway timestamp to offer. */
+function _capturedAtMs(gateway) {
+  if (!gateway) return null;
+  var v = Number(gateway.capturedAtMs);
+  return (isFinite(v) && v > 0) ? Math.round(v) : null;
+}
+
 /**
  * Activate the single Premium plan from a verified payment (v2).
  *
@@ -225,6 +237,7 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
   var finalExpiry = expiry;
 
   var reportedPaise = _reportedPaise(gateway);
+  var capturedAtMs = _capturedAtMs(gateway);
   var expectedPaise = PREMIUM_PRICE_PAISE[planType] || 0;
   /* W4: an amount that disagrees with the catalog still gets the entitlement — the money was already
      captured, and refusing here would take payment without giving access. It is recorded and flagged
@@ -298,6 +311,21 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
           replayPatch.planSource = 'purchase';
         }
         tx.set(userRef, replayPatch, { merge: true });
+
+        /* ADR-143: back-fill the gateway capture time. `?action=verify` runs before we hold the
+           payment entity, so it records no capture time; the webhook always follows and carries the
+           authoritative `payment.created_at`. Applied here so the refund window gets its true origin
+           rather than staying `unknown_capture_time` forever.
+           STRICTLY EARLIER-ONLY. A correction may only ever move the capture time BACK, never
+           forward: a late or replayed webhook that moved it forward would silently extend the
+           customer's 24-hour window, which is the one direction this must never fail in. */
+        if (capturedAtMs !== null) {
+          var existingCaptured = Number(existing.capturedAtMs);
+          var hasExisting = isFinite(existingCaptured) && existingCaptured > 0;
+          if (!hasExisting || capturedAtMs < existingCaptured) {
+            tx.set(paymentRef, { capturedAtMs: capturedAtMs, capturedAtSource: 'gateway' }, { merge: true });
+          }
+        }
         outcome = 'replay';
         return;
       }
@@ -335,6 +363,13 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
       /* ADR-141: the term length is recorded on the row itself so the refund replay never has to
          re-derive it from a plan id that may since have been retired from PREMIUM_DURATION_DAYS. */
       days: days,
+      /* ADR-143: the gateway's capture time is the ONLY origin the refund window may use. Recorded
+         separately from `claimedAt` (our grant time) because the two genuinely differ — webhook lag,
+         a retried delivery, or a 'pending' row completed later. `capturedAtSource:'unknown'` means
+         the refund policy must return `unknown_capture_time` and route to human review rather than
+         silently falling back to `claimedAt`, which would hand out a fresh window. */
+      capturedAtMs: capturedAtMs,
+      capturedAtSource: (capturedAtMs !== null) ? 'gateway' : 'unknown',
       status: 'paid',
       expiry: finalExpiry,
       claimedAt: new Date().toISOString()
@@ -429,12 +464,14 @@ async function revokePayment(uid, paymentId, opts) {
   var nowIso = new Date(now).toISOString();
   var paymentRef = db.collection('payments').doc(String(paymentId));
   var userRef = db.collection('users').doc(uid);
-  var out = { status: 'refunded', tombstoned: false, revoked: false, planExpiry: null, skipped: null };
+  var out = { status: 'refunded', tombstoned: false, revoked: false, planExpiry: null, skipped: null, outOfPolicy: false };
+  var outOfPolicy = false;
 
   await db.runTransaction(async function (tx) {
     /* Reset on every attempt — see the same note in activatePremium. A retried transaction must not
        inherit a `skipped` reason (or a `revoked` verdict) from an attempt that never committed. */
     out.tombstoned = false; out.revoked = false; out.planExpiry = null; out.skipped = null;
+    outOfPolicy = false;
     /* All reads first. The ledger query is EQUALITY-ONLY and deliberately carries no orderBy: an
        orderBy('claimedAt') would silently DROP any historical row that predates the field, and a
        dropped row shortens a legitimate entitlement. entitlementLedger.recomputeExpiry sorts. */
@@ -457,9 +494,25 @@ async function revokePayment(uid, paymentId, opts) {
       uid: uid,
       status: 'refunded',
       refundedAt: nowIso,
+      refundedAtMs: now,
       refundReason: String(o.reason || 'refund').slice(0, 120)
     };
     if (o.refundId) tomb.refundId = String(o.refundId).slice(0, 128);
+
+    /* ADR-143 — ANNOTATION ONLY. Record whether this refund fell inside our stated 24-hour policy so
+       the audit trail, the admin queue and out-of-policy alerting can see it.
+       THIS IS NOT A GATE, AND MUST NEVER BECOME ONE. Google can refund through its own support long
+       after our window closes, a voidedPurchasesNotification can arrive weeks later, and a Razorpay
+       dashboard refund can be issued at any time. Those refunds are REAL — the money has already gone
+       back — so the entitlement must be revoked however old the purchase is. A window check here
+       would silently ignore a day-40 Google refund and leave the user holding both Premium and their
+       money, inverting everything ADR-141 fixed. `entitlement-invariants.check.js` asserts no such
+       guard ever appears in this function. */
+    if (existing) {
+      tomb.refundWithinPolicy = refundPolicy.isWithinWindow(existing.capturedAtMs, now);
+      tomb.refundAgeMs = refundPolicy.refundAgeMs(existing.capturedAtMs, now);
+      if (tomb.refundWithinPolicy === false) outOfPolicy = true;
+    }
     if (!existing) {
       /* Refund-before-grant: there is no row yet, so this one is purely a tombstone. `plan`/`days` are
          recorded when the caller knows them, but the row must NEVER read as 'paid' — a tombstone that
@@ -555,6 +608,17 @@ async function revokePayment(uid, paymentId, opts) {
       details: patch
     });
   });
+
+  out.outOfPolicy = outOfPolicy;
+  if (outOfPolicy) {
+    /* Visibility, not enforcement: the revocation above already happened. Surfaced so finance can see
+       provider-initiated refunds that fell outside the policy we advertise (expected for Google
+       support refunds; worth a look for Razorpay dashboard ones). */
+    console.warn('[PaymentFlow] REFUND_OUT_OF_POLICY | uid: ' + uid + ' | paymentId: ' + paymentId +
+      ' | refunded outside the ' + refundPolicy.REFUND_WINDOW_HOURS + 'h window — entitlement revoked anyway');
+    _recordEntitlementSecurityEvent('refund_out_of_policy', uid, paymentId,
+      'refunded after ' + refundPolicy.REFUND_WINDOW_HOURS + 'h window');
+  }
 
   if (out.skipped === 'no_grant') {
     /* Not an anomaly: the refund simply beat the capture webhook. The tombstone is the whole point. */
