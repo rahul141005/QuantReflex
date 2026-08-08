@@ -114,6 +114,28 @@ ok('all three payment modules are script-tagged', iGw !== -1 && iRzp !== -1 && i
 ok('platform.js → gateway → adapters → paywall.js load order',
   iPlat < iGw && iGw < iRzp && iRzp < iPlay && iPlay < iPw);
 
+/* Every shipped module must also be PRECACHED. The service worker keeps an explicit ASSETS list, and
+   a script that is script-tagged but not listed simply 503s for a user who installs/updates and then
+   goes offline before ever loading online — the module vanishes and the purchase CTA with it.
+
+   This is scoped to the whole js/ tree rather than to the payment files, because that is exactly how
+   the gap arose: `js/platform.js` was added by WS1 and never listed, and nothing noticed for a whole
+   workstream. A per-file assertion would have missed it again. */
+{
+  var sw = R('service-worker.js');
+  var tagged = (html.match(/<script[^>]+src="(js\/[^"]+)"/g) || []).map(function (t) {
+    return (t.match(/src="(js\/[^"]+)"/) || [])[1];
+  });
+  var missing = tagged.filter(function (src) { return sw.indexOf("'./" + src + "'") === -1; });
+  ok('★ every script-tagged js/ module is in the service-worker precache list',
+    missing.length === 0, missing.join(', '));
+  /* And specifically the ones this workstream introduced, so the intent is legible. */
+  ['js/platform.js', 'js/payments/gateway.js', 'js/payments/razorpay-provider.js', 'js/payments/play-provider.js']
+    .forEach(function (f) {
+      ok('precached: ' + f, sw.indexOf("'./" + f + "'") !== -1);
+    });
+}
+
 /* ── 2. behaviour ────────────────────────────────────────────────────────────────────────────── */
 
 var SRC = {
@@ -146,12 +168,24 @@ function boot(opts) {
     sessionStorage: { _d: {}, getItem: function (k) { return this._d[k] || null; }, setItem: function (k, v) { this._d[k] = String(v); } },
     setTimeout: function () { return 0; }, clearTimeout: function () {},
     Promise: Promise,
-    fetch: function (url) { spy.fetches.push(url); return Promise.resolve({ ok: false, json: function () { return Promise.resolve({}); } }); },
+    fetch: function (url) {
+      spy.fetches.push(url);
+      /* Default: every call fails, so no scenario can accidentally depend on a live gateway. Opt in
+         with `orderOk` when the test needs the flow to reach the checkout sheet. */
+      if (o.orderOk && url.indexOf('create-order') !== -1) {
+        return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ orderId: 'order_TEST', amount: 29900 }); } });
+      }
+      return Promise.resolve({ ok: false, json: function () { return Promise.resolve({}); } });
+    },
     QRI18n: { t: function (k) { return k; } }
   };
   if (o.dga) sandbox.getDigitalGoodsService = o.dga;
   /* Present but instrumented: if Play mode ever constructs it, the count proves the violation. */
-  sandbox.Razorpay = function () { spy.razorpayConstructed++; return { on: function () {}, open: function () {} }; };
+  sandbox.Razorpay = function (options) {
+    spy.razorpayConstructed++; spy.razorpayOptions = options;
+    return { on: function () {}, open: function () {} };
+  };
+  if (o.orderOk) sandbox.Auth = { getCurrentUser: function () { return { getIdToken: function () { return Promise.resolve('tok'); } }; } };
   sandbox.self = sandbox; sandbox.window = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(SRC.platform, sandbox, { filename: 'platform.js' });
@@ -235,12 +269,59 @@ ok('the result vocabulary is provider-neutral',
   codes.every(function (c) { return !/razorpay|play|google/i.test(c); }), codes.join(','));
 ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVIDER_UNAVAILABLE') !== -1);
 
+/* — the paywall is PRESENTATION ONLY: it must hold no payment lifecycle state —
+
+   WS4 moved the busy flag, the slow/timeout timers and the attempt id into the facade, because every
+   provider needs them identically. Leaving a second copy behind in the view is not merely dead code:
+   two owners of "is a payment in flight?" drift, and the one the CTA reads is not necessarily the one
+   the provider updates. This ratchet keeps the ownership single. */
+{
+  var pwCode = R('js/paywall.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  var lifecycle = ['_paymentBusy', '_paymentSafetyTimer', '_paymentSlowTimer', '_attemptId',
+                   'PAYMENT_TIMEOUT_MS', 'PAYMENT_SLOW_MS', '_resetPaymentGuards'];
+  var strays = lifecycle.filter(function (n) { return new RegExp('\\b' + n + '\\b').test(pwCode); });
+  ok('★ paywall.js holds no payment-lifecycle state (the facade owns it)',
+    strays.length === 0, strays.join(', '));
+  /* The behavioural label probe below hands `planLabel` to the facade itself, so it cannot see the
+     view failing to supply one. This closes that end of the chain. */
+  ok('the paywall supplies its display label to the facade', /planLabel\s*:/.test(pwCode));
+}
+
 /* — pricing + plan ids unchanged by WS4 — */
 var pwSrc = R('js/paywall.js');
 ok('₹299 / ₹399 display prices intact', /premium_6m:\s*\{[^}]*price:\s*299/.test(pwSrc) && /premium_12m:\s*\{[^}]*price:\s*399/.test(pwSrc));
 ok('no retired ₹499 price point in the paywall', !/price:\s*499/.test(pwSrc));
 ok('plan ids unchanged', /premium_6m/.test(pwSrc) && /premium_12m/.test(pwSrc));
 
-console.log('\n──────────────────────────────');
-console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
-process.exit(fail === 0 ? 0 : 1);
+/* — the UI's display label must survive the crossing —
+
+   The plan's human name ('6 Months') is owned by the view; the adapter only renders it. WS4's first
+   cut dropped it at the facade boundary and the checkout sheet read 'Premium · premium_6m' — the
+   customer's last screen before paying. Asserted BEHAVIOURALLY, on the options object the Razorpay
+   constructor actually receives, because a source-level check would pass on a value that never
+   arrives. The adapter falls back to the plan key, so a silent drop is visible, not disguised. */
+var labelProbe = (function () {
+  var b = boot({ orderOk: true });
+  b.P.purchase('premium_6m', 'u1', { planLabel: '6 Months', onDone: function () {} });
+  /* Let the loadScript → token → create-order → checkout chain drain. */
+  return Promise.resolve().then().then().then().then().then().then(function () {
+    var opts = b.spy.razorpayOptions;
+    ok('the web path reaches the checkout sheet at all (the probe is meaningful)',
+      b.spy.razorpayConstructed === 1, 'constructed ' + b.spy.razorpayConstructed);
+    ok('★ the UI plan label survives the facade and reaches the checkout sheet',
+      !!opts && opts.description === 'Premium · 6 Months', opts && opts.description);
+    ok('the sheet never displays the internal plan key', !!opts && opts.description.indexOf('premium_6m') === -1);
+    ok('the order id is the server-created one, not a client-invented value',
+      !!opts && opts.order_id === 'order_TEST');
+    /* Unchanged security property, re-proven on the same object: the client sends a plan KEY only. */
+    var body = b.spy.fetches.join(' ');
+    ok('create-order was called exactly once with no amount in the URL',
+      body.indexOf('create-order') !== -1 && !/amount/.test(body));
+  });
+})();
+
+labelProbe.then(function () {
+  console.log('\n──────────────────────────────');
+  console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
+  process.exit(fail === 0 ? 0 : 1);
+});

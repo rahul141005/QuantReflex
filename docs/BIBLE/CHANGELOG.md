@@ -6,6 +6,50 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-08 — WS4 certification repairs (ADR-144)
+
+A hostile post-implementation audit of WS4, run against the repository rather than against the
+claims made for it. WS4's design held; three defects were found, two of which no passing test could
+have caught. No architectural change — certification is not a licence to redesign.
+
+- **F-1 · Service-worker precache omission (Medium) — a WS1 defect, not a WS4 one.**
+  `main-app/service-worker.js:134` — `js/platform.js` was never added to `ASSETS` when **WS1** shipped,
+  and `js/payments/*.js` were not added by WS4. Bounded by the network-first-with-cache-fallback
+  strategy, so an online user is unaffected; a user who installs or updates and then goes offline
+  *before* ever loading online gets a 503 on those modules and loses the purchase CTA. Degraded and
+  fail-safe (no CTA, never the wrong provider), but real. **Reported rather than silently folded in:
+  WS1 was certified COMPLETE with this already missing.** Fixed by listing the four paths, and closed
+  as a class by a ratchet asserting every `<script src="js/…">` in `index.html` appears in `ASSETS` —
+  scoped to the whole `js/` tree, because a per-file check is exactly what let WS1's omission survive
+  a full workstream.
+- **F-2 · Checkout-sheet description regressed (Low-Medium) — WS4-introduced.** The sheet read
+  `Premium · premium_6m` instead of `Premium · 6 Months`: the display label (owned by the view) was
+  dropped at the facade boundary. User-facing at the moment of payment. `planLabel` is now threaded
+  view → facade → adapter, with the adapter falling back to the plan key so a future drop is visible
+  rather than disguised.
+- **F-3 · A wrong suite count in this repository's own documents (Low).** ADR-144, VERSIONS and this
+  file recorded "54 suites"; the wired count was **56**. The audit's own first restatement ("53") was
+  also wrong. Corrected against `package.json`, counted rather than recalled.
+- **F-4 · Dead payment-lifecycle state left in the view.** `_paymentBusy`, `_paymentSafetyTimer`,
+  `_paymentSlowTimer`, `_attemptId`, `PAYMENT_TIMEOUT_MS`, `PAYMENT_SLOW_MS` and an uncalled
+  `_resetPaymentGuards()` survived WS4's extraction in `js/paywall.js`. Not merely dead: two owners of
+  "is a payment in flight?" drift, and the one the CTA reads need not be the one the provider updates.
+  Removed, and ratcheted.
+- **Not fixed, flagged.** `APP_VERSION`/`QR_APP_VERSION` have sat at `v270` across ADR-141→144
+  (`update.check` enforces SW↔index *lockstep*, which passes). Network-first delivery means users do
+  get fresh code on reload, so this is release hygiene, not a correctness defect, and it predates WS4.
+  Belongs to the WS8 rollout decision.
+- **Verification.** `payment-facade.check` 44 → **56 assertions**; every new one mutation-proved:
+  dropping a path from `ASSETS` fails 2; the adapter ignoring the label fails 2; the gateway dropping
+  it at the boundary fails 2; the view not supplying it fails 1; a lifecycle variable creeping back
+  fails 1 — while the same identifier in a *comment* correctly fails nothing. The partial-load
+  fail-safe matrix was re-run across all **32** module-subset × platform permutations: zero violations,
+  zero throws, and in every Play/TWA row zero Razorpay constructions, zero script appends and zero
+  `create-order` calls — including the adversarial case where the Play adapter is absent *and Razorpay
+  is present*. npm test 0 failed (56 suites).
+
+---
+
 ## 2026-08-08 — Provider-neutral payment facade (ADR-144, WS4)
 
 The architectural bridge between the existing Razorpay system and the future Play Billing provider.
@@ -30,7 +74,7 @@ Entitlement, refund and ledger behaviour are **untouched** — WS1-WS3 and ADR-1
   Returning true on that alone would let a user complete a purchase nothing could honour.
 - **Neutralised the "Payments are processed by Razorpay" About line** (all three locales) — factually
   wrong in a Play build.
-- npm test 0 failed (54 suites) · **new** `payment-facade.check` 44 assertions: source ratchets plus
+- npm test 0 failed (56 suites) · **new** `payment-facade.check` 44 assertions: source ratchets plus
   behaviour with the Razorpay SDK **instrumented**, proving Play mode makes zero constructions, zero
   script appends and zero create-order calls. Seven mutation runs confirm every guard bites.
 - Razorpay's web/PWA path is unchanged and verified: an installed PWA still selects Razorpay and can

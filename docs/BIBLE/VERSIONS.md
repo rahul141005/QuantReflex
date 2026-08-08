@@ -26,7 +26,9 @@ Every governed change updates the relevant version number here and records a mig
 > reachable billing service is necessary but not sufficient while no server verification exists to
 > grant against). Play/TWA renders the value proposition with no purchase control, no external route,
 > and Restore intact. Entitlement, refund and ledger behaviour are untouched. Architecture 2.77→2.78,
-> Payment 2.10→2.11. `payment-facade.check` 44 assertions; seven mutation runs; 54 suites green.
+> Payment 2.10→2.11. `payment-facade.check` 44 assertions; seven mutation runs; 56 suites green.
+> Certification (2026-08-08) raised it to 56 assertions and corrected the suite count, which this
+> line originally recorded as 54.
 
 > **2.176 (2026-08-04)** — **24-hour refund policy + manual refund workflow (ADR-143).** A canonical
 > business rule: a user may REQUEST a refund only within 24 hours of gateway capture, identically for

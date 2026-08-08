@@ -137,7 +137,9 @@
               amount: data.amount,          /* display only — echoed from the server-created order */
               currency: 'INR',
               name: 'QuantReflex',
-              description: 'Premium · ' + planType,
+              /* The customer-facing name on the checkout sheet. Falls back to the plan key rather
+                 than to a hardcoded string, so a missing label is visible instead of silently wrong. */
+              description: 'Premium · ' + (req.planLabel || planType),
               modal: { ondismiss: function () { finish({ code: R.CANCELLED, provider: 'razorpay', message: _t('paywall.cancelled') }); } },
               handler: function (response) {
                 if (!isCurrent()) return;

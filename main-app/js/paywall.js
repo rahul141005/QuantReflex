@@ -38,16 +38,10 @@ var _LOCKED_FEATURES = {
 };
 
 var PAYWALL_DEBOUNCE_MS = 280;
-var PAYMENT_TIMEOUT_MS = 120000;
-var PAYMENT_SLOW_MS = 5000;
 var _paywallModalOpen = false;
 var _paywallLastOpenAt = 0;
 var _paywallGuestPromptAt = 0;
 var _paywallHandle = null;   /* QROverlay handle (FW-W2) — owns Esc/backdrop/focus-trap/body.paywall-open */
-var _paymentBusy = false;
-var _paymentSafetyTimer = null;
-var _paymentSlowTimer = null;
-var _attemptId = 0;
 var _lastPaywallFeature = '';   /* ADR-109: the feature key of the most recently shown paywall, for upgrade attribution */
 
 /* ADR-117: entitlement arithmetic lives in ONE place (data/entitlement-core.js, window.QR_ENTITLEMENT
@@ -167,18 +161,6 @@ function hasReachedDailyLimit() {
 
 /* ─────────────────────────── Payment flow ─────────────────────────── */
 
-function _resetPaymentGuards() {
-  if (_paymentSafetyTimer) { clearTimeout(_paymentSafetyTimer); _paymentSafetyTimer = null; }
-  if (_paymentSlowTimer) { clearTimeout(_paymentSlowTimer); _paymentSlowTimer = null; }
-  _paymentBusy = false;
-  var btn = document.querySelector('.pw-cta');
-  if (btn) {
-    btn.disabled = false;
-    btn.classList.remove('pw-cta--loading');
-    btn.textContent = QRI18n.t('paywall.startPremium');
-  }
-}
-
 /**
  * Start the Premium purchase (ADR-144, WS4).
  *
@@ -196,7 +178,10 @@ function _startPurchase(planType, userId) {
 
   _track('upgrade_initiated', _lastPaywallFeature, { plan: planType });   /* ADR-109 telemetry */
 
+  var _plan = PLANS[planType] || PLANS[DEFAULT_PLAN];
   QRPayments.purchase(planType, userId, {
+    /* Display data stays owned by the UI; the facade just carries it to whichever provider runs. */
+    planLabel: _plan && _plan.label,
     onBusy: function (busy) {
       var btn = document.querySelector('.pw-cta');
       if (!btn) return;

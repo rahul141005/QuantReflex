@@ -105,7 +105,12 @@
    * @param {string} planType 'premium_6m' | 'premium_12m' — a KEY, never a price. The server resolves
    *        the amount from PLAN_CONFIG; nothing here can influence what the user is charged.
    * @param {string} userId
-   * @param {{onBusy?:function, onSlow?:function, onDone?:function}} ui presentation callbacks
+   * @param {{onBusy?:function, onSlow?:function, onDone?:function, planLabel?:string}} ui
+   *        presentation callbacks, plus `planLabel` — the human plan name the UI already owns
+   *        ("6 Months"). Passed through so the provider's own checkout sheet can show a name a
+   *        customer recognises instead of an internal key. It is DISPLAY DATA only: the amount and
+   *        the plan are resolved server-side from `planType`, so nothing here can change what is
+   *        charged.
    */
   function purchase(planType, userId, ui) {
     if (_busy) return;
@@ -133,7 +138,8 @@
        then release the UI. Without this a wedged provider leaves the CTA disabled forever. */
     _safetyTimer = setTimeout(function () { ++_attemptId; _finish(ui, { code: RESULT.FAILED, provider: id, timedOut: true }); }, PURCHASE_TIMEOUT_MS);
 
-    adapter.purchase({ planType: planType, userId: userId, isCurrent: isCurrent }, function (result) {
+    adapter.purchase({ planType: planType, userId: userId, isCurrent: isCurrent,
+                       planLabel: (ui && ui.planLabel) || null }, function (result) {
       if (!isCurrent()) return;                 /* a stale callback must never touch the UI */
       _finish(ui, result || { code: RESULT.FAILED, provider: id });
     });

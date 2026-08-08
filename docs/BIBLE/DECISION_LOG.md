@@ -77,7 +77,14 @@ is answered rather than assumed — zero constructions, zero script appends, zer
 Seven mutation runs confirm every guard bites: a Play adapter claiming readiness fails 4; a gateway
 fallback to Razorpay fails 2; failing open with no platform module fails 1; an ungated CTA fails 1; a
 direct Razorpay call from the paywall fails 2; re-exporting the global fails 1; restoring via the data
-layer fails 1. Full suite (54 suites) green — Razorpay's web path is unchanged.
+layer fails 1. Full suite (56 suites) green — Razorpay's web path is unchanged.
+
+> **Correction (2026-08-08, WS4 certification).** This ADR originally read "54 suites"; the wired
+> count at this commit was **56**. The certification audit's own first restatement ("53") was wrong
+> too. The authoritative figure is the number of commands in `main-app/package.json`'s `test` chain —
+> counted, not recalled. Corrected in place because a wrong number invites a future reader to
+> "reconcile" it by deleting a suite. The 44-assertion figure above was accurate at this commit;
+> certification raised `payment-facade.check` to 56 — see the 2026-08-08 CHANGELOG entry.
 
 **Deferred to WS5/WS6:** the real Play purchase, `?action=verify-play`, `playBillingService`, RTDN,
 reconciliation. All of it lands inside `play-provider.js` and the server; nothing else moves.
