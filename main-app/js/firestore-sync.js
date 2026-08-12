@@ -965,7 +965,7 @@ var FirestoreSync = (function () {
     }
     /* Use Firestore server timestamp for the main document updatedAt
        to prevent client-side clock manipulation from poisoning the
-       clock-skew reference used by trial/PremiumPlus expiry checks. */
+       clock-skew reference used by trial/premium expiry checks. */
     snapshot.updatedAt = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
       ? firebase.firestore.FieldValue.serverTimestamp()
       : new Date().toISOString();

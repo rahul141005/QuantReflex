@@ -237,6 +237,17 @@ function verifyPlay(uid, productId, purchaseToken) {
   return paymentApi({ method: 'POST', query: { action: 'verify-play' }, body: { productId: productId, purchaseToken: purchaseToken }, userId: uid }, res)
     .then(function () { return out; });
 }
+/* Drives the CRON_SECRET-gated reconcile sweep, so T24 can prove the repair actually happens. */
+function reconcile() {
+  process.env.CRON_SECRET = process.env.CRON_SECRET || 'fixture-cron-secret';
+  var out = { status: 200, body: null };
+  var res = { status: function (s) { out.status = s; return res; }, json: function (b) { out.body = b; return out; } };
+  return Promise.resolve(paymentApi({
+    method: 'POST', query: { action: 'play-reconcile' },
+    headers: { authorization: 'Bearer ' + process.env.CRON_SECRET }, body: {}
+  }, res)).then(function () { return out; });
+}
+
 function playConfig(uid) {
   var out = { status: 200, body: null };
   var res = { status: function (s) { out.status = s; return res; }, json: function (b) { out.body = b; return out; } };
@@ -534,6 +545,62 @@ console.log('Google Play purchase verification (ADR-145, WS5)\n');
   await aiService.activatePremium('u23b', 'premium_6m', 'gp_x', null, { amountPaise: 29900 });
   ok(P('gp_x').provider === 'play',
     'T23b ★★ a row that already names its provider is NEVER overwritten by the default');
+
+  /* ── T24 — a granted row is ALWAYS reconcilable, even if every post-grant write fails ──────────
+     THE REGRESSION THIS SUITE EXISTS TO PREVENT (ADR-148).
+
+     `purchaseToken` used to be written only AFTER the grant, in a swallowed try/catch. If that write
+     failed the row carried no token AND no `acknowledged` field, so it matched neither half of the
+     reconcile sweep (`provider=='play' && acknowledged==false` — a MISSING field does not match
+     `== false`). Google then auto-refunds the unacknowledged purchase after three days while the user
+     keeps the Premium the grant already committed: money returned, access retained, and nothing in
+     the system able to notice.
+
+     Simulated by failing BOTH post-grant operations — the acknowledgement and the flag write. */
+  reset(); resetGoogle();
+  GOOGLE.ackStatus = 500;                        /* acknowledgement fails */
+  var blockPostGrant = true;
+  var origCollection = dbStub.collection;
+  dbStub.collection = function (name) {
+    var col = origCollection(name);
+    if (name !== 'payments') return col;
+    var origDoc = col.doc;
+    col.doc = function (id) {
+      var ref = origDoc(id);
+      var origSetFn = ref.set;
+      ref.set = function (d, o) {
+        /* Reject exactly the post-grant flag write; leave the reservation and the grant alone. */
+        if (blockPostGrant && d && d.acknowledged !== undefined && d.provider === 'play' && !d.status) {
+          return Promise.reject(new Error('simulated Firestore failure'));
+        }
+        return origSetFn(d, o);
+      };
+      return ref;
+    };
+    return col;
+  };
+  var r24 = await verifyPlay('u24', 'premium_6m', 'tok-24');
+  dbStub.collection = origCollection;             /* restore before asserting */
+  var id24 = playBilling.paymentDocId('tok-24');
+
+  ok(r24.body.success === true && U('u24').plan === 'premium',
+    'T24 the grant still succeeds when both post-grant writes fail (the user paid)', JSON.stringify(r24.body));
+  ok(P(id24).purchaseToken === 'tok-24',
+    'T24 ★★ the row STILL carries its purchase token — reconciliation can re-ask Google',
+    JSON.stringify(P(id24).purchaseToken));
+  ok(P(id24).acknowledged === false,
+    'T24 ★★ …and acknowledged is FALSE, not missing, so the sweep query actually matches it',
+    String(P(id24).acknowledged));
+  ok(P(id24).provider === 'play' && P(id24).productId === 'premium_6m',
+    'T24 …with provider and productId intact');
+
+  /* And prove the repair actually happens: reconciliation must now find and fix this row. */
+  resetGoogle();
+  var recon24 = await reconcile();
+  ok(recon24.body.result.acknowledged === 1,
+    'T24 ★★ a later reconcile run FINDS the row and completes the acknowledgement',
+    JSON.stringify(recon24.body.result));
+  ok(P(id24).acknowledged === true, 'T24 …and the row is repaired');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

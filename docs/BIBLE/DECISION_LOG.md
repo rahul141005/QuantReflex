@@ -8,6 +8,54 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-148 — A Play purchase row is reserved BEFORE it is granted (v276) (2026-08-12)
+
+**Context.** Found by the final production audit, in WS5 code written three commits earlier. The
+comment on the defect asserted the opposite of the truth, which is why it survived review.
+
+`?action=verify-play` wrote the payment row via `activatePremium`, then wrote `purchaseToken`,
+`productId` and `acknowledged` **afterwards** in a swallowed `try/catch` commented *"reconciliation
+will re-derive this"*.
+
+**Reconciliation cannot re-derive it.** `_playReconcile` reads the token off the row, and the document
+id is only the token's **sha256** — hashing is one-way. A row without its token is unreconcilable
+forever.
+
+The failure compounds: acknowledgement fails (Google 5xx) → the follow-up write also fails → the row
+has no `purchaseToken` **and no `acknowledged` field at all**. The sweep queries
+`provider == 'play' && acknowledged == false`, and a *missing* field does not match `== false` in
+Firestore, so the row is invisible on two independent counts. Google auto-refunds any purchase left
+unacknowledged for three days: the money goes back, the user keeps the Premium the grant already
+committed, and nothing in the system can notice.
+
+**Decision.** Reserve the row **before** granting, on the purchased path as well as the pending one,
+so identity is present from the moment the row exists.
+
+**Why this needed no new machinery.** `_reservePendingPlayRow` already writes exactly these fields for
+pending purchases, and `activatePremium` already has a `completingPending` branch that merges onto a
+`status:'pending'` row instead of creating one. The purchased path simply uses both. Three existing
+properties make it safe: the reservation early-returns when the doc exists, so a token bound to
+another account is untouched and `PAYMENT_REPLAY` still fires; the reserved row carries
+`capturedAtSource:'unknown'` until the grant overwrites it with Google's `purchaseTimeMillis`; and the
+post-grant write survives as a cheap correction rather than as the only writer of anything.
+
+**One behaviour change, deliberate.** A failed reservation is now **fatal to the request** (503,
+retryable) rather than logged and ignored. Proceeding would grant an entitlement against a row that
+can never be reconciled — precisely what the reservation exists to prevent. Both the reservation and
+the grant are idempotent, so the client simply retries.
+
+**Verification.** `play-billing.check` T24 drives grant-succeeds → *both* post-grant writes fail, and
+asserts the row still carries its token and `acknowledged:false`, then that a reconcile run finds and
+repairs it. Mutation-proved: reverting to post-grant-only persistence fails 5 assertions, with the
+sweep scanning **0 rows** — the bug reproduced exactly. 89 → 95 assertions.
+
+**Also removed in this pass, all dead and one of them misleading:** an unused `isEnabled` import in
+`play-rtdn.js` that implied a `config/playBilling` gate which **must not exist** (an operator
+disabling purchases must not also stop refunds from revoking); an unused `_service` handle in
+`play-provider.js`; and a comment still naming the PremiumPlus tier removed in ADR-009.
+
+---
+
 ## ADR-147 — The Play application id becomes a code constant (v276) (2026-08-12)
 
 **Context.** The Google Play Console developer account has been created and verified, and the

@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-12 — Final production audit: an unreconcilable payment row (ADR-148)
+
+The final quality gate, run against the repository with every prior certification claim — including
+my own — treated as untrusted. The suite was green, the fail-safe matrix clean and the tree
+committed. One real bug surfaced anyway, in WS5 code from three commits earlier.
+
+- **A granted Play row could become permanently unreconcilable.** `purchaseToken`, `productId` and
+  `acknowledged` were written *after* the grant, in a swallowed `try/catch` whose comment claimed
+  "reconciliation will re-derive this". It cannot: the document id is the token's sha256, and hashing
+  is one-way. If that write failed, the row carried no token **and no `acknowledged` field**, so it
+  matched neither half of the reconcile sweep — a *missing* field does not match `== false` in
+  Firestore. Google auto-refunds an unacknowledged purchase after three days: money returned, Premium
+  retained, nothing able to detect it.
+  **Fixed** by reserving the row before granting, reusing the pending path's existing reservation and
+  `activatePremium`'s existing `completingPending` merge — no new machinery. A failed reservation is
+  now fatal to the request (503, retryable) rather than ignored, because proceeding would grant
+  against a row that can never be repaired.
+- **Three dead declarations removed**, one actively misleading: an unused `isEnabled` import in
+  `play-rtdn.js` implied a `config/playBilling` gate that **must not exist** — an operator disabling
+  purchases must not also stop refunds from revoking entitlement. Also a stale `_service` handle and
+  a comment naming the PremiumPlus tier removed back in ADR-009.
+- **Checked and deliberately left alone:** the unused `pending` result flag (the user-visible copy is
+  already correct via `result.message`), the `Object.assign` merge order (verified by execution), the
+  `payments` owner-read rule, and the absence of any legacy tier in code.
+- `play-billing.check` 89 → **95**, mutation-proved: reverting the fix fails 5 assertions and the
+  reconcile sweep scans **0 rows** — the bug reproduced exactly. npm test 0 failed (59 suites),
+  32-permutation matrix unchanged.
+
+**Flagged, not fixable here:** production serves `v270` while this branch is `v275`, so
+`/.well-known/assetlinks.json` still returns the SPA shell live. Deploying is a prerequisite for
+Play step 7.
+
+---
+
 ## 2026-08-12 — The real Play application arrives: `com.quantreflex.app` (ADR-147)
 
 The Google Play Console account is created and verified, and the QuantReflex app exists in it with the

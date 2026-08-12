@@ -49,7 +49,12 @@ const crypto = require('crypto');
 const aiService = require('../../services/aiService');
 const playBilling = require('../../services/playBillingService');
 const refundRequests = require('../../services/refundRequests');   // ADR-143: the ONE refund-request writer
-const { isEnabled } = require('../_lib/config-flags');
+
+/* DELIBERATELY NOT flag-gated. `config/playBilling` gates whether we will TAKE money; it must never
+   gate whether we ACT on a refund. An operator switching Play billing off in an emergency must not
+   also stop voided-purchase notifications from revoking entitlement, or a refunded customer keeps
+   Premium. This endpoint therefore imports no config flag — its only gates are authentication and
+   `isConfigured()`. (An unused `isEnabled` import used to sit here and implied the opposite.) */
 
 if (!admin.apps.length) {
   try {

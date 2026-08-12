@@ -57,7 +57,6 @@
   /* The memoised verdict. `null` = never established; the facade reads `isReady()` which treats
      anything other than an explicit true as false. */
   var _ready = false;
-  var _service = null;
   var _prepared = false;      /* prepare() has completed at least once */
   var _preparing = null;      /* in-flight promise, so a double-tap cannot start two probes */
 
@@ -114,8 +113,10 @@
           console.info('[PaymentFlow] PLAY_NOT_USABLE | ' + ((verdict && verdict.reason) || 'unknown'));
           return false;
         }
-        _service = verdict.service || null;
-        /* Only now ask the server. Ordered this way so a web/PWA user never issues this call at all. */
+        /* The Digital Goods `service` handle is deliberately NOT retained: the purchase runs through
+           PaymentRequest, which needs only the SKU. Holding a stale handle would invite someone to use
+           it later against a catalogue that may have changed.
+           Only now ask the server. Ordered this way so a web/PWA user never issues this call at all. */
         return _serverEnabled().then(function (enabled) {
           if (!enabled) console.info('[PaymentFlow] PLAY_SERVER_DISABLED | reader mode');
           return enabled;

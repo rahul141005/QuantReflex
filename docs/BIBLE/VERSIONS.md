@@ -9,11 +9,11 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.180 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.181 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.81 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.14 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.15 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.177 (2026-08-08)** — **Provider-neutral payment facade (ADR-144, WS4).** WS1 established
 > platform truth but nothing branched on it — a Play/TWA build would have offered Razorpay, the one
@@ -26,6 +26,16 @@ Every governed change updates the relevant version number here and records a mig
 > reachable billing service is necessary but not sufficient while no server verification exists to
 > grant against). Play/TWA renders the value proposition with no purchase control, no external route,
 > and Restore intact. Entitlement, refund and ledger behaviour are untouched. Architecture 2.77→2.78,
+> **2.181 (2026-08-12)** — **A Play purchase row is reserved before it is granted (ADR-148).** Final
+> audit found `purchaseToken`/`acknowledged` written only AFTER the grant in a swallowed catch: if that
+> write failed the row matched neither half of the reconcile sweep (a MISSING field does not match
+> `== false`), so an unacknowledged purchase was auto-refunded by Google after three days while the
+> user kept Premium. The purchased path now reserves the row first, reusing the pending path's
+> reservation and `activatePremium`'s existing `completingPending` merge. A failed reservation is now
+> fatal (503, retryable) rather than ignored. Payment 2.14→2.15. `play-billing` 89 → 95; the fix is
+> mutation-proved (reverting it fails 5 assertions and the sweep scans 0 rows). Three dead
+> declarations removed, one of which implied a refund gate that must not exist. 59 suites green.
+
 > **2.180 (2026-08-12)** — **The Play application id becomes a code constant (ADR-147).** The Play
 > Console app now exists as `com.quantreflex.app`; the id moves from an absent env var to a constant in
 > `services/playBillingService.js`, ratcheted three ways (canonical value · no second literal in

@@ -275,6 +275,31 @@ async function _verifyPlay(req, res) {
     return res.status(409).json({ error: { code: 'PLAY_PURCHASE_NOT_ACTIVE', message: 'This purchase is not active.', retryable: false } });
   }
 
+  /* RESERVE BEFORE GRANTING (ADR-148). The purchase token has to be ON the row before the row can
+     ever be considered granted, because the document id is only the token's sha256 and hashing is
+     one-way — a row without its token is a row reconciliation can never repair.
+
+     Writing it afterwards, as this used to, left a real hole: if the post-grant write failed, the row
+     carried no `purchaseToken` AND no `acknowledged` field, so it matched neither half of the
+     reconcile sweep (`provider=='play' && acknowledged==false` — a MISSING field does not match
+     `== false` in Firestore). An unacknowledged purchase then gets auto-refunded by Google after
+     three days while the user keeps the Premium the grant already committed.
+
+     Reserving first closes that window using machinery that already exists: the row is created
+     `status:'pending'`, and `activatePremium` completes it through its existing `completingPending`
+     merge branch. It early-returns if the doc exists, so a token already bound to another account is
+     left untouched and `activatePremium` still raises PAYMENT_REPLAY. */
+  try {
+    await _reservePendingPlayRow(paymentId, req.userId, planType,
+      Object.assign({ productId: productId, purchaseToken: purchaseToken }, purchase));
+  } catch (e) {
+    /* Fatal here, unlike the pending path: proceeding would grant an entitlement against a row that
+       cannot be reconciled, which is the exact failure this reservation exists to prevent. The client
+       may retry — the reservation and the grant are both idempotent. */
+    console.error('[PaymentFlow] PLAY_RESERVE_FAILED | paymentId: ' + paymentId + ' | ' + e.message);
+    return res.status(503).json({ error: { code: 'PLAY_VERIFY_UNAVAILABLE', message: 'Could not record your purchase. Please try again in a moment.', retryable: true } });
+  }
+
   var expiry;
   try {
     /* The SAME canonical grant both providers use. Replay, cross-account reuse and
@@ -319,22 +344,35 @@ async function _verifyPlay(req, res) {
     }
   }
   try {
+    /* Only `acknowledged` is genuinely new here — identity was written by the reservation above, and
+       is repeated so a row reserved by an older deployment is healed on its next verification.
+       If THIS write fails the row is still complete enough to reconcile: it carries the token and
+       `acknowledged:false`, so the sweep finds it and retries the acknowledgement. That is the whole
+       point of reserving first. */
     await admin.firestore().collection('payments').doc(paymentId).set({
-      provider: 'play', productId: productId, acknowledged: acknowledged,
-      /* The token is stored because reconciliation MUST be able to re-ask Google about this purchase,
-         and the doc id is only its sha256 — hashing is one-way. Without it a row whose acknowledgement
-         failed could never be repaired, and Google would auto-refund it after three days.
-         Disclosure is bounded: `payments` is server-write-only and owner-read-only (firestore.rules),
-         so the only person who can read this token is the person Google issued it to. */
-      purchaseToken: purchaseToken
+      provider: 'play', productId: productId, purchaseToken: purchaseToken, acknowledged: acknowledged
     }, { merge: true });
-  } catch (_) { /* the grant already happened; reconciliation will re-derive this */ }
+  } catch (e) {
+    console.error('[PaymentFlow] PLAY_ACK_FLAG_WRITE_FAILED | paymentId: ' + paymentId + ' | ' + e.message);
+  }
 
   console.info('[PaymentFlow] PLAY_VERIFIED | uid: ' + req.userId + ' | plan: ' + planType + ' | expiry: ' + expiry + ' | acked: ' + acknowledged);
   return res.json({ success: true, plan: planType, expiry: expiry });
 }
 
-/** Reserve a `pending` row. NEVER writes an entitlement and never a capture time. */
+/**
+ * Reserve the payment row for a Play purchase token. NEVER writes an entitlement, never a capture
+ * time — it records IDENTITY only, so the row can always be reconciled.
+ *
+ * Used on BOTH Play paths (ADR-148):
+ *   · a PENDING purchase, where it is the only write — money has not moved and nothing is granted;
+ *   · a PURCHASED one, where it runs immediately BEFORE `activatePremium`, which then completes it
+ *     through its `completingPending` merge branch.
+ *
+ * The reservation is what guarantees `purchaseToken` and `acknowledged:false` are on the row from the
+ * moment it exists, so the reconcile sweep can always find and repair it. Writing them only after the
+ * grant left a window where a failed write produced a permanently unreconcilable row.
+ */
 async function _reservePendingPlayRow(paymentId, uid, planType, purchase) {
   var ref = admin.firestore().collection('payments').doc(paymentId);
   await admin.firestore().runTransaction(async function (tx) {
