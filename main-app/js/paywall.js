@@ -320,6 +320,18 @@ function _buildPlansHTML(selected) {
   return html;
 }
 
+/* ADR-144 (WS4) / ADR-145 (WS5): the purchase control, or the explanation that replaces it.
+   ONE function so the first render and the async re-render can never produce different markup —
+   a second copy of this string is a second place for the "no CTA in a Play build" rule to be got
+   wrong. `canBuy === false` renders an explanation: never a dead button, never a link to a website,
+   and never a fallback to the other provider. */
+function _ctaHTML(canBuy) {
+  return canBuy
+    ? '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
+      '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>'
+    : '<p class="pw-cta-note pw-unavailable">' + QRI18n.t('paywall.purchaseUnavailable') + '</p>';
+}
+
 function showPaywall(featureType) {
   /* Already premium? nothing to sell. */
   if (hasPremiumAccess(_getAccessUserState())) return;
@@ -382,10 +394,7 @@ function showPaywall(featureType) {
       /* ADR-144 (WS4): no purchase control unless the platform's provider can actually take money.
          In a Play build before WS5 this renders the explanation instead — never a dead button, never
          a link to a website, and never a fallback to the other provider. */
-      (_canBuy
-        ? '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
-          '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>'
-        : '<p class="pw-cta-note pw-unavailable">' + QRI18n.t('paywall.purchaseUnavailable') + '</p>') +
+      '<div class="pw-cta-slot">' + _ctaHTML(_canBuy) + '</div>' +
 
       '<div class="pw-compare-wrap">' +
         '<table class="pw-compare">' +
@@ -445,18 +454,23 @@ function showPaywall(featureType) {
     el.addEventListener('click', function () { _selectPlan(el.getAttribute('data-plan')); });
   });
 
-  /* CTA */
-  var cta = overlay.querySelector('.pw-cta');
-  if (cta) cta.addEventListener('click', function () {
-    if (!userId) {
-      var _now = Date.now();
-      if (_now - _paywallGuestPromptAt < 1000) return;
-      _paywallGuestPromptAt = _now;
-      showToast(QRI18n.t('paywall.loginToContinue'));
-      return;
-    }
-    _startPurchase(selected, userId);
-  });
+  /* CTA. Bound through a named function because the slot can be re-rendered when an asynchronous
+     provider reports readiness (below) — the replacement button must get the identical handler. */
+  function _bindCta() {
+    var cta = overlay.querySelector('.pw-cta');
+    if (!cta) return;
+    cta.addEventListener('click', function () {
+      if (!userId) {
+        var _now = Date.now();
+        if (_now - _paywallGuestPromptAt < 1000) return;
+        _paywallGuestPromptAt = _now;
+        showToast(QRI18n.t('paywall.loginToContinue'));
+        return;
+      }
+      _startPurchase(selected, userId);
+    });
+  }
+  _bindCta();
 
   /* Restore (ADR-142, WS3) */
   var restoreBtn = overlay.querySelector('.pw-restore');
@@ -503,6 +517,29 @@ function showPaywall(featureType) {
   /* Warm the active provider's SDK while the user reads, so the tap doesn't pay the download cost.
      Routed through the facade's adapter so the paywall never names a provider. */
   if (_canBuy) { try { QRPayments.preloadProvider(); } catch (_) {} }
+
+  /* ADR-145 (WS5): Play can only answer "can I take money?" asynchronously — it needs the Digital
+     Goods catalogue AND the server's confirmation that it will honour a purchase. `canPurchase()`
+     must stay synchronous for the render, so the sheet paints without a CTA and the control appears
+     only if readiness is actually proven.
+     Deliberately ONE-DIRECTIONAL: a late YES may add the control, a late NO never removes one. The
+     only provider that renders a CTA synchronously is Razorpay, whose readiness is already decided,
+     so there is nothing for a late NO to correct — while pulling a button out from under a tapping
+     finger would be a bug in its own right. */
+  if (!_canBuy && typeof QRPayments !== 'undefined' && typeof QRPayments.prepareProvider === 'function') {
+    try {
+      QRPayments.prepareProvider(function (ready) {
+        if (ready !== true || !_paywallModalOpen) return;
+        var slot = overlay.querySelector('.pw-cta-slot');
+        /* Re-check the facade rather than trusting the callback's word: canPurchase() is the one
+           predicate the purchase path itself consults, so the CTA must agree with IT, not with a
+           parallel answer that could have been computed differently. */
+        if (!slot || slot.querySelector('.pw-cta') || QRPayments.canPurchase() !== true) return;
+        slot.innerHTML = _ctaHTML(true);
+        _bindCta();
+      });
+    } catch (_) {}
+  }
 }
 
 global.canAccess = canAccess;

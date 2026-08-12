@@ -1876,6 +1876,7 @@
       processing: 'Processing…',
       stillProcessing: 'Still processing, please wait…',
       svcUnavailable: 'Payment service is unavailable right now.',
+      playPending: 'Google Play is still processing your payment. Premium unlocks automatically once it completes \u2014 you won\u2019t be charged twice.',
       loginToContinue: 'Please login to continue payment.',
       couldNotCreate: 'Could not create payment. Please try again.',
       cancelled: 'Payment cancelled. You can upgrade anytime.',

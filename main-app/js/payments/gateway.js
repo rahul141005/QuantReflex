@@ -154,6 +154,31 @@
   }
 
   /**
+   * Establish readiness for providers whose answer is asynchronous, then report it (ADR-145, WS5).
+   *
+   * `canPurchase()` must stay synchronous — the paywall asks it mid-render — but Play readiness
+   * depends on the Digital Goods catalogue and a server flag, neither of which is knowable in a
+   * synchronous call. So a provider may expose `prepare(cb)`; the facade calls it and the UI
+   * re-evaluates `canPurchase()` afterwards.
+   *
+   * A provider with no `prepare` (Razorpay) is already decided, so its current answer is reported
+   * unchanged. The callback ALWAYS fires exactly once, including on error, so a UI can never be left
+   * waiting on a readiness answer that never arrives.
+   */
+  function prepareProvider(callback) {
+    function report(v) { if (typeof callback === 'function') { try { callback(v === true); } catch (_) {} } }
+    var a = _adapter(providerId());
+    if (!a) { report(false); return; }
+    if (typeof a.prepare !== 'function') { report(canPurchase()); return; }
+    var settled = false;
+    try {
+      a.prepare(function (ready) { if (settled) return; settled = true; report(ready); });
+    } catch (_) {
+      if (!settled) { settled = true; report(false); }
+    }
+  }
+
+  /**
    * Restore access. Deliberately PROVIDER-NEUTRAL and identical on every platform: entitlement lives
    * on the server, so restoring is re-reading server truth — there is nothing provider-specific to do.
    *
@@ -177,6 +202,7 @@
     providerId: providerId,
     canPurchase: canPurchase,
     preloadProvider: preloadProvider,
+    prepareProvider: prepareProvider,
     purchase: purchase,
     restore: restore
   };

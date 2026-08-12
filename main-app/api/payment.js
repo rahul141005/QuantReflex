@@ -6,10 +6,14 @@
  *   POST ?action=refund-eligibility  → (ADR-143) may this user request a refund, and until when?
  *   POST ?action=refund-request      → (ADR-143) create a refund request (never issues a refund)
  *   POST ?action=refund-cancel       → (ADR-143) withdraw one's own pending request
+ *   POST ?action=play-config         → (ADR-145) may this client offer a Play purchase at all?
+ *   POST ?action=verify-play         → (ADR-145) verify a Google Play purchase token + activate
  *
- * The refund actions live HERE rather than in their own function on purpose: main-app is at 10 of the
- * 12 Vercel Hobby functions, and WS6's Play RTDN endpoint still needs #11. Folding related actions
- * into an existing domain function is the same pattern ADR-017 used for create-order/verify.
+ * The refund and Play actions live HERE rather than in their own functions on purpose: main-app is at
+ * 10 of the 12 Vercel Hobby functions, and WS6's Play RTDN endpoint still needs #11. Folding related
+ * actions into an existing domain function is the same pattern ADR-017 used for create-order/verify.
+ * `verify-play` in particular is user-authenticated request/response work, identical in shape to
+ * `verify` — it has no reason to be its own function and no budget to be one.
  *
  * NOTE: payment/webhook.js stays a SEPARATE function (HMAC verification + `bodyParser:false`).
  * Its path remains /api/payment/webhook so the Razorpay dashboard needs no reconfiguration.
@@ -20,6 +24,7 @@ const aiService = require('../services/aiService');
 const paymentService = require('../services/paymentService');
 const refundRequests = require('../services/refundRequests');   // ADR-143
 const refundPolicy = require('../services/refundPolicy');       // ADR-143: THE 24h rule
+const playBilling = require('../services/playBillingService');  // ADR-145 (WS5): the Google half
 const { setEntitlementClaims } = require('../services/claimsService');
 const admin = require('firebase-admin');
 const { isEnabled } = require('./_lib/config-flags');
@@ -154,6 +159,195 @@ async function _verify(req, res) {
     _recordPaymentFailure('verify_error', req.userId);
     return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not activate payment. Please contact support.', retryable: false } });
   }
+}
+
+/* ── Google Play (ADR-145, WS5) ─────────────────────────────────────────────────────────────────
+   Play purchases arrive here ALREADY PAID. That single fact drives every difference from the
+   Razorpay path below, and each one is deliberate:
+
+     · `create-order` refuses an already-premium user; `verify-play` MUST NOT. The money has already
+       moved through Google. Refusing would take payment and grant nothing — the worst outcome
+       available. activatePremium's no-shorten stacking extends the existing term instead.
+
+     · No amount is sent to activatePremium. `purchases.products.get` does not report what the user
+       actually paid — Google is the price authority for Play — so there is no capture evidence to
+       record. activatePremium falls back to the catalog price and labels it `amountSource:'catalog'`,
+       which is honest, and keeps the amount-mismatch alarm from firing on every Play row.
+
+     · The client sends a product id and a token, never a plan or a price. The product id is checked
+       against the server-side allowlist; the token is checked against Google. Nothing else is trusted.
+
+   `verify-play` never decides that a purchase succeeded. It asks Google, and reports. */
+
+/** Both Play actions refuse in the same way, so the reasons live in one place. */
+async function _playGate(res) {
+  if (await isEnabled('paymentKillSwitch')) {
+    res.status(503).json({ error: { code: 'PAYMENTS_DISABLED', message: 'Payments are temporarily disabled. Please try again shortly.', retryable: true } });
+    return false;
+  }
+  /* The operator's switch. Off (the default, and the state today) means reader mode: the client shows
+     the value proposition and NO purchase control. Deliberately checked before isConfigured() so an
+     operator can disable Play billing even on a fully configured deployment. */
+  if (!(await isEnabled('playBilling'))) {
+    res.status(503).json({ error: { code: 'PLAY_BILLING_DISABLED', message: 'In-app purchases are not available in this version.', retryable: false } });
+    return false;
+  }
+  /* No Play Console application exists yet. Absence is a state, not a default — see
+     services/playBillingService.js. There is no configuration to guess at and none is invented. */
+  if (!playBilling.isConfigured()) {
+    console.warn('[PaymentFlow] PLAY_NOT_CONFIGURED | ' + playBilling.configState());
+    res.status(503).json({ error: { code: 'PLAY_NOT_CONFIGURED', message: 'In-app purchases are not available in this version.', retryable: false } });
+    return false;
+  }
+  return true;
+}
+
+/* ── ?action=play-config ──
+   Lets the client learn whether the server will HONOUR a Play purchase before it takes one. Without
+   this the app could open Google's payment sheet, charge the user, and only then discover the server
+   refuses to verify — money taken for an entitlement nothing can grant. Cheap, unauthenticated-safe
+   (it reveals nothing but a feature flag), and the client caches it for the session. */
+async function _playConfig(req, res) {
+  var enabled = false;
+  try {
+    enabled = (await isEnabled('playBilling')) && playBilling.isConfigured() && !(await isEnabled('paymentKillSwitch'));
+  } catch (_) {
+    enabled = false;   /* fail CLOSED: an unreadable flag means no purchase path, never an open one */
+  }
+  return res.json({ enabled: enabled, skus: enabled ? playBilling.skuList() : [] });
+}
+
+/* ── ?action=verify-play ── */
+async function _verifyPlay(req, res) {
+  if (!(await _playGate(res))) return;
+
+  var body = req.body || {};
+  var productId = (typeof body.productId === 'string') ? body.productId.trim() : '';
+  var purchaseToken = (typeof body.purchaseToken === 'string') ? body.purchaseToken.trim() : '';
+
+  /* Bounded before use. A purchase token is an opaque bearer string; an unbounded one is a way to
+     push arbitrary length into a URL path and a log line. */
+  if (!productId || !purchaseToken || productId.length > 128 || purchaseToken.length > 4096) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'productId and purchaseToken are required.', retryable: false } });
+  }
+
+  /* THE ALLOWLIST. A client cannot name a product we do not sell, so it cannot buy a ₹1 test SKU and
+     be granted a ₹399 plan. This resolves product → plan; there is no other route to a planType. */
+  var planType = playBilling.planTypeForProduct(productId);
+  if (!planType) {
+    _recordPaymentFailure('play_unknown_product', req.userId);
+    return res.status(400).json({ error: { code: 'PLAN_MISMATCH', message: 'Unknown product.', retryable: false } });
+  }
+
+  var purchase;
+  try {
+    purchase = await playBilling.getProductPurchase(productId, purchaseToken);
+  } catch (err) {
+    /* A failure to REACH Google is not evidence about the purchase. Never grant optimistically, and
+       never tell the client "no such purchase" — a retryable answer keeps a paid purchase recoverable
+       (the client retries, and reconciliation catches it even if the client never comes back). */
+    if (err && err.retryable) {
+      console.error('[PaymentFlow] PLAY_VERIFY_UNAVAILABLE | ' + err.code + ' | uid: ' + req.userId);
+      return res.status(503).json({ error: { code: 'PLAY_VERIFY_UNAVAILABLE', message: 'Could not confirm your purchase with Google Play. Please try again in a moment.', retryable: true } });
+    }
+    console.warn('[PaymentFlow] PLAY_VERIFY_REJECTED | ' + ((err && err.code) || 'unknown') + ' | uid: ' + req.userId);
+    _recordPaymentFailure('play_' + ((err && err.code) || 'verify_error').toLowerCase(), req.userId);
+    return res.status(400).json({ error: { code: (err && err.code) || 'PLAY_VERIFY_FAILED', message: 'This purchase could not be verified with Google Play.', retryable: false } });
+  }
+
+  var paymentId = playBilling.paymentDocId(purchaseToken);
+
+  /* PENDING — a slow payment method (cash, some cards). The money has NOT moved. Reserve the row so
+     the eventual RTDN can complete it against a known uid, and grant NOTHING. The reserved row
+     carries no capture time, because there has been no capture. */
+  if (purchase.state === 'pending') {
+    try { await _reservePendingPlayRow(paymentId, req.userId, planType, purchase); } catch (e) {
+      console.error('[PaymentFlow] PLAY_PENDING_RESERVE_FAILED | ' + e.message);
+    }
+    console.info('[PaymentFlow] PLAY_PENDING | uid: ' + req.userId + ' | plan: ' + planType);
+    return res.json({ success: false, pending: true, plan: planType,
+      message: 'Your payment is still being processed by Google Play. Premium unlocks automatically once it completes.' });
+  }
+
+  if (purchase.state !== 'purchased') {
+    /* cancelled, or an enum we do not recognise. Neither may grant. */
+    console.warn('[PaymentFlow] PLAY_NOT_PURCHASED | state: ' + purchase.state + ' | uid: ' + req.userId);
+    return res.status(409).json({ error: { code: 'PLAY_PURCHASE_NOT_ACTIVE', message: 'This purchase is not active.', retryable: false } });
+  }
+
+  var expiry;
+  try {
+    /* The SAME canonical grant both providers use. Replay, cross-account reuse and
+       already-refunded all fall out of its existing transactional lock on payments/{paymentId} —
+       and paymentId is the hash of the purchase token, so one token is one document forever. */
+    expiry = await aiService.activatePremium(req.userId, planType, paymentId, purchase.orderId, {
+      provider: 'play',
+      /* Google's capture time — the ONLY origin the ADR-143 refund window may use for Play. */
+      capturedAtMs: purchase.purchaseTimeMillis,
+      currency: 'INR'
+      /* No amountPaise: see the section header. */
+    });
+  } catch (err) {
+    if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REPLAY') {
+      /* The token belongs to a DIFFERENT QuantReflex account. This is the cross-account reuse case:
+         someone else's purchase token cannot become this user's entitlement. */
+      _recordPaymentFailure('play_token_bound_elsewhere', req.userId);
+      return res.status(409).json({ error: { code: 'PAYMENT_REPLAY', message: 'This purchase is already linked to another account.', retryable: false } });
+    }
+    if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REFUNDED') {
+      _recordPaymentFailure('play_refunded_replay', req.userId);
+      return res.status(409).json({ error: { code: 'PAYMENT_REFUNDED', message: err.message, retryable: false } });
+    }
+    console.error('[PaymentFlow] PLAY_GRANT_FAILED | ' + err.message);
+    _recordPaymentFailure('play_grant_error', req.userId);
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not activate your purchase. Please contact support.', retryable: true } });
+  }
+
+  try { await setEntitlementClaims(req.userId, { premium: true }); } catch (_) {}
+
+  /* ACKNOWLEDGE — after the grant, never before. Google auto-refunds anything unacknowledged within
+     three days, so this is revenue-critical; but it is not fatal, because the user has already paid
+     and already has access. A failure is recorded on the row and swept up by reconciliation, which
+     is exactly what the `acknowledged == false` index exists for. */
+  var acknowledged = purchase.acknowledged;
+  if (!acknowledged) {
+    try {
+      await playBilling.acknowledgeProductPurchase(productId, purchaseToken);
+      acknowledged = true;
+    } catch (e) {
+      console.error('[PaymentFlow] PLAY_ACK_FAILED | paymentId: ' + paymentId + ' | ' + e.message);
+    }
+  }
+  try {
+    await admin.firestore().collection('payments').doc(paymentId).set({
+      provider: 'play', productId: productId, acknowledged: acknowledged
+    }, { merge: true });
+  } catch (_) { /* the grant already happened; reconciliation will re-derive this */ }
+
+  console.info('[PaymentFlow] PLAY_VERIFIED | uid: ' + req.userId + ' | plan: ' + planType + ' | expiry: ' + expiry + ' | acked: ' + acknowledged);
+  return res.json({ success: true, plan: planType, expiry: expiry });
+}
+
+/** Reserve a `pending` row. NEVER writes an entitlement and never a capture time. */
+async function _reservePendingPlayRow(paymentId, uid, planType, purchase) {
+  var ref = admin.firestore().collection('payments').doc(paymentId);
+  await admin.firestore().runTransaction(async function (tx) {
+    var doc = await tx.get(ref);
+    /* If a row already exists it is either already paid or already reserved — either way, leave it
+       alone. Overwriting a `paid` row with `pending` would un-grant a live entitlement. */
+    if (doc.exists) return;
+    tx.set(ref, {
+      uid: uid, plan: planType, provider: 'play', status: 'pending',
+      orderId: purchase.orderId || null,
+      /* No capturedAtMs: nothing has been captured. `capturedAtSource:'unknown'` keeps ADR-143
+         honest — if this row somehow reached a refund request, the policy routes it to human review
+         rather than inventing a window start. */
+      capturedAtMs: null, capturedAtSource: 'unknown',
+      acknowledged: false,
+      claimedAt: null,
+      reservedAt: new Date().toISOString()
+    });
+  });
 }
 
 /* ── Refunds (ADR-143) ──────────────────────────────────────────────────────────────────────────
@@ -300,5 +494,7 @@ module.exports = withAuth(async function (req, res) {
   if (action === 'refund-eligibility') return _refundEligibility(req, res);
   if (action === 'refund-request') return _refundRequest(req, res);
   if (action === 'refund-cancel') return _refundCancel(req, res);
+  if (action === 'play-config') return _playConfig(req, res);
+  if (action === 'verify-play') return _verifyPlay(req, res);
   return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown payment action: ' + action, retryable: false } });
 });

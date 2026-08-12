@@ -210,6 +210,18 @@ function _capturedAtMs(gateway) {
   return (isFinite(v) && v > 0) ? Math.round(v) : null;
 }
 
+/** Which provider took the money (ADR-145). Defaults to 'razorpay', and that default is a FACT about
+    history rather than a guess: every payment row written before WS5 is a Razorpay row, because no
+    other provider existed to write one. Contrast `capturedAtSource:'unknown'`, where absence is
+    genuinely unknowable and must never be filled in. Only a value we recognise is accepted, so a
+    malformed caller cannot invent a third provider that no refund or reconcile path knows how to
+    execute against. */
+var KNOWN_PROVIDERS = { razorpay: true, play: true };
+function _provider(gateway) {
+  var p = gateway && gateway.provider;
+  return (typeof p === 'string' && KNOWN_PROVIDERS[p]) ? p : 'razorpay';
+}
+
 /**
  * Activate the single Premium plan from a verified payment (v2).
  *
@@ -238,6 +250,7 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
 
   var reportedPaise = _reportedPaise(gateway);
   var capturedAtMs = _capturedAtMs(gateway);
+  var provider = _provider(gateway);
   var expectedPaise = PREMIUM_PRICE_PAISE[planType] || 0;
   /* W4: an amount that disagrees with the catalog still gets the entitlement — the money was already
      captured, and refusing here would take payment without giving access. It is recorded and flagged
@@ -326,6 +339,12 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
             tx.set(paymentRef, { capturedAtMs: capturedAtMs, capturedAtSource: 'gateway' }, { merge: true });
           }
         }
+        /* ADR-145: back-fill `provider` on a row written before the field existed. Only ever ADDED,
+           never overwritten — a row that already names its provider is the authority. Absence is
+           safely readable as 'razorpay' because Play could not have written a row before WS5. */
+        if (!existing.provider) {
+          tx.set(paymentRef, { provider: provider }, { merge: true });
+        }
         outcome = 'replay';
         return;
       }
@@ -370,6 +389,11 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
          silently falling back to `claimedAt`, which would hand out a fresh window. */
       capturedAtMs: capturedAtMs,
       capturedAtSource: (capturedAtMs !== null) ? 'gateway' : 'unknown',
+      /* ADR-145: which provider took the money. Read by the refund request builder (which already
+         expected this field and defaulted to 'razorpay' before anything wrote it), by the Super Admin
+         review queue, and by Play reconciliation — a refund cannot be EXECUTED without knowing where
+         to execute it. */
+      provider: provider,
       status: 'paid',
       expiry: finalExpiry,
       claimedAt: new Date().toISOString()

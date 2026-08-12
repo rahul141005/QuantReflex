@@ -72,6 +72,26 @@ var DURATIONS_DAYS = {
 };
 
 // ══════════════════════════════════════════════
+// GOOGLE PLAY PRODUCT IDS (ADR-145, WS5)
+// ══════════════════════════════════════════════
+// An IDENTITY map, and deliberately so: the Play Console product id must be the SAME string as our
+// planType. Two names for one product is a translation layer, and a translation layer in a payment
+// path is a place for a purchase to be granted against the wrong plan. Keeping them identical means
+// there is nothing to get wrong — the server's allowlist check IS the product check.
+//
+// PRICE IS NOT LISTED HERE ON PURPOSE. For a Play purchase, Google is the price authority: we set the
+// price once in Play Console and `purchases.products.get` does not report what was actually paid. A
+// price constant here would be a second source of truth that nothing validates against. The paise
+// figures in PRICING above remain the Razorpay catalog and the recorded fallback for Play rows.
+//
+// These ids must exist as one-time MANAGED PRODUCTS (not subscriptions) in Play Console before any
+// Play purchase can succeed. Until then `PLAY_PACKAGE_NAME` is unset and every Play path refuses.
+var PLAY_SKUS = {
+  premium_6m: 'premium_6m',
+  premium_12m: 'premium_12m'
+};
+
+// ══════════════════════════════════════════════
 // FREE TIER LIMITS
 // ══════════════════════════════════════════════
 
@@ -157,6 +177,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ENTITLEMENT_FIELDS: ENTITLEMENT_FIELDS,
     PRICING: PRICING,
     DURATIONS_DAYS: DURATIONS_DAYS,
+    PLAY_SKUS: PLAY_SKUS,
     FREE_TIER_LIMITS: FREE_TIER_LIMITS,
     PREMIUM_FEATURES: PREMIUM_FEATURES,
     PREMIUM_LEARN: PREMIUM_LEARN

@@ -28,6 +28,7 @@ var APP = path.join(__dirname, '..');
 var R = function (p) { return fs.readFileSync(path.join(APP, p), 'utf8'); };
 
 var pass = 0, fail = 0;
+var playReadiness = Promise.resolve();   /* WS5 readiness probes settle before the summary */
 function ok(m, c, d) { if (c) pass++; else { fail++; console.log('  ✗ ' + m + (d ? ' — ' + d : '')); } }
 
 console.log('Payment facade — the provider boundary (ADR-144 WS4)\n');
@@ -269,6 +270,95 @@ ok('the result vocabulary is provider-neutral',
   codes.every(function (c) { return !/razorpay|play|google/i.test(c); }), codes.join(','));
 ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVIDER_UNAVAILABLE') !== -1);
 
+/* — ADR-145 (WS5): Play readiness is a CONJUNCTION, and both halves are load-bearing —
+
+   `isReady()` may only become true when the device can complete a purchase AND the server will
+   honour it. Either alone is a way to take money for nothing:
+     · catalogue-only  → Google charges, our server refuses to verify → paid, no entitlement;
+     · server-only     → the server is willing but this device cannot actually buy.
+   Driven behaviourally against the real adapter, because this is the new client attack surface. */
+(function () {
+  function bootPlay(opts) {
+    var o = opts || {};
+    var fetches = [];
+    var sb = {
+      console: { info: function () {}, warn: function () {}, error: function () {}, log: function () {} },
+      document: { referrer: 'android-app://com.quantreflex.app',
+        documentElement: { classList: { add: function () {}, remove: function () {}, contains: function () { return false; } } },
+        body: { classList: { add: function () {}, remove: function () {}, contains: function () { return false; } }, appendChild: function () {} },
+        getElementById: function () { return null; },
+        createElement: function () { return { setAttribute: function () {}, addEventListener: function () {} }; } },
+      location: { search: '' }, navigator: { standalone: false },
+      matchMedia: function () { return { matches: false }; },
+      sessionStorage: { _d: {}, getItem: function (k) { return this._d[k] || null; }, setItem: function () {} },
+      setTimeout: function (f) { return f && 0; }, clearTimeout: function () {}, Promise: Promise,
+      QRI18n: { t: function (k) { return k; } },
+      Auth: { getCurrentUser: function () { return { getIdToken: function () { return Promise.resolve('tok'); } }; } },
+      fetch: function (url) {
+        fetches.push(url);
+        return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ enabled: o.serverEnabled === true, skus: [] }); } });
+      }
+    };
+    /* The Digital Goods service: present and resolving every SKU only when `catalogue` is true. */
+    if (o.catalogue === true) {
+      sb.getDigitalGoodsService = function () {
+        return Promise.resolve({ getDetails: function (skus) {
+          return Promise.resolve(skus.map(function (s) { return { itemId: s }; }));
+        } });
+      };
+    } else if (o.catalogue === 'partial') {
+      sb.getDigitalGoodsService = function () {
+        return Promise.resolve({ getDetails: function () { return Promise.resolve([{ itemId: 'premium_6m' }]); } });
+      };
+    }
+    sb.Razorpay = function () { throw new Error('Play mode must never construct Razorpay'); };
+    sb.self = sb; sb.window = sb;
+    vm.createContext(sb);
+    vm.runInContext(SRC.platform, sb, { filename: 'platform.js' });
+    vm.runInContext(SRC.gateway, sb, { filename: 'gateway.js' });
+    vm.runInContext(SRC.razorpay, sb, { filename: 'razorpay-provider.js' });
+    vm.runInContext(SRC.play, sb, { filename: 'play-provider.js' });
+    return { sb: sb, fetches: fetches };
+  }
+
+  function prepared(opts) {
+    var b = bootPlay(opts);
+    return new Promise(function (resolve) {
+      b.sb.QRPayments.prepareProvider(function (ready) { resolve({ ready: ready, b: b }); });
+    });
+  }
+
+  playReadiness = Promise.all([
+    prepared({ catalogue: true, serverEnabled: true }),
+    prepared({ catalogue: true, serverEnabled: false }),
+    prepared({ catalogue: false, serverEnabled: true }),
+    prepared({ catalogue: 'partial', serverEnabled: true }),
+    prepared({ catalogue: false, serverEnabled: false })
+  ]).then(function (r) {
+    var both = r[0], noServer = r[1], noCatalogue = r[2], partial = r[3], neither = r[4];
+
+    ok('Play readiness starts FALSE before prepare() resolves — the default is reader mode',
+      (function () { var b = bootPlay({ catalogue: true, serverEnabled: true }); return b.sb.QRPaymentsPlay.isReady() === false; })());
+
+    ok('★ Play is ready only when the catalogue AND the server both say yes',
+      both.ready === true && both.b.sb.QRPayments.canPurchase() === true);
+    ok('★★ catalogue yes + server NO ⇒ NOT ready (never charge for something we cannot verify)',
+      noServer.ready === false && noServer.b.sb.QRPayments.canPurchase() === false);
+    ok('★★ server yes + no catalogue ⇒ NOT ready', noCatalogue.ready === false && noCatalogue.b.sb.QRPayments.canPurchase() === false);
+    ok('★★ a PARTIALLY configured catalogue (one SKU live) ⇒ NOT ready — all or nothing',
+      partial.ready === false && partial.b.sb.QRPayments.canPurchase() === false);
+    ok('neither ⇒ not ready', neither.ready === false);
+
+    /* The whole point of WS4, re-proven with WS5's code present and READY. */
+    ok('★★ even when Play IS ready, the provider is play and Razorpay is never constructed',
+      both.b.sb.QRPayments.providerId() === 'play');
+    ok('★★ a Play build never asks the server about Play until the CATALOGUE has already said yes',
+      noCatalogue.b.fetches.length === 0, noCatalogue.b.fetches.join(','));
+    ok('★ the server probe is the play-config action, not a purchase',
+      both.b.fetches.length === 1 && both.b.fetches[0].indexOf('action=play-config') !== -1, both.b.fetches.join(','));
+  });
+})();
+
 /* — the paywall is PRESENTATION ONLY: it must hold no payment lifecycle state —
 
    WS4 moved the busy flag, the slow/timeout timers and the attempt id into the facade, because every
@@ -320,7 +410,7 @@ var labelProbe = (function () {
   });
 })();
 
-labelProbe.then(function () {
+Promise.all([labelProbe, playReadiness]).then(function () {
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);

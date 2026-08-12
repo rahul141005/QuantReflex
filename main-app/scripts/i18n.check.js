@@ -35,7 +35,10 @@ var LATIN_ALLOWLIST = [
   'QuantReflex', 'QuanAI', 'Premium', 'English', 'Focus', 'DI', 'LR', 'AI',
   'CAT', 'MBA', 'CET', 'MAH', 'Bank', 'PO', 'SSC', 'CGL', 'IBPS', 'RRB', 'UPSC', 'MPSC', 'NDA', 'CDS',
   'km', 'kmph', 'cm', 'mm', 'kg', 'XP',
-  'Google', 'QRABCD1234', 'AP', 'GP', 'Speed Aptitude', 'Speed Score', 'Math Duel', 'Quant', 'Playful Professional', 'Classic Blue', 'XAT', 'SNAP', 'NMAT', 'CMAT', 'SBI', 'Foundation',
+  /* 'Google Play' precedes bare 'Google': stripping is literal and in array order, so the bare form
+     would otherwise consume the first word and leave "Play" behind as untranslated English. The store
+     brand is DNT in every locale — a user must be able to match it against the app that charged them. */
+  'Google Play', 'Google', 'QRABCD1234', 'AP', 'GP', 'Speed Aptitude', 'Speed Score', 'Math Duel', 'Quant', 'Playful Professional', 'Classic Blue', 'XAT', 'SNAP', 'NMAT', 'CMAT', 'SBI', 'Foundation',
   /* share text carries the product URL verbatim (longest form first — stripping is literal) */
   'https://www.quantreflex.app', 'www.quantreflex.app', 'quantreflex.app',
   /* developer + payment-processor proper nouns (About modal, DNT) */
