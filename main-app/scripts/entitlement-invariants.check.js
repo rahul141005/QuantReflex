@@ -58,6 +58,20 @@ ok('admin trial duration is upper-bounded', /MAX_TRIAL_DAYS/.test(entSrc));
 ok('admin premium grant never sets planExpiry to null on a premium action',
   !/plan\s*=\s*'premium'[\s\S]{0,200}planExpiry\s*=\s*null/.test(entSrc));
 
+/* ADR-149: AN ADMIN REVOKE MUST SURVIVE A PAYMENT REPLAY.
+   PAYMENT_READINESS P1-1 names the defect: "an admin revoke followed by a late payment.captured
+   webhook retry re-grants premium". WS2 built the cure (PAYMENT_STATUS_TERMINAL in activatePremium)
+   but wired only the REFUND path to it — an admin revoke left the payments row `status:'paid'`, i.e.
+   a live grant. `?action=verify` has no recency check, so a user revoked for abuse could restore
+   their own access by re-submitting their own receipt. */
+ok('★★ an admin revoke settles the purchased payment rows to a TERMINAL status (replay cannot undo it)',
+  /action === 'revoke'/.test(entSrc) && /status:\s*'revoked'/.test(entSrc));
+ok('★ …scoped to entitlements that were actually PURCHASED (a coaching/trial revoke needs no payment query)',
+  /planSource === 'purchase'/.test(entSrc));
+/* Read fresh here rather than reusing `aiSrc`, which is declared further down this file. */
+ok('★ …and \'revoked\' is a terminal status activatePremium already refuses to grant against',
+  /PAYMENT_STATUS_TERMINAL\s*=\s*\{[^}]*revoked:\s*true/.test(R('services/aiService.js')));
+
 /* ---- 2. null/invalid expiry resolves to NOT-premium — CLIENT AND SERVER (no permanent tier) ---- */
 const pw = R('js/paywall.js');
 /* ADR-117: the rule itself now lives in data/entitlement-core.js (behaviourally verified by

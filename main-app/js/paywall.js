@@ -414,9 +414,13 @@ function showPaywall(featureType) {
       '<button class="pw-restore" type="button">' + _esc(QRI18n.t('paywall.restore')) + '</button>' +
 
       '<div class="pw-footer">' +
-        '<a class="pw-footer-link" href="#terms" data-view="terms">' + QRI18n.t('paywall.terms') + '</a>' +
+        /* ADR-149: these pointed at `#terms` / `#privacy`, which are NOT routes — no such views
+           exist, so both links were dead in the checkout sheet. They now address the real static
+           pages under /legal/ (excluded from the SPA rewrite in vercel.json), opened in a new tab so
+           a purchase in progress is never navigated away from. */
+        '<a class="pw-footer-link" href="/legal/terms.html" target="_blank" rel="noopener">' + QRI18n.t('paywall.terms') + '</a>' +
         '<span class="pw-footer-dot">·</span>' +
-        '<a class="pw-footer-link" href="#privacy" data-view="privacy">' + QRI18n.t('paywall.privacy') + '</a>' +
+        '<a class="pw-footer-link" href="/legal/privacy.html" target="_blank" rel="noopener">' + QRI18n.t('paywall.privacy') + '</a>' +
         '<span class="pw-footer-dot">·</span>' +
         '<a class="pw-footer-link" href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>' +
       '</div>' +

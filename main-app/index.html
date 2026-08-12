@@ -1423,6 +1423,15 @@
           <h3 class="info-section-title"><span class="qr-ico" data-ico="lock" aria-hidden="true">🔐</span> <span data-i18n="about.s9Title">Privacy</span></h3>
           <div class="info-block">
             <p data-i18n="about.s9P1">Your progress is stored securely in your account and synced across your devices. Payments are processed by our payment provider — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.</p>
+            <!-- ADR-149: the full policies. Google Play requires a reachable privacy-policy URL and a
+                 publicly reachable account-deletion URL for any app with accounts; these are also the
+                 links a reviewer looks for inside the app itself. Static pages under /legal/, excluded
+                 from the SPA rewrite in vercel.json. -->
+            <p class="info-links" style="margin-top:.75rem;display:flex;gap:.75rem;flex-wrap:wrap;">
+              <a href="/legal/privacy.html" target="_blank" rel="noopener" data-i18n="about.privacyLink">Privacy Policy</a>
+              <a href="/legal/terms.html" target="_blank" rel="noopener" data-i18n="about.termsLink">Terms of Use</a>
+              <a href="/legal/delete-account.html" target="_blank" rel="noopener" data-i18n="about.deleteLink">Delete my account</a>
+            </p>
           </div>
         </div>
 

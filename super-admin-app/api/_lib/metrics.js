@@ -20,8 +20,10 @@ const entitlement = require('./entitlement-core');
    `status:'pending'` with no `amount`, so without this gate the historical fallback below priced an
    uncaptured purchase at a retired launch price and wrote it into the append-only daily snapshot.
    `refunded` / `partially_refunded` ARE counted here: they were real sales, and the refund is
-   subtracted separately below so gross and net both stay truthful. */
-const CAPTURED_STATUS = { paid: true, refunded: true, partially_refunded: true };
+   subtracted separately below so gross and net both stay truthful. So is `revoked` — an admin
+   withdrawing an entitlement does NOT return the money, so the sale is still revenue; that is
+   precisely why it is a distinct status from `refunded`. */
+const CAPTURED_STATUS = { paid: true, refunded: true, partially_refunded: true, revoked: true };
 
 /* HISTORICAL fallback only — used exclusively for legacy payments docs written before the `amount`
    field existed (pre 2026-06-11), which were all sold at the launch prices below. Every modern doc

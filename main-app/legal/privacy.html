@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — QuantReflex</title>
+<meta name="description" content="How QuantReflex collects, uses, stores and deletes your data.">
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; padding:2rem 1.25rem 4rem; font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         max-width:46rem; margin-inline:auto; background:#f8fafc; color:#0f172a; }
+  @media (prefers-color-scheme: dark) { body { background:#0b1220; color:#e2e8f0; } a { color:#7dd3fc; } }
+  h1 { font-size:1.7rem; margin:0 0 .25rem; }
+  h2 { font-size:1.15rem; margin:2rem 0 .5rem; }
+  .meta { opacity:.7; font-size:.9rem; margin-bottom:2rem; }
+  table { border-collapse:collapse; width:100%; font-size:.93rem; margin:.5rem 0 1rem; display:block; overflow-x:auto; }
+  th,td { border:1px solid rgba(128,128,128,.35); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+  th { font-weight:600; }
+  a { color:#2563eb; }
+  code { font-size:.9em; background:rgba(128,128,128,.15); padding:.1em .35em; border-radius:3px; }
+  .back { display:inline-block; margin-bottom:1.5rem; }
+</style>
+</head>
+<body>
+<a class="back" href="/">← Back to QuantReflex</a>
+<h1>QuantReflex Privacy Policy</h1>
+<p class="meta">Last updated: 12 August 2026 · Applies to the QuantReflex website, the installable web app (PWA), and the QuantReflex Android app (<code>com.quantreflex.app</code>).</p>
+
+<p>QuantReflex is a speed-aptitude training app for Quant, Data Interpretation and Logical Reasoning.
+This policy describes exactly what we collect, why, who it is shared with, and how you delete it. It
+describes the app as it is actually built — every item below corresponds to data the app really
+stores.</p>
+
+<h2>1. Who we are</h2>
+<p>QuantReflex is operated as an independent product. For any privacy question, data request or
+complaint, contact <a href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>. We aim to
+respond within 30 days.</p>
+
+<h2>2. What we collect</h2>
+<table>
+  <tr><th>Data</th><th>Why</th><th>Required?</th></tr>
+  <tr><td>Email address, and a password managed by Firebase Authentication (we never see or store your password ourselves). If you sign in with Google, we receive your Google account email and display name.</td><td>To create and secure your account and sync your progress across devices.</td><td>Required to create an account</td></tr>
+  <tr><td>Profile details you enter: display name, target exam, preferred language, and an optional coaching-institute code.</td><td>To personalise practice and, if you join a coaching institute, to show your progress to that institute.</td><td>Optional</td></tr>
+  <tr><td>Practice and performance data: questions attempted, answers, accuracy, response times, streaks, session history, bookmarks and mistakes.</td><td>This is the product. It powers your stats, planner, insights and revision.</td><td>Required to use the app</td></tr>
+  <tr><td>AI interaction data: the questions you ask the AI coach, the explanations generated, study plans, and per-day usage counters.</td><td>To provide AI explanations and planning, and to enforce fair-use limits and cost controls.</td><td>Only if you use AI features</td></tr>
+  <tr><td>Payment records: the plan purchased, the amount, the payment or purchase identifier, the payment provider, timestamps, and refund status. <strong>We never receive or store your card, UPI or bank details</strong> — those go directly to the payment provider.</td><td>To activate Premium, to support refunds, and to meet tax and accounting record-keeping obligations.</td><td>Only if you purchase</td></tr>
+  <tr><td>Notification token (Firebase Cloud Messaging), if you allow notifications.</td><td>To send you the reminders and announcements you opted into.</td><td>Optional</td></tr>
+  <tr><td>Limited security and diagnostic events: sign-in and payment failures, the active device session, and server error logs.</td><td>To protect accounts, prevent payment abuse, and fix faults.</td><td>Required</td></tr>
+</table>
+<p>We do <strong>not</strong> collect your precise location, contacts, photos, microphone or camera
+data, and we do <strong>not</strong> use advertising identifiers. QuantReflex contains no
+advertising.</p>
+
+<h2>3. How it is used</h2>
+<p>Your data is used to run QuantReflex for you: to deliver practice, track and display your
+progress, generate AI explanations and study plans, apply your Premium entitlement, send the
+notifications you asked for, and keep the service secure. We do not sell your data, and we do not
+use it for advertising or profiling unrelated to your training.</p>
+
+<h2>4. Who it is shared with</h2>
+<table>
+  <tr><th>Service</th><th>What it receives</th><th>Why</th></tr>
+  <tr><td>Google Firebase (Authentication, Cloud Firestore, Cloud Messaging)</td><td>Your account, profile, practice data and notification token</td><td>Authentication, database and push notifications</td></tr>
+  <tr><td>Vercel</td><td>Ordinary web request data (IP address, user agent) when you use the app</td><td>Hosting and serverless functions</td></tr>
+  <tr><td>OpenAI</td><td>The content of your AI requests (the question and relevant practice context)</td><td>To generate AI explanations and study plans</td></tr>
+  <tr><td>Razorpay</td><td>Payment details you enter on their checkout, plus your account identifier</td><td>To take payment on the web and PWA</td></tr>
+  <tr><td>Google Play Billing</td><td>Your purchase, handled by Google</td><td>To take payment inside the Android app</td></tr>
+  <tr><td>Your coaching institute, if you enter its code</td><td>Your name, email, plan status, and aggregate practice performance</td><td>So your institute can support your preparation. Joining is entirely optional.</td></tr>
+</table>
+
+<h2>5. Where it is stored, and for how long</h2>
+<p>Data is stored in Google Cloud infrastructure operated by Firebase. It is encrypted in transit
+(HTTPS) and encrypted at rest by the platform. We keep your account data for as long as your account
+exists. Payment records are kept after account deletion — see below.</p>
+
+<h2>6. Deleting your account and data</h2>
+<p>You can delete your account yourself, at any time, from inside the app:
+<strong>Settings → Delete Account</strong>. You will be asked to confirm your identity first. You can
+also request deletion by emailing <a href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>
+from your registered address. Full instructions, including the web route, are on the
+<a href="/legal/delete-account.html">account deletion page</a>.</p>
+<p>Deleting your account permanently removes: your sign-in credentials, your profile, all practice,
+performance and session history, bookmarks and mistakes, AI history, study plans and insights,
+notifications, duel history, and your coaching link. This cannot be undone.</p>
+<p><strong>What is retained, and why:</strong> we keep your <em>payment records</em> — the plan, the
+amount, the transaction identifier and the dates. Two reasons. First, tax and accounting law requires
+transaction records to be retained after a customer relationship ends. Second, these records are what
+tie a completed purchase to the account that made it; deleting them would allow the same purchase to
+be redeemed repeatedly on new accounts. These records contain no name, no email, no address and no
+card details — only an account identifier that, once the account is deleted, no longer identifies any
+living account. They are marked as belonging to a deleted user and are not used for any other
+purpose.</p>
+
+<h2>7. Your rights</h2>
+<p>You can access and correct your profile in the app, export or request a copy of your data, delete
+your account, and withdraw notification consent at any time (in your device or browser settings).
+To exercise any right, contact <a href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>.</p>
+
+<h2>8. Children</h2>
+<p>QuantReflex is intended for candidates preparing for competitive examinations and is not directed
+at children under 13. We do not knowingly collect data from children under 13. If you believe a child
+has created an account, contact us and we will delete it.</p>
+
+<h2>9. Security</h2>
+<p>Access to your data is restricted by server-enforced security rules: your practice data is
+readable only by you (and, if you joined one, by your coaching institute), and entitlement and
+payment records can only be written by our servers — never by a browser or app. Passwords are handled
+entirely by Firebase Authentication and are never visible to us.</p>
+
+<h2>10. Changes</h2>
+<p>If this policy changes materially, we will update the date at the top and notify you in the app.</p>
+
+<p class="meta" style="margin-top:2.5rem;">Questions? <a href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a></p>
+</body>
+</html>

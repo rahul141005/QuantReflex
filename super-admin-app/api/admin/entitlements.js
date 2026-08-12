@@ -50,6 +50,8 @@ async function handler(req, res) {
     }
   }
 
+  const nowIsoForRevoke = new Date().toISOString();
+
   try {
     const db = admin.firestore();
     let querySnapshot;
@@ -152,6 +154,49 @@ async function handler(req, res) {
       await batch.commit();
     }
 
+    /* ADR-149 — A REVOKE HAS TO SURVIVE A REPLAY.
+       PAYMENT_READINESS P1-1 records this exact defect: "an admin revoke followed by a late
+       payment.captured webhook retry re-grants premium". WS2 built the cure — `PAYMENT_STATUS_TERMINAL`
+       in aiService.activatePremium refuses to grant against a terminal row — but only the REFUND path
+       was ever wired to it. An admin revoke cleared the user's fields and left the payments row
+       `status:'paid'`, so the row was still a live grant: `?action=verify` has no recency check, and a
+       Razorpay redelivery or a Play RTDN replay would rewrite plan:'premium'. Someone revoked for
+       abuse could restore their own access with their own receipt.
+       Scoped to entitlements that were PURCHASED — that is the only case a payment row can resurrect,
+       and it keeps a bulk coaching revoke from running a payments query per student.
+       `'revoked'` (not `'refunded'`) is deliberate: it is already in PAYMENT_STATUS_TERMINAL, and it
+       says the entitlement was withdrawn WITHOUT money being returned — which is why metrics still
+       counts it as revenue. Best-effort: the entitlement is already revoked, and a failure here must
+       not fail the operation. */
+    let paymentsSettled = 0;
+    if (action === 'revoke') {
+      const purchased = usersToUpdate.filter(function (d) {
+        const ud = (typeof d.data === 'function' ? d.data() : null) || {};
+        return ud.planSource === 'purchase';
+      });
+      for (const userDoc of purchased) {
+        try {
+          const rows = await db.collection('payments')
+            .where('uid', '==', userDoc.id).where('status', '==', 'paid').limit(100).get();
+          if (rows.empty) continue;
+          const b = db.batch();
+          rows.forEach(function (r) {
+            b.set(r.ref, {
+              status: 'revoked',
+              revokedByAdminAt: nowIsoForRevoke,
+              revokedByAdmin: req.userId,
+              revokeReason: 'admin_entitlement_revoke'
+            }, { merge: true });
+          });
+          await b.commit();
+          paymentsSettled += rows.size;
+        } catch (settleErr) {
+          console.error('[entitlements] payment settle failed for uid ' + userDoc.id + ':', settleErr.message);
+        }
+      }
+      if (paymentsSettled) console.info('[entitlements] REVOKE_SETTLED_PAYMENTS | count: ' + paymentsSettled + ' | admin: ' + req.userId);
+    }
+
     // ADR-066: stop the SILENT grant/revoke — tell the affected users through the ONE pipeline (Inbox + push).
     try {
       const affectedUids = usersToUpdate.map(function (d) { return d.id; });
@@ -177,7 +222,7 @@ async function handler(req, res) {
       targetType: type,
       targetId: targetId,
       summary: action + ' applied to ' + updatedCount + ' user(s) (' + type + ': ' + targetId + ')',
-      after: { action: action, count: updatedCount }
+      after: { action: action, count: updatedCount, paymentsSettled: paymentsSettled }
     });
 
     return res.status(200).json({ success: true, count: updatedCount, updatedCount: updatedCount });

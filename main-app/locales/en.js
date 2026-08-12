@@ -314,6 +314,9 @@
       s8CopyTitle: 'Copy email',
       s9Title: 'Privacy',
       s9P1: 'Your progress is stored securely in your account and synced across your devices. Payments are processed by our payment provider — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.',
+      privacyLink: 'Privacy Policy',
+      termsLink: 'Terms of Use',
+      deleteLink: 'Delete my account',
       quote: '"Speed is a skill. Train it like one."'
     },
 
