@@ -90,25 +90,28 @@ async function _deleteByField(db, collectionName, fieldName, uid) {
  * future retention sweep can all see that the customer is gone.
  */
 async function _retainPaymentsForDeletedUser(db, uid, nowIso) {
-  let marked = 0;
-  let cursor = null;
-  while (true) {
-    let q = db.collection('payments').where('uid', '==', uid).limit(100);
-    if (cursor) q = q.startAfter(cursor);
-    const snapshot = await q.get();
-    if (snapshot.empty) break;
-    const batch = db.batch();
-    snapshot.docs.forEach(function (doc) {
-      batch.set(doc.ref, { userDeleted: true, userDeletedAt: nowIso }, { merge: true });
-    });
-    await batch.commit();
-    marked += snapshot.size;
-    /* Unlike the delete loops above, these documents SURVIVE the write — so the query would return
-       the same page forever without a cursor. */
-    cursor = snapshot.docs[snapshot.docs.length - 1];
-    if (snapshot.size < 100) break;
+  /* DELIBERATELY NOT PAGINATED, unlike the delete helpers above. Those terminate because each pass
+     REMOVES the documents it read; these documents survive, so a paged loop would have to depend on a
+     cursor advancing, and if it ever failed to it would spin forever. That matters more here than it
+     looks: the Firebase Auth account is deleted FIRST (so a partial failure cannot resurrect the
+     login), so a hang would time the request out after the user's sign-in was already gone — no
+     access, and no data cleanup either.
+     One query, one batch, no loop. A single user has a handful of purchases, not thousands; 400 stays
+     well inside Firestore's 500-operation batch limit. */
+  const CAP = 400;
+  const snapshot = await db.collection('payments').where('uid', '==', uid).limit(CAP).get();
+  if (snapshot.empty) return 0;
+  const batch = db.batch();
+  snapshot.docs.forEach(function (doc) {
+    batch.set(doc.ref, { userDeleted: true, userDeletedAt: nowIso }, { merge: true });
+  });
+  await batch.commit();
+  /* Never let a truncated sweep read as a complete one (same convention as PLAY_RECONCILE_PAGE_FULL
+     and revenueTruncated). Unreachable in practice — it would mean 400 purchases on one account. */
+  if (snapshot.size === CAP) {
+    console.warn('[account:delete] payment retention hit the ' + CAP + '-row cap for uid: ' + uid + ' — rows beyond it are unmarked');
   }
-  return marked;
+  return snapshot.size;
 }
 
 /* ADR-122: the DECISION half of the studentCount maintenance below, extracted to module scope so

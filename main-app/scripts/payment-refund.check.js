@@ -34,12 +34,13 @@ function daysAgo(n) { return NOW - n * DAY; }
 function daysAhead(n) { return NOW + n * DAY; }
 
 /* ───────── in-memory firestore stub ───────── */
-var COL, CLAIMS, EVENTS, LOGS;
+var COL, CLAIMS, EVENTS, LOGS, DELETED_AUTH;
 function reset() {
   COL = { users: {}, payments: {}, securityEvents: {}, paymentOrphans: {} };
   CLAIMS = {};
   EVENTS = [];
   LOGS = [];
+  DELETED_AUTH = [];
 }
 reset();
 
@@ -60,10 +61,20 @@ function docRef(col, id, parent) {
       if (COL[col] && COL[col][id] !== undefined) return Promise.reject(new Error('ALREADY_EXISTS'));
       _write(col, id, data, null, parent); return Promise.resolve();
     },
+    /* Account deletion (T22) deletes documents outright, as distinct from tombstoning them. */
+    delete: function () {
+      if (parent) return Promise.resolve();
+      if (COL[col]) delete COL[col][id];
+      return Promise.resolve();
+    },
     collection: function (sub) {
       var self = this;
       return {
-        doc: function (subId) { return docRef(sub, subId || ('auto' + (++_autoId)), self); }
+        doc: function (subId) { return docRef(sub, subId || ('auto' + (++_autoId)), self); },
+        /* Subcollections are append-only in this stub (writes land in LOGS), so a sweep finds nothing
+           to delete. Faithful for T22, which seeds no subcollection documents — and honest, because a
+           test that seeded them here would be asserting against the stub rather than the code. */
+        limit: function () { return { get: function () { return Promise.resolve({ empty: true, size: 0, docs: [], forEach: function () {} }); } }; }
       };
     }
   };
@@ -80,7 +91,7 @@ function _write(col, id, data, opts, parent) {
   else COL[col][id] = data;
 }
 
-function query(col, filters) {
+function query(col, filters, cap) {
   return {
     __isQuery: true,
     where: function (field, op, value) {
@@ -88,19 +99,27 @@ function query(col, filters) {
          still a live grant and must be replayed. Firestore treats `in` as a disjunction of equality
          filters, which is exactly what the predicate below does. */
       if (op !== '==' && op !== 'in') throw new Error('stub supports ==/in only, got ' + op);
-      return query(col, filters.concat([[field, value, op]]));
+      return query(col, filters.concat([[field, value, op]]), cap);
     },
+    /* `limit` is modelled so the account-deletion path can be driven end to end (T22). It caps the
+       result exactly as Firestore does, which is what lets the retention cap be asserted. */
+    limit: function (n) { return query(col, filters, n); },
     get: function () {
       var store = COL[col] || {};
       var rows = Object.keys(store).filter(function (id) {
         return filters.every(function (f) {
           return f[2] === 'in' ? f[1].indexOf(store[id][f[0]]) !== -1 : store[id][f[0]] === f[1];
         });
-      }).map(function (id) {
+      }).slice(0, typeof cap === 'number' ? cap : undefined).map(function (id) {
         var snapshot = JSON.parse(JSON.stringify(store[id]));
-        return { id: id, data: function () { return snapshot; } };
+        /* `.ref` is what batch/transaction writes target — without it the deletion path's
+           `batch.set(doc.ref, …)` silently writes nothing. */
+        return { id: id, ref: docRef(col, id), data: function () { return snapshot; } };
       });
       return Promise.resolve({
+        /* `empty` is NOT optional: the deletion loops in api/account.js break on it, and a snapshot
+           without it makes `while (true) { if (snapshot.empty) break; }` spin forever. */
+        empty: rows.length === 0,
         size: rows.length,
         docs: rows,
         forEach: function (fn) { rows.forEach(fn); }
@@ -115,11 +134,28 @@ var dbStub = {
     return {
       doc: function (id) { return docRef(name, id != null ? String(id) : ('auto' + (++_autoId))); },
       where: q.where,
+      limit: q.limit,
       add: function (data) {
         if (name === 'securityEvents') EVENTS.push(data);
         var id = 'auto' + (++_autoId);
         _write(name, id, data, null, null);
         return Promise.resolve({ id: id });
+      }
+    };
+  },
+  /* Batched writes, for the account-deletion path (T22). Applied on commit, like the real thing. */
+  batch: function () {
+    var ops = [];
+    return {
+      set: function (ref, data, opts) { ops.push(['set', ref, data, opts]); },
+      update: function (ref, data) { ops.push(['set', ref, data, { merge: true }]); },
+      delete: function (ref) { ops.push(['delete', ref]); },
+      commit: function () {
+        ops.forEach(function (o) {
+          if (o[0] === 'delete') { if (COL[o[1].__col]) delete COL[o[1].__col][o[1].id]; return; }
+          _write(o[1].__col, o[1].id, o[2], o[3], o[1].__parent);
+        });
+        return Promise.resolve();
       }
     };
   },
@@ -155,7 +191,9 @@ var adminStub = {
   auth: function () {
     return {
       getUser: function (uid) { return Promise.resolve({ uid: uid, customClaims: CLAIMS[uid] || {} }); },
-      setCustomUserClaims: function (uid, claims) { CLAIMS[uid] = claims; return Promise.resolve(); }
+      setCustomUserClaims: function (uid, claims) { CLAIMS[uid] = claims; return Promise.resolve(); },
+      /* T22: account deletion removes the auth record FIRST, so the test needs to observe it. */
+      deleteUser: function (uid) { DELETED_AUTH.push(uid); return Promise.resolve(); }
     };
   }
 };
@@ -178,6 +216,12 @@ Module._load = function (request) {
   if (request === 'firebase-admin') return adminStub;
   if (request === 'openai') return function OpenAI() { return {}; };
   if (/services\/paymentService$/.test(request)) return paymentServiceStub;
+  if (/_lib\/middleware$/.test(request)) return {
+    withAuth: function (fn) { return fn; },
+    parseBody: function (r) { return r.body || {}; },
+    formatError: function (e) { return { code: 'ERR', message: e && e.message }; },
+    isCoachingActive: function () { return true; }
+  };
   return orig.apply(this, arguments);
 };
 
@@ -187,6 +231,8 @@ var aiService = require(appPath('services/aiService.js'));
 process.env.RAZORPAY_WEBHOOK_SECRET = 'test_webhook_secret';
 var crypto = require('crypto');
 var webhook = require(appPath('api/payment/webhook.js'));
+/* ADR-149 T22: the real account-deletion handler, driven end to end. */
+var accountApi = require(appPath('api/account.js'));
 
 function postWebhook(body) {
   var raw = JSON.stringify(body);
@@ -647,6 +693,50 @@ console.log('Payment grant/revoke money path (ADR-141, WS2)\n');
   ok(user('u21').planExpiry === iso(daysAgo(10) + 182 * DAY),
     'T21 ★ …and the surviving expiry is the partially-refunded purchase\'s full term',
     user('u21').planExpiry);
+
+  /* ───────── T22 · account deletion RETAINS payment rows (ADR-149) ─────────
+     THE VULNERABILITY THIS CLOSES, restated because the assertion below is only meaningful with it:
+     a Google Play purchase token carries no uid. The ONLY thing binding a token to an account is the
+     payments document, whose id is `gp_<sha256(token)>`, and the guard is `existing.uid !== uid →
+     PAYMENT_REPLAY`. Account deletion used to DELETE those rows, which deleted the binding — so one
+     ₹299 purchase could be redeemed again on a fresh account, indefinitely: buy → delete account →
+     re-register → replay the token → repeat.
+     The previous pass fixed it but only ratcheted it at SOURCE level (a grep for the function name).
+     That would still pass if the function wrote nothing, marked the wrong field, or hung. This drives
+     the real handler. */
+  reset(); ORDERS = { order_22: { notes: { uid: 'u22', plan: 'premium_6m' } } };
+  COL.users.u22 = { plan: 'free', email: 'u22@example.invalid' };
+  await aiService.activatePremium('u22', 'premium_6m', 'gp_tokenhash_22', 'order_22', { amountPaise: 29900, provider: 'play' });
+  seedPaid('pay_22b', 'u22', daysAgo(200), 182);
+  ok(user('u22').plan === 'premium', 'T22 precondition: the user is premium with two payment rows');
+
+  var delOut = { status: 200, body: null };
+  var delRes = { status: function (s) { delOut.status = s; return delRes; }, json: function (b) { delOut.body = b; return delOut; } };
+  await accountApi({ method: 'POST', query: { action: 'delete' }, body: {}, userId: 'u22' }, delRes);
+
+  ok(delOut.status === 200 && delOut.body && delOut.body.success === true,
+    'T22 the deletion succeeds', JSON.stringify(delOut.body && delOut.body.error || ''));
+  ok(DELETED_AUTH.indexOf('u22') !== -1, 'T22 the Firebase Auth account is deleted');
+  ok(COL.users.u22 === undefined, 'T22 the user document is gone');
+  ok(payment('gp_tokenhash_22') !== undefined && payment('pay_22b') !== undefined,
+    'T22 ★★ BOTH payment rows SURVIVE the deletion (tax record + purchase-token binding)');
+  ok(payment('gp_tokenhash_22') && payment('gp_tokenhash_22').userDeleted === true,
+    'T22 ★ …and are marked as belonging to a deleted user');
+  ok(payment('gp_tokenhash_22') && typeof payment('gp_tokenhash_22').userDeletedAt === 'string',
+    'T22 …with a timestamp');
+  ok(delOut.body && delOut.body.report && delOut.body.report.paymentsRetained === 2,
+    'T22 the deletion report says how many rows were retained, not how many were destroyed',
+    JSON.stringify(delOut.body && delOut.body.report && delOut.body.report.paymentsRetained));
+
+  /* THE ASSERTION THE WHOLE FIX EXISTS FOR: the same Play purchase token, replayed on a brand-new
+     account after the original was deleted, must still be refused. */
+  var replayedOnNewAccount = await throwsCode(function () {
+    return aiService.activatePremium('u22_reregistered', 'premium_6m', 'gp_tokenhash_22', 'order_22', { amountPaise: 29900, provider: 'play' });
+  }, 'PAYMENT_REPLAY');
+  ok(replayedOnNewAccount,
+    'T22 ★★ the SAME purchase token cannot be redeemed on a new account after deletion — the binding survived');
+  ok(user('u22_reregistered') === undefined || user('u22_reregistered').plan !== 'premium',
+    'T22 ★★ …and that new account is NOT premium');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

@@ -31,7 +31,6 @@ if (!admin.apps.length) {
 var db = admin.firestore();
 
 var openaiClient = null;
-var AI_MODEL = 'gpt-4o-mini';
 
 function getClient() {
   if (!openaiClient && OPENAI_API_KEY) {
@@ -740,7 +739,6 @@ var WP_PREMIUM_DAILY = 30;
 /* ADR-103: free-tier lifetime allowance for the real QuanAI "Explain" feature. The value + pure grant decision
    live in the dependency-free services/freeExplainPolicy.js (single source of truth, unit-tested there). */
 var FREE_EXPLAIN_LIMIT = freeExplainPolicy.FREE_EXPLAIN_LIMIT;
-var MAX_QUESTION_LENGTH = 300;
 /* Per-uid usage cache for display/pre-check reads only. The authoritative caps
    (consumeWordProblemQuota / consumeFreeExplain) always read fresh inside a Firestore transaction,
    so this cache can never cause an over-grant. S3-FS4: bound it on a warm serverless instance with a

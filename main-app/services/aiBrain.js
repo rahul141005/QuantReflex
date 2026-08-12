@@ -18,7 +18,6 @@ const aiService = require('./aiService');
 const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
 const plannerEngine = require('./plannerEngine');    // mechanical schedule helpers (applyCompletion/rebalance)
 const planningEngine = require('./planningEngine');  // ADR-056/057: the marks-maximizing strategy engine (sole planner)
-const projector = require('./scheduleProjector');    // ADR-057: pure roadmap→days projection
 const examStrategy = require('./examStrategy');       // ADR-057: Layer-2 exam strategy (null when no exam)
 const readinessLib = require('./readiness');         // readiness score + completion forecast
 const aiMath = require('./aiMath');                  // shared round/clamp/todayIso (ADR-047)
