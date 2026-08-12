@@ -6,6 +6,62 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-12 — The final production audit: nine money-path defects + the legal pages Play requires (ADR-149, v277)
+
+A twelve-dimension sweep of the whole repository, treating every prior certification claim — this
+document's included — as untrusted. The suite was green throughout. **None of the following was
+caught by an existing test**, and three of them lived in code whose own comments asserted the
+opposite of the truth.
+
+**The two that lose real money.**
+`api/account.js:157` deleted the user's `payments` rows on account deletion. A Play purchase token
+carries no uid — the only thing binding a token to an account is `payments/gp_<sha256(token)>`, and
+the guard is literally `existing.uid !== uid → PAYMENT_REPLAY` (`services/aiService.js:277`). Deleting
+the row deleted the binding, so one ₹299 purchase could be redeemed indefinitely: buy → delete
+account → re-register → replay the token → repeat. Rows are now retained and marked `userDeleted`;
+they are also tax records and the source of lifetime revenue.
+`services/aiService.js:567` refuses to touch an entitlement whose `planSource` is not `'purchase'` —
+but reads the CURRENT value, which a purchase stacking on an admin grant overwrites. The replay knows
+only `payments` rows, so refunding that purchase revoked months nobody had sold. `activatePremium`
+now snapshots the displaced grant (`priorGrant`), the replay floors at it and restores its
+provenance, and `entitlementLedger.recomputeExpiry` credits each row from its own `baselineMs`.
+
+**Google Play could not have shipped as it stood.** One-time SKUs were acknowledged but never
+consumed (`services/playBillingService.js`), so Play refuses the second purchase — renewal was
+impossible, a failure first visible six months after the first sale. A transient Google failure
+during `verify-play` left NO row, so the reconciliation its own comment promised could not see the
+purchase. Reconciliation acknowledged a reserved row and marked it settled without granting — a
+customer who paid and got nothing, removed from the sweep's own working set forever; the
+"reconciliation never grants" invariant is narrowed rather than dropped.
+
+**Customer-facing.** "Restore Purchase" told every free user *"Premium restored — you're all set."*
+and closed the paywall: `paywall.js:507` called `canAccess()` with no feature argument, which
+correctly returns true for everyone. The paywall footer linked to `#terms` and `#privacy`, neither of
+which is a route, and no privacy policy existed anywhere — a hard Play publishing blocker.
+`main-app/legal/{privacy,terms,delete-account}.html` are now written from what the code actually does
+and excluded from the SPA rewrite.
+
+**Also fixed:** partially-refunded rows were dropped from the ledger replay, so a later refund
+revoked the term a partial refund had preserved; an admin revoke left `status:'paid'`, so a user
+revoked for abuse could restore access by re-posting their own receipt (PAYMENT_READINESS P1-1, whose
+cure existed but was wired only to the refund path); uncaptured Play rows were counted as revenue at
+the retired ₹349/₹499 prices and written into the append-only daily snapshot; the captured-payment
+webhook acked 200 on a transient order-lookup failure, permanently dropping captured money;
+coaching-admin showed Premium for lapsed students; the super-admin inactive list shipped `plan`
+without `planExpiry`, rendering every live Premium account as "Expired".
+
+**Docs:** `docs/GOOGLE_PLAY_CONSOLE_SETUP_GUIDE.md` — a QuantReflex-specific, step-labelled
+publishing guide ([OPUS/CODE] vs [ME — PLAY CONSOLE] vs [ME — EXTERNAL]), ratcheted by
+`assetlinks.check.js` so it can never name a package or origin the code does not use.
+
+**Verification:** 60 suites (`legal.check.js` added), 0 failed; every fix mutation-proved; five
+byte-identical entitlement-core mirrors, with the mirror list now DERIVED from the sync script.
+New ratchets: no server gate reads the `premium` JWT claim; no deploy root re-derives the premium
+test from a raw `plan` comparison; no API projection ships `plan` without `planExpiry`.
+Bible 2.181 → 2.182 · Payment 2.15 → 2.16 · app v275 → v277.
+
+---
+
 ## 2026-08-12 — Final production audit: an unreconcilable payment row (ADR-148)
 
 The final quality gate, run against the repository with every prior certification claim — including

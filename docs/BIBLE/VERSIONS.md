@@ -9,11 +9,11 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.181 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.182 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.81 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.15 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.16 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.177 (2026-08-08)** — **Provider-neutral payment facade (ADR-144, WS4).** WS1 established
 > platform truth but nothing branched on it — a Play/TWA build would have offered Razorpay, the one

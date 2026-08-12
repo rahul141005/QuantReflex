@@ -192,7 +192,10 @@ if (found.length === 0) {
     wrongEnvName.length === 0, wrongEnvName.join(', '));
 
   /* Documentation must name the SAME id the code pins. */
-  ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md', 'docs/BIBLE/PAYMENT_ARCHITECTURE.md'].forEach(function (d) {
+  ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md', 'docs/BIBLE/PAYMENT_ARCHITECTURE.md',
+   /* ADR-149: the operator-facing setup guide names the package and the origin on nearly every page,
+      and is the document a human will actually follow by hand — so it is ratcheted like the rest. */
+   'docs/GOOGLE_PLAY_CONSOLE_SETUP_GUIDE.md'].forEach(function (d) {
     var p = path.join(APP, '..', d);
     if (!fs.existsSync(p)) return;
     var txt = fs.readFileSync(p, 'utf8');
@@ -216,7 +219,7 @@ if (found.length === 0) {
   var allowed = (block.match(/https:\/\/[a-z0-9.-]+/g) || []);
   ok('★ the CORS allowlist is parseable and non-empty', allowed.length > 0, allowed.join(', '));
 
-  var docs = ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md'];
+  var docs = ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md', 'docs/GOOGLE_PLAY_CONSOLE_SETUP_GUIDE.md'];
   var strays = [];
   docs.forEach(function (d) {
     var p = path.join(APP, '..', d);

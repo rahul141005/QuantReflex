@@ -8,6 +8,77 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-149 — The final production audit: nine money-path defects, and the legal pages Play requires (v277) (2026-08-12)
+
+- **Context:** A full-repository audit treating every prior certification claim — including this
+  document's — as untrusted. Twelve dimensions were swept. The suite was green throughout: none of
+  the following was caught by an existing test, and three of them lived in code whose own comments
+  asserted the opposite of the truth.
+
+- **Decision (entitlement integrity):**
+  - **Account deletion RETAINS payment rows.** It ran `_deleteByField(db, 'payments', 'uid', uid)`.
+    A Play purchase token carries no uid; the only binding between a token and an account is
+    `payments/gp_<sha256(token)>`, and the guard is literally `existing.uid !== uid → PAYMENT_REPLAY`.
+    Deleting the row deleted the binding, so one ₹299 purchase could be redeemed indefinitely: buy,
+    delete account, re-register, replay the token. Rows are now marked `userDeleted` and kept — they
+    are also tax records, and the source of lifetime revenue.
+  - **A refund may no longer destroy a grant it did not sell.** `revokePayment` refuses to touch an
+    entitlement whose `planSource` is not `'purchase'`, but it reads the CURRENT value, and a purchase
+    stacking on an admin grant overwrites it. The replay then reconstructs from `payments` alone, and
+    `entitlementLedger` has no representation of an admin grant. `activatePremium` now snapshots the
+    entitlement it displaces (`priorGrant`), the replay floors at it and restores its provenance, and
+    `entitlementLedger.recomputeExpiry` credits each row from its own `baselineMs` — otherwise a
+    purchase stacked on a grant is under-counted by however long that grant had left.
+  - **Partially-refunded rows rejoin the ledger replay.** The query read `status == 'paid'`, while
+    `revokePayment`'s own guard treats `partially_refunded` as a live grant. A later full refund
+    therefore revoked the term a partial refund had explicitly preserved.
+  - **An admin revoke now survives a payment replay.** PAYMENT_READINESS P1-1 named this defect; WS2
+    built the cure (`PAYMENT_STATUS_TERMINAL`) but wired only the refund path to it. Admin revoke left
+    the row `status:'paid'`, so a user revoked for abuse could restore their own access by re-posting
+    their own receipt. Revoke now settles purchased rows to `'revoked'` — already terminal, and
+    distinct from `'refunded'` because no money was returned, which is why it still counts as revenue.
+
+- **Decision (Google Play, none of which could have shipped as it stood):**
+  - **One-time SKUs are consumed.** Play keeps a one-time product OWNED until consumed and refuses any
+    second purchase. Premium is a 182/365-day term meant to be re-bought, so renewal was impossible —
+    a failure that would first appear six months after the first sale. Consumption is decided by the
+    app, not by a Console setting, so this call IS the renewal path.
+  - **A purchase is never invisible to reconciliation.** `verify-play`'s comment promised the sweep
+    would catch a failed verification; on the retryable branch no row existed yet, so it could not.
+    The row is now reserved before the 503.
+  - **Reconciliation may COMPLETE a reserved row.** It acknowledged such a row and marked it settled
+    without granting — a customer who paid and got nothing, removed from the sweep's own working set
+    forever. The "reconciliation never grants" invariant is NARROWED, not dropped: only a `pending`
+    row that already names its owner, only when Google reports `purchased`; it still cannot create a
+    row or invent a uid.
+  - The sweep now runs two queries (`acknowledged == false`, `consumed == false`) rather than one
+    derived flag, because a missing field does not match `== false` — the ADR-148 trap.
+
+- **Decision (customer-facing):**
+  - **"Restore Purchase" no longer lies.** It called `canAccess()` with no feature argument, which
+    correctly returns true for everyone, so every free user was told "Premium restored" and had the
+    paywall closed on them. It now asks `hasActivePremium()`, evaluated once.
+  - **Three legal pages exist and are reachable.** The paywall footer linked to `#terms` and
+    `#privacy` — neither is a route. There was no privacy policy at all, which is a hard Play blocker.
+    `main-app/legal/{privacy,terms,delete-account}.html` are written from what the code actually does,
+    excluded from the SPA rewrite, and cross-checked by `legal.check.js` against `shared` PRICING,
+    `refundPolicy.js` and `account.js`.
+  - Uncaptured Play rows were counted as revenue at the retired ₹349/₹499 prices and written into the
+    append-only daily snapshot; the captured-payment webhook acked 200 when the order lookup failed
+    transiently, permanently dropping captured money; coaching-admin showed Premium for lapsed
+    students; the super-admin inactive list shipped `plan` without `planExpiry`, so every live Premium
+    account rendered as "Expired".
+
+- **Consequence:** 60 suites (`legal.check.js` added), every fix mutation-proved. A fifth
+  entitlement-core mirror serves coaching-admin, and `entitlement-core.check.js` now DERIVES the
+  mirror list from the sync script so the two can never disagree. New ratchets: no server gate reads
+  the `premium` JWT claim (admin grants deliberately do not set it, so a fast path built on it would
+  deny exactly the users an administrator just granted); no deploy root re-derives the premium test
+  from a raw `plan` comparison; no API projection ships `plan` without `planExpiry`.
+
+- **Not decided here:** `assetlinks.json` still cannot be written — the SHA-256 comes from Play App
+  Signing, and a fabricated fingerprint silently degrades the TWA to a browser tab.
+
 ## ADR-148 — A Play purchase row is reserved BEFORE it is granted (v276) (2026-08-12)
 
 **Context.** Found by the final production audit, in WS5 code written three commits earlier. The
