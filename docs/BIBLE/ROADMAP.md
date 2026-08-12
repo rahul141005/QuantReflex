@@ -130,6 +130,33 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
 - **Designed-for, additive (no future rewrite):** videos, flashcards, diagrams, notes, offline content, learning
   analytics, topic streaks — each a new block `type` + renderer or a progress hook.
 
+## 💳 Hybrid payments — Razorpay + Google Play (ADR-139 → ADR-146)
+
+*Added 2026-08-12. This programme had been running since ADR-139 and was **entirely invisible in this
+document**, which GOVERNANCE names as the owner of planning and sequencing. Tracked here now.*
+
+| WS | What it does | Status |
+|---|---|---|
+| WS1 | One platform truth (`QRPlatform`) — is this a Play build? | ✅ shipped (ADR-142) |
+| WS2 | Refunds revoke; the entitlement pipeline becomes two-way | ✅ shipped (ADR-141) |
+| WS3 | Restore becomes reachable | ✅ shipped (ADR-142) |
+| WS4 | Provider-neutral client facade (`QRPayments`) | ✅ shipped (ADR-144) |
+| WS5 | Server-side Play verification (`verify-play`) | ✅ **code + tests** — *not live* (ADR-145) |
+| WS6 | RTDN + reconciliation | ✅ **code + tests** — *not live* (ADR-146) |
+| WS7 | TWA wrapper + assetlinks | ⏸ **blocked on ops.** `/.well-known/` now serves correctly and `assetlinks.check.js` refuses a placeholder fingerprint. The file itself cannot exist before Play App Signing does. |
+| WS8 | Rollout, dashboards, governance, Payment Version 3.0 | ⏸ after WS7 |
+
+**The distinction that matters.** WS5/WS6 are complete as *code with automated tests* — 143 assertions,
+every guard mutation-proved — and **have never run against the real Google Play Store**. No Play Console
+application, no service account, no managed products, no Pub/Sub topic. Every Play path refuses while
+`PLAY_PACKAGE_NAME` is unset, so nothing degrades while this waits.
+
+**Blocked on one external step:** registering a Play Console developer account ($25 one-time). The full
+manual checklist is [PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
+
+**Nothing Play-dependent has been fabricated** — no fingerprint, no package name, no service account,
+no assetlinks file — by design, and enforced by a check that fails on placeholder values.
+
 ## 🛠 Scale-debt deferred at launch (ADR-041, 2026-06-14) — intentional, not forgotten
 
 Deferred during the first-1–2k-users launch pass because they only bite at 10k+ users or are non-blocking for the

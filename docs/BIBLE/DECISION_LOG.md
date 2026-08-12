@@ -8,6 +8,129 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-146 — RTDN treats the notification as a hint, never as evidence (v275) (2026-08-12)
+
+**Context.** Google Play reports purchase and refund events by pushing a Real-Time Developer
+Notification through Pub/Sub. Pub/Sub guarantees *at-least-once* delivery and **no ordering**, so a
+handler will genuinely see duplicates, replays, and a PURCHASED arriving after a VOIDED. The endpoint
+is also a public URL, so it will see forged calls.
+
+**Decision.** Read exactly ONE field out of the notification — the purchase token — and then ask
+Google what is true about it. Never treat the body as a fact about a purchase.
+
+**Why this and not the alternative.** The obvious design stores every `messageId` and every
+`eventTimeMillis` to dedupe and to reject stale events. That is a second source of truth about
+payments, it needs its own collection, its own retention policy, and its own correctness argument —
+and it still cannot answer "is this purchase valid *now*". Re-deriving state from Google makes all
+four hard cases disappear at once: a duplicate re-fetches the same state and the grant is idempotent;
+an out-of-order PURCHASED re-fetches as voided and grants nothing; a forged notification can only
+name a token whose truth still comes from Google. Correctness comes from re-derivation, not from
+bookkeeping about deliveries. The Razorpay webhook has no event-id store for the same reason.
+
+**Consequences.** Every notification costs one androidpublisher call — acceptable at our volume, and
+the price of not maintaining a parallel ledger. HTTP status becomes a retry instruction: 200 handled
+or ignorable, 401 refused, 500 transient. Returning 200 on a transient failure would silently discard
+real money events, so every non-terminal path returns 500 and lets Pub/Sub redeliver.
+
+**A separate function, not a branch in the Razorpay webhook.** #11 of the 12 Vercel Hobby functions.
+The two authenticate differently — HMAC over a raw body versus a Pub/Sub push — and merging them
+means a discrimination bug can route a payload through the wrong verifier. GOVERNANCE's Infrastructure
+rule already forbids merging across auth boundaries. Authentication is a required shared secret (unset
+⇒ 500, never an open door) plus the Pub/Sub OIDC token once `PLAY_RTDN_AUDIENCE` is set — optional
+only because it cannot exist before the subscription does.
+
+**Reconciliation is the degraded mode, and it can only subtract.** `?action=play-reconcile` (0 new
+functions, CRON_SECRET-gated outside `withAuth`, daily) sweeps `provider=='play' && acknowledged==false`
+— the set that can lose money, because Google auto-refunds anything unacknowledged for three days.
+Still purchased ⇒ acknowledge; voided ⇒ revoke; pending ⇒ leave alone. **It never grants**, so a bug
+here cannot manufacture Premium; the worst outcome is a repair deferred to tomorrow's run. This
+honours the documented decision that if Pub/Sub is unavailable, WS6 degrades to reconcile-only with a
+≤24h refund lag.
+
+**ADR-143 extended to the callers.** The no-refund-window rule was ratcheted inside `revokePayment`,
+which sufficed while Razorpay's webhook was its only caller. Play adds two more, and a window check in
+either would ignore a day-40 Google refund just as effectively while leaving `revokePayment` provably
+clean. The ratchet now follows the callers — scoped so the user-facing refund REQUEST actions in the
+same file still gate on eligibility, which is exactly the ADR-143 distinction: eligibility gates
+requests, never execution.
+
+**Verification.** `play-rtdn.check.js` — 58 assertions covering duplicate, out-of-order in both
+directions, malformed, unauthorised, wrong package, unknown product, subscription and unknown
+notification types, Google 5xx/timeout/404, orphaned voids, and reconciliation after a missed RTDN.
+Ten mutations all bite. `entitlement-invariants` 78 → 83.
+
+**External status — stated separately and deliberately.** No Pub/Sub topic exists, no push
+subscription exists, and no notification from Google has ever reached this endpoint. The handler and
+the reconciler are exercised only against a controlled stub. **BLOCKED on Play Console + Pub/Sub.**
+
+---
+
+## ADR-145 — Google Play verification, with absence as a first-class state (v275) (2026-08-12)
+
+**Context.** WS4 left `play-provider.js` as a boundary that refused. WS5 makes Play a real way to pay.
+The complication is that the Play Console account does not exist yet and will not for some time, so
+the work had to be done *without* any of the values a Play Console produces.
+
+**Decision.** Treat "there is no Play configuration" as a first-class, fail-safe state rather than a
+hole to be filled with a plausible value. `playBillingService.isConfigured()` is the single authority,
+and every caller refuses on it: `verify-play` 503s, the RTDN endpoint 500s (so nothing is lost), the
+reconciler no-ops, and the client stays in reader mode. `PLAY_PACKAGE_NAME` is read from the
+environment and is unset, so today **no Play purchase can be granted by any path**.
+
+**Rejected: committing a plausible default package name.** It would have removed one configuration
+step and added a decision the owner had not made, baked into source, expensive to unwind after
+registration (a package name is immutable once published). Configuration is the right home for a value
+that only exists once someone chooses it.
+
+**Package-name spoofing is made un-askable rather than validated.** The package name is a PATH SEGMENT
+in the URL we build, never a field read from the client, so we can only ever ask Google about our own
+application. There is no client-supplied package to validate and therefore none to get wrong; a token
+minted for another app simply 404s. Structurally stronger than any check.
+
+**Play is a second way to PAY, never a second way to BE premium.** `activatePremium` remains the one
+grant for both providers, so replay protection, cross-account protection and refusal-after-refund come
+free from its existing transactional lock on `payments/{id}`. The document id is
+`gp_<sha256(purchaseToken)>` — the scheme `firestore.rules:339` already recorded, not invented here —
+which makes one token exactly one document forever, and therefore makes the hash the idempotency key.
+
+**Two asymmetries from the Razorpay path, both deliberate.**
+1. `verify-play` must NOT refuse an already-premium user. `create-order` refuses because no money has
+   moved yet; here it already has, through Google, and refusing would charge for nothing. No-shorten
+   stacking extends the existing term instead.
+2. No amount is sent to the grant. `purchases.products.get` does not report what was paid — Google is
+   the price authority for Play — so there is no capture evidence, and the catalog price is recorded
+   tagged `amountSource:'catalog'`. Honest, and it keeps the amount-mismatch alarm quiet on Play rows.
+
+**Acknowledgement is revenue-critical.** Google auto-refunds any purchase left unacknowledged for
+three days. It is therefore done after the grant, and its failure is recorded rather than fatal — the
+user has already paid and already has access — with `acknowledged:false` sweeping into reconciliation.
+
+**`payments/{id}` gains `provider`.** This touches ADR-141/WS2 certified code and is recorded as an
+extension rather than slipped in. The default `'razorpay'` is a FACT about history, not a guess: no
+other provider existed to write a row. Contrast `capturedAtSource:'unknown'`, where absence is
+genuinely unknowable and must never be filled in. `api/payment.js` already read this field and
+defaulted it — the seam was left correctly at ADR-143.
+
+**Client readiness is a conjunction.** `isReady()` starts false and is only set by `prepare()`, which
+requires BOTH the Digital Goods catalogue AND the server's `play-config`. Either alone takes money for
+nothing: catalogue-only means Google charges and our server refuses to verify; server-only means the
+device cannot actually buy. Both are false today, so no purchase control renders anywhere.
+
+**Dependency.** `google-auth-library` declared explicitly — firebase-admin already pulls it in, so the
+cost is zero, and hand-rolling RS256 JWT signing in a money path is what a library exists to prevent.
+Rejected `googleapis`: ~50 MB bundling every Google API, paid on every payment cold start.
+
+**Verification.** `play-billing.check.js` — 85 assertions covering pending, completed,
+already-processed, invalid, wrong product, wrong user, duplicate token, the same token across two
+accounts, concurrent, refunded, Google 5xx/timeout/401, malformed response, acknowledge failure,
+unknown `purchaseState`, and the unconfigured state. Fourteen mutations all bite. `payment-facade`
+56 → 65 for the client conjunction. The 32-permutation WS4 fail-safe matrix re-ran unchanged.
+
+**External status — stated separately and deliberately.** Nothing here has ever run against the real
+Google Play Store; every test drives a controlled stub. **BLOCKED on a Play Console account.**
+
+---
+
 ## ADR-144 — The provider-neutral payment facade (v274) (2026-08-08)
 
 **Context.** Phase-4 **WS4**. WS1 established platform truth but nothing branched on it: a Play/TWA

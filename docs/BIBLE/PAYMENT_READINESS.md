@@ -1,7 +1,12 @@
 # QuantReflex — Google Play Billing Readiness Register (ADR-139 → ADR-140)
 
 **Status:** Implementation gate passed — **READY FOR IMPLEMENTATION** (see §A1).
-**No Play Billing code has been written.**
+**Play Billing code status (updated 2026-08-12):** WS1–WS6 are shipped as **code + automated tests**.
+This line originally read *"No Play Billing code has been written"*, which stopped being true at
+ADR-142 and was corrected by the WS5 audit. **No Google Play integration is live:** there is no Play
+Console application, no service account, no managed products and no Pub/Sub topic, so nothing here has
+ever run against the real store. Every Play path refuses while `PLAY_PACKAGE_NAME` is unset. See
+[PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
 **Architectural source of truth:** the Phase 4 blueprint in `QuantReflex-Stabilization-Plan.md`
 (§1–§21). This register does not restate it; it certifies the foundation the blueprint assumes and
 lists what would obstruct an integrator starting WS1.

@@ -9,11 +9,11 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.177 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.78 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.34 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.11 | Razorpay flows, plan config, entitlement grant logic. |
+| **Bible Version** | 2.179 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.80 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
+| **Payment Version** | 2.13 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.177 (2026-08-08)** — **Provider-neutral payment facade (ADR-144, WS4).** WS1 established
 > platform truth but nothing branched on it — a Play/TWA build would have offered Razorpay, the one
@@ -26,9 +26,32 @@ Every governed change updates the relevant version number here and records a mig
 > reachable billing service is necessary but not sufficient while no server verification exists to
 > grant against). Play/TWA renders the value proposition with no purchase control, no external route,
 > and Restore intact. Entitlement, refund and ledger behaviour are untouched. Architecture 2.77→2.78,
+> **2.179 (2026-08-12)** — **WS6: RTDN + reconciliation (ADR-146).** `api/payment/play-rtdn.js`
+> (serverless function #11 of 12) plus `?action=play-reconcile`. The notification body is a HINT: only
+> the purchase token is read from it, and Google is then asked what is true — which makes duplicate,
+> out-of-order, replayed and forged notifications correct by construction rather than by keeping a
+> delivery ledger. HTTP status is a retry instruction (200 handled, 401 refused, 500 transient), so a
+> transient failure is never acked away. Voided purchases revoke with NO eligibility check of any kind
+> (ADR-143), and the no-window ratchet now follows the CALLERS of revocation, not just `revokePayment`.
+> Reconciliation is the documented degraded mode and can only acknowledge or revoke — it never grants.
+> New `[provider, acknowledged]` index. Architecture 2.79→2.80, Firestore 2.34→2.35, Security
+> 2.20→2.21, Payment 2.12→2.13. `play-rtdn.check` 58 assertions; ten mutation runs; 59 suites green.
+> **External: no Pub/Sub topic and no live notification has ever arrived — BLOCKED on Play Console.**
+
+> **2.178 (2026-08-12)** — **WS5: server-side Google Play verification (ADR-145).** New
+> `services/playBillingService.js` plus `?action=verify-play` and `?action=play-config` on the existing
+> payment function (0 new functions). Absence of Play configuration is a first-class fail-safe state,
+> not a hole filled with a placeholder: no package name, service account, fingerprint or Play price
+> exists in the repository, and while `PLAY_PACKAGE_NAME` is unset every Play path refuses. The package
+> name cannot be spoofed because it is a path segment we build, never a client field. `payments/{id}`
+> gains `provider` (defaulting to 'razorpay', a fact about history rather than a guess) and
+> `acknowledged`. Client `isReady()` requires the Digital Goods catalogue AND the server's consent.
+> Architecture 2.78→2.79, Payment 2.11→2.12. `play-billing.check` 85 assertions; fourteen mutation
+> runs; 57 suites green. **External: nothing has ever run against the real store — BLOCKED.**
+
 > Payment 2.10→2.11. `payment-facade.check` 44 assertions; seven mutation runs; 56 suites green.
 > Certification (2026-08-08) raised it to 56 assertions and corrected the suite count, which this
-> line originally recorded as 54.
+> line originally recorded as 54. WS5 later raised it again to 65 (ADR-145).
 
 > **2.176 (2026-08-04)** — **24-hour refund policy + manual refund workflow (ADR-143).** A canonical
 > business rule: a user may REQUEST a refund only within 24 hours of gateway capture, identically for

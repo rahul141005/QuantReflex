@@ -261,5 +261,29 @@ capped result set per entity.
 
 Signature verification, webhook HMAC, idempotency, and order→caller binding are documented in [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md). Security-relevant rule: **premium is only ever granted by Admin SDK after server-side verification.**
 
+### 8.1 Google Play RTDN — a third auth boundary (ADR-146)
+
+`POST /api/payment/play-rtdn` is a **public URL** that can revoke entitlements, so it is authenticated
+independently of every other endpoint and kept as its own serverless function.
+
+- **Shared secret** in the push endpoint's query string, compared with `timingSafeEqual`. **An unset
+  `PLAY_RTDN_SECRET` returns 500 — never an open door.** Same stance as `RAZORPAY_WEBHOOK_SECRET`.
+- **Pub/Sub OIDC bearer token**, verified against Google's keys once `PLAY_RTDN_AUDIENCE` is set.
+  Optional only because it cannot exist before the Pub/Sub subscription does; enforced once set. A
+  key-server outage returns 500 (retry), never a silent accept.
+
+**Not merged into the Razorpay webhook, deliberately.** That endpoint authenticates an HMAC over a raw
+body; this one authenticates a push. Merging them lets a discrimination bug route a payload through
+the wrong verifier, and "which secret validated this?" stops having one answer — which is what
+GOVERNANCE's Infrastructure rule against merging auth boundaries exists to prevent.
+
+**The payload is never evidence.** Only the purchase token is read from a notification; the server then
+asks Google directly. A forged notification can therefore only name a token whose truth still comes
+from Google — it cannot assert a purchase, a price, a product or a user.
+
+`?action=play-reconcile` is gated on `CRON_SECRET` **outside** the `withAuth` wrapper, so the cron and
+user auth boundaries stay separate rather than one being widened to admit the other. It can only
+acknowledge or revoke — **it never grants** — so a compromise there cannot manufacture Premium.
+
 ## 9. Change Log Pointer
 Security-affecting changes are dated in [CHANGELOG.md](CHANGELOG.md) with the finding ID and file:line.

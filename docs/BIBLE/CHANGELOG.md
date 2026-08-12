@@ -6,6 +6,56 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-12 — Google Play: WS5 verification, WS6 RTDN + reconciliation, WS7 preparation
+
+Two statuses, kept separate throughout, because they mean different things:
+**CODE + AUTOMATED TESTS — complete.** **EXTERNAL INTEGRATION — not live, and never tested against
+the real store.** No Play Console application, service account, managed product or Pub/Sub topic
+exists. Blocked on a $25 developer registration, not on code. See
+[PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
+
+**Absence of Play configuration is a first-class fail-safe state, not a hole filled with a
+placeholder.** `playBillingService.isConfigured()` is the single authority and every caller refuses on
+it. `PLAY_PACKAGE_NAME` is unset, so **no Play purchase can be granted by any path** today. Nothing —
+no package name, service account, fingerprint, assetlinks file or Play price — has been fabricated,
+and `assetlinks.check.js` fails on placeholder values so none can be added later by accident.
+
+- **WS5 (ADR-145)** — `services/playBillingService.js`, `?action=verify-play`, `?action=play-config`.
+  Zero new serverless functions. The package name is a path segment we build, never a client field, so
+  spoofing is un-askable rather than validated. No amount reaches the grant (Google is the price
+  authority and does not report what was paid), so the catalog price is recorded and labelled.
+  `verify-play` deliberately does NOT refuse an already-premium user — the money has already moved.
+- **WS6 (ADR-146)** — `api/payment/play-rtdn.js` (function #11 of 12) and `?action=play-reconcile`.
+  The notification body is a HINT: only the purchase token is read from it, and Google is then asked
+  what is true — which makes duplicate, out-of-order, replayed and forged notifications correct by
+  construction instead of by keeping a delivery ledger. HTTP status is a retry instruction, so a
+  transient failure is never acked away. Voided purchases revoke with **no eligibility check of any
+  kind** (ADR-143). Reconciliation is the documented degraded mode and **never grants**.
+- **WS7 preparation** — `/.well-known/` is now excluded from the SPA rewrite (it was being swallowed
+  and would have returned index.html to Chrome's verifier). New `assetlinks.check.js` proves the
+  exclusion by executing the rewrite regex, and refuses a fingerprint that is malformed, all-zero,
+  filler, placeholder text, or mismatched against `PLAY_PACKAGE_NAME`. **No assetlinks.json is
+  created** — it cannot exist before Play App Signing does, and a fake one verifies against nothing
+  while silently degrading the TWA to a browser tab.
+- **`payments/{id}` gains `provider`, `acknowledged`, `productId`, `purchaseToken`** — additive, zero
+  migration. Touches ADR-141/WS2 certified code and is recorded as an extension rather than slipped
+  in. `provider` defaulting to `'razorpay'` is a fact about history, not a guess.
+- **ADR-143's no-refund-window ratchet now follows the CALLERS of revocation**, not just
+  `revokePayment` — a window check in the RTDN handler or the reconciler would ignore a day-40 Google
+  refund just as effectively while leaving `revokePayment` provably clean.
+- **`APP_VERSION` v270 → v275**, three sites in lockstep. It had not moved across ADR-141→146.
+- npm test 0 failed (**59 suites**) · new `play-billing.check` 85, `play-rtdn.check` 58,
+  `assetlinks.check` 7 · `payment-facade` 56→65 · `entitlement-invariants` 78→83 · **24 mutations, all
+  biting.** The 32-permutation WS4 fail-safe matrix re-ran unchanged: Play/TWA still cannot reach
+  Razorpay in any permutation, and web/PWA can still purchase.
+- **Two tests found passing for the wrong reason and fixed.** `play-billing`'s assertions read fields
+  off possibly-absent documents, so a failed precondition threw and *aborted the run* — hiding that
+  the idempotency-lock mutation breaks four assertions, not one. `play-rtdn`'s T19 asserted the sweep
+  ignores Razorpay rows, but those rows carry no `acknowledged` field at all, so the field filter
+  alone excluded them and deleting the provider filter changed nothing.
+
+---
+
 ## 2026-08-08 — WS4 certification repairs (ADR-144)
 
 A hostile post-implementation audit of WS4, run against the repository rather than against the

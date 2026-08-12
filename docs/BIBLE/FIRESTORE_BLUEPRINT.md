@@ -208,6 +208,23 @@ completedAt, createdAt }`.
 
 **ADR-143 additions:** `capturedAtMs` + `capturedAtSource` record the **gateway** capture time — the only origin the 24-hour refund window may use (never `claimedAt`, which is our grant time and can be days later for a completed `'pending'` row). A correction may only ever move `capturedAtMs` **earlier**. On revocation the row also gains `refundedAtMs`, `refundWithinPolicy` and `refundAgeMs` — annotations for audit and finance, never gates.
 
+**ADR-145/146 additions (Google Play, WS5/WS6) — all additive, zero migration:**
+`provider` (`'razorpay'` | `'play'`) — which provider took the money. **Absent on rows written before
+WS5, and absent safely reads as `'razorpay'`**, because no other provider existed to write one. This
+is a fact about history, not a guess — contrast `capturedAtSource:'unknown'`, where absence is
+genuinely unknowable and must never be filled in. Read by the refund-request builder (which expected
+this field and defaulted it since ADR-143), the Super Admin review queue, and reconciliation: an
+approved refund cannot be *executed* without knowing where to execute it.
+`acknowledged` (bool, Play only) — Google **auto-refunds any purchase left unacknowledged for three
+days**, so a failed acknowledgement is a revenue leak with a deadline. `false` is the sweep set for
+`?action=play-reconcile`, hence the new composite index `payments [provider, acknowledged]`.
+`productId` + `purchaseToken` (Play only) — reconciliation must be able to re-ask Google about a
+purchase, and the document id is only the token's **sha256**, which is one-way. Disclosure is bounded:
+`payments` is server-write-only and owner-read-only, so the only reader is the person Google issued the
+token to.
+Play document ids are `gp_<sha256(purchaseToken)>` — one token is one document forever, which makes
+the hash the idempotency key and gives replay/cross-account protection with no new code.
+
 ### `refundRequests/{requestId}`
 `{uid, paymentId, provider, orderId, plan, amountPaise, currency, capturedAtMs, capturedAtSource, eligibilityAtRequest{state,windowEndsAtMs,msRemaining}, needsManualEligibilityReview, reason, status, createdAtMs, reviewedBy, reviewedByEmail, reviewedAtMs, decisionNote, providerRefundId, providerConfirmedAtMs, outOfBand, history[]}` — **the provider-neutral refund request record** (ADR-143). Written only by `main-app/services/refundRequests.js` and `super-admin-app/api/admin/refunds.js`.
 

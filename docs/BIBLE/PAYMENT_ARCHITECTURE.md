@@ -1,9 +1,13 @@
 # QuantReflex Payment Architecture
 
-**Doc Version:** 2.3 · **Payment Version:** 2.11 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 2.4 · **Payment Version:** 2.13 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for payments, plans, entitlement grants, and idempotency.
-**Gateway:** Razorpay (one-time Orders API — no subscriptions/auto-renewal).
-**Last updated:** 2026-08-08
+**Gateways:** Razorpay (web/PWA — one-time Orders API, no subscriptions/auto-renewal) · Google Play
+Billing (Play/TWA — one-time managed products; **code-complete, NOT live**, see below).
+**Last updated:** 2026-08-12
+> *Header corrected 2026-08-12: it had declared Payment Version 2.4 and "Last updated 2026-06-24"
+> while carrying ADR-141/143/144 content. A stale version header invites a reader to trust a stale
+> body.*
 **Change control:** Any change to payment flow, plan config, entitlement grant logic, or
 signature/idempotency handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document +
 [CHANGELOG.md](CHANGELOG.md), and bumps the Payment Version in [VERSIONS.md](VERSIONS.md).
@@ -81,6 +85,79 @@ Client (paywall.js → QRPayments → razorpay-provider.js)
         5. claimsService.setEntitlementClaims(uid, { premium: true })
    └─ client force-refreshes ID token; FirestoreSync.activatePremium updates the local cache (display only)
 ```
+
+## 3b. Google Play purchase flow (ADR-145/146, WS5/WS6) — **CODE-COMPLETE, NOT LIVE**
+
+> **Two statuses, deliberately separate.**
+> **Code + automated tests:** complete — 143 assertions across `play-billing.check.js` and
+> `play-rtdn.check.js`, every guard mutation-proved.
+> **External integration:** **NOT LIVE.** There is no Play Console application, no service account, no
+> managed products and no Pub/Sub topic. Nothing below has ever run against the real Google Play
+> Store. See [PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
+
+**Absence of configuration is a first-class state.** `playBillingService.isConfigured()` is the single
+authority, and every caller refuses on it. `PLAY_PACKAGE_NAME` is unset today, so **no Play purchase
+can be granted by any path** — `verify-play` 503s, the RTDN endpoint 500s (so Pub/Sub retries rather
+than losing a notification), reconciliation no-ops, and the client shows Premium's value with no
+purchase control. No package name, service account, fingerprint or Play price exists in this repository.
+
+```
+Client (paywall.js → QRPayments → play-provider.js)
+  prepare()   requires BOTH: QRPlatform.canUsePlayBilling(SKUS)  AND  ?action=play-config enabled
+              (either alone takes money for nothing — see ADR-145)
+   └─ Digital Goods + PaymentRequest → Google's sheet → purchaseToken
+   └─ POST /api/payment?action=verify-play { productId, purchaseToken }      (withAuth)
+        1. paymentKillSwitch → config/playBilling → isConfigured()   (three independent refusals)
+        2. productId ∈ server allowlist                → else 400 PLAN_MISMATCH
+        3. playBillingService.getProductPurchase(...)  → GOOGLE is the authority
+           · 5xx / timeout / 401 → 503 RETRYABLE, never an optimistic grant
+        4. purchaseState: 2 pending → reserve a 'pending' row, grant NOTHING
+                          1 cancelled / unrecognised → 409, grant NOTHING
+                          0 purchased → continue
+        5. aiService.activatePremium(uid, plan, gp_<sha256(token)>, orderId,
+                                     { provider:'play', capturedAtMs: purchaseTimeMillis })
+        6. acknowledge AFTER the grant (Google auto-refunds unacknowledged purchases for three days)
+```
+
+**Why the package name cannot be spoofed.** It is a PATH SEGMENT in the URL we build, never a field
+read from the client, so we can only ever ask Google about our own application. A token minted for a
+different app 404s. There is no client-supplied package to validate and therefore none to get wrong.
+
+**No amount is sent to the grant.** `purchases.products.get` does not report what was paid — Google is
+the price authority for Play — so the catalog price is recorded tagged `amountSource:'catalog'`, which
+is honest and keeps the amount-mismatch alarm quiet on Play rows.
+
+**Document id.** `gp_<sha256(purchaseToken)>` (the scheme `firestore.rules` already recorded). One
+token is one document forever, so the hash IS the idempotency key: replay, cross-account reuse and
+refusal-after-refund all come from `activatePremium`'s existing transactional lock, not from new code.
+
+### RTDN — `POST /api/payment/play-rtdn` (function #11 of 12)
+
+**The notification body is a HINT, never evidence.** Only the purchase token is read from it; Google is
+then asked what is true. That single decision makes the hard cases correct by construction rather than
+by bookkeeping: a duplicate re-fetches the same state and the grant is idempotent; an out-of-order
+PURCHASED re-fetches as voided and grants nothing; a forged notification can only name a token whose
+truth still comes from Google. There is therefore no message-id ledger and no ordering buffer.
+
+| Notification | Effect |
+|---|---|
+| `oneTimeProductNotification` type 1 (PURCHASED) | Re-fetch → grant. No known uid → `paymentOrphans`, 200. |
+| `oneTimeProductNotification` type 2 (CANCELLED) | No-op. Nothing was granted; a reserved `pending` row is harmless. |
+| `voidedPurchaseNotification` | `revokePayment` **with NO eligibility check of any kind** (ADR-143), then `refundRequests.markRefunded`. |
+| `testNotification` | 200, no action. This is how the topic is verified. |
+| `subscriptionNotification` / unknown | 200 ignored. We sell one-time products only. |
+
+**HTTP status is a retry instruction:** 200 handled-or-ignorable · 401 refused · 500 transient.
+Returning 200 on a transient failure would silently discard real money events, so every non-terminal
+path returns 500 and lets Pub/Sub redeliver. Auth is a required shared secret (unset ⇒ 500, never an
+open door) plus the Pub/Sub OIDC token once `PLAY_RTDN_AUDIENCE` is set.
+
+### Reconciliation — `?action=play-reconcile` (0 new functions, daily, CRON_SECRET)
+
+The documented degraded mode: if Pub/Sub is unavailable, WS6 falls back to reconcile-only with a ≤24h
+refund lag. Sweeps `provider=='play' && acknowledged==false` — the set that can lose money, since
+Google auto-refunds anything unacknowledged for three days. Still purchased ⇒ acknowledge; voided ⇒
+revoke; pending ⇒ leave alone. **It never grants**, so a bug here cannot manufacture Premium.
 
 ## 4. Webhook (safety net) — `POST /api/payment/webhook`
 
