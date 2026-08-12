@@ -89,7 +89,7 @@ block reads `allow read` only. Everything else in this register can wait; this c
 
 ## A3 · Governance gap that caused the documentation drift · **Medium**
 
-Commit `b4481a0` (2026-07-22) lowered prices ₹349/₹499 → ₹299/₹399 across all four code sites and the
+Commit `b4481a0` (2026-07-22) lowered prices from the previously-shipped ₹349/₹499 to ₹299/₹399 across all four code sites and the
 three locales — but shipped with **no ADR, no CHANGELOG entry and no Payment Version bump**, which
 `PAYMENT_ARCHITECTURE.md`'s own change-control clause requires for any plan-config change. With no ADR
 to propagate, four current-state docs kept quoting the old price for ~2 weeks:
@@ -149,7 +149,7 @@ asserts "same token can never grant twice". That claim was false while the doc w
 
 ### 🔴 P0-2 · Blueprint would create Play products at the WRONG PRICE · *documentation*
 
-§2.1, §4, §16 and the ops **Prerequisites** all say ₹349/₹499. Shipped code sells **₹299/₹399**
+§2.1, §4, §16 and the ops **Prerequisites** of the external blueprint all say ₹349/₹499. Shipped code sells **₹299/₹399**
 (`services/paymentService.js:21-22`; `shared/constants/entitlements.js:65-66`). The Prerequisites line
 is an instruction a human executes in Play Console *before any code runs*; following it makes the TWA
 charge ₹50–₹100 more than web for the same product, breaking §14's "same price for product coherence".

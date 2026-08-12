@@ -15,8 +15,9 @@
 const fs = require('fs');
 const path = require('path');
 
+const REPO = path.join(__dirname, '..', '..');
 const R = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
-const RR = (p) => fs.readFileSync(path.join(__dirname, '..', '..', p), 'utf8');
+const RR = (p) => fs.readFileSync(path.join(REPO, p), 'utf8');
 
 let pass = 0, fail = 0;
 function ok(name, cond, detail) {
@@ -93,25 +94,65 @@ if (ps6 && ps12 && aiPrice && pw6 && pw12 && sh6 && sh12) {
    history and MUST keep their period-accurate prices — scanning them would force falsifying the record.
    Lines carrying an explicit ADR-139 correction note are exempt: they quote the old value to explain it. */
 {
+  const retired = /₹(349|499|599|89)\b/;
+  const exempt = /ADR-139|correction|previously|predated|historical|blueprint|launch price|v1 had/i;
+
+  function scan(rel) {
+    const p = path.join(__dirname, '..', '..', rel);
+    const out = [];
+    if (!fs.existsSync(p)) return out;
+    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+      if (retired.test(line) && !exempt.test(line)) out.push(rel + ':' + (i + 1));
+    });
+    return out;
+  }
+
+  /* (a) The named docs. Kept explicit so these five can never quietly drop off the list. */
   const CURRENT_STATE_DOCS = [
     'docs/BIBLE/TECHNICAL_BIBLE.md',
     'docs/BIBLE/PRODUCT_AUDIT.md',
     'docs/BIBLE/PAYMENT_ARCHITECTURE.md',
     'docs/BIBLE/FIRESTORE_BLUEPRINT.md',
-    'docs/ENTITLEMENT_SYSTEM.md'
+    'docs/ENTITLEMENT_SYSTEM.md',
+    /* Added by the WS5 audit. This file says of itself "It maps the exact current state", and it
+       priced Premium at ₹349/₹499 for weeks — invisible to this check because the list was opt-in.
+       A human doing the Play Console product setup from it would have created the 12-month product
+       at ₹499, and Play prices are painful to correct after launch. */
+    'super-admin-app/ARCHITECTURE_MASTER_GUIDE.md'
   ];
-  const retired = /₹(349|499|599|89)\b/;
-  const exempt = /ADR-139|correction|previously|predated|historical|blueprint|launch price|v1 had/i;
-  const offenders = [];
-  for (const rel of CURRENT_STATE_DOCS) {
-    const p = path.join(__dirname, '..', '..', rel);
-    if (!fs.existsSync(p)) continue;
-    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
-      if (retired.test(line) && !exempt.test(line)) offenders.push(rel + ':' + (i + 1));
-    });
-  }
-  ok('current-state docs quote no retired price point',
-    offenders.length === 0, offenders.join(', '));
+  const named = CURRENT_STATE_DOCS.reduce((a, rel) => a.concat(scan(rel)), []);
+  ok('current-state docs quote no retired price point', named.length === 0, named.join(', '));
+
+  /* (b) ★ THE CLASS, not the instance. An opt-in list only catches docs somebody remembered to add,
+     which is precisely how the file above escaped for weeks. So the default is inverted: EVERY
+     markdown file in the repo is scanned unless it is on the history-exemption list below, and each
+     exemption states why that file is allowed to quote a retired price. Adding a new doc with stale
+     pricing now fails by default instead of passing by omission. */
+  const HISTORY_EXEMPT = [
+    'docs/BIBLE/DECISION_LOG.md',      // append-only ADR record — period-accurate by obligation
+    'docs/BIBLE/CHANGELOG.md',         // append-only
+    'docs/BIBLE/VERSIONS.md',          // append-only
+    'AUDIT-REPORT.md',                 // dated v1-era audit; superseded wholesale
+    'AUDIT-REPORT-QUANAI.md',          // dated audit
+    'AUDIT-REPORT-PRODUCT-UX.md',      // dated UX audit; quotes the then-live ₹349 as an observation
+    'firestore/migrations'             // one-time migration scripts, historical by definition
+  ];
+  const mdFiles = [];
+  (function walkMd(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const e of entries) {
+      if (e.name === 'node_modules' || e.name === '.git') continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walkMd(full);
+      else if (e.name.endsWith('.md')) mdFiles.push(path.relative(REPO, full).split(path.sep).join('/'));
+    }
+  })(REPO);
+  const unlisted = mdFiles
+    .filter(rel => !HISTORY_EXEMPT.some(ex => rel === ex || rel.startsWith(ex + '/')))
+    .reduce((a, rel) => a.concat(scan(rel)), []);
+  ok('★ no markdown file outside the documented history exemptions quotes a retired price',
+    unlisted.length === 0, unlisted.join(', '));
 }
 
 /* ---- ADR-143: exactly ONE refund policy is stated anywhere -------------------------------------

@@ -16,7 +16,7 @@ QuantReflex is a premium, mobile-first educational SaaS PWA focused on mental ma
 
 **Product & Monetization Philosophy (v2):**
 - **Free Tier:** Strictly capped at a 20-question daily limit to encourage conversion. 5 lifetime AI explanation credits.
-- **Premium Tier (₹349/6mo, ₹499/12mo):** One paid tier that includes everything — unlimited practice, all modes, the full AI suite (explanations, coach, study plans, word problems), Math Duel, and deeper analytics. Admins can also grant custom-duration trials.
+- **Premium Tier (₹299/6mo, ₹399/12mo):** One paid tier that includes everything — unlimited practice, all modes, the full AI suite (explanations, coach, study plans, word problems), Math Duel, and deeper analytics. Admins can also grant custom-duration trials.
 
 > Canonical entitlement model: [`docs/BIBLE/PAYMENT_ARCHITECTURE.md`](../docs/BIBLE/PAYMENT_ARCHITECTURE.md). Access resolves through `users/{uid}.plan` (`'free'|'premium'`).
 

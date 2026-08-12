@@ -1,9 +1,9 @@
 # QuantReflex Payment Architecture
 
-**Doc Version:** 2.3 · **Payment Version:** 2.4 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 2.3 · **Payment Version:** 2.11 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for payments, plans, entitlement grants, and idempotency.
 **Gateway:** Razorpay (one-time Orders API — no subscriptions/auto-renewal).
-**Last updated:** 2026-06-24
+**Last updated:** 2026-08-08
 **Change control:** Any change to payment flow, plan config, entitlement grant logic, or
 signature/idempotency handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document +
 [CHANGELOG.md](CHANGELOG.md), and bumps the Payment Version in [VERSIONS.md](VERSIONS.md).
