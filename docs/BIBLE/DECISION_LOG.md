@@ -8,6 +8,38 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-150 — The Firebase SDK is self-hosted, not loaded from a CDN (v278) (2026-08-12)
+
+- **Context:** `index.html` loaded the four Firebase compat bundles from `www.gstatic.com`. QuantReflex
+  cannot start without them — `js/firebase.js` calls `firebase.initializeApp()` and every
+  authenticated path depends on it — so a cold boot depended on a third-party CDN being reachable.
+  Confirmed by execution, not inferred: a headless boot with the CDN unreachable produced exactly four
+  `RESOURCE_FAIL` entries and `[AuthGate] Firebase unavailable.` The app degraded cleanly, which is to
+  its credit, but it did not function.
+  CDN blocking is routine on the school and coaching-centre networks this product targets, so the
+  affected population is not hypothetical — and the failure is total for them while being invisible on
+  every developer machine.
+
+- **Decision:** vendor the pinned 10.12.2 bundles into `main-app/vendor/firebase/` (552KB, unmodified)
+  and serve them from our own origin. They are added to the service-worker `ASSETS` precache, so an
+  installed PWA or TWA now boots offline as well. The fetch handler deliberately KEEPS its gstatic
+  runtime-caching prefix: it costs nothing and keeps a browser still holding a stale cached shell
+  working through the changeover.
+
+- **Verified:** the same headless boot after the change reports zero errors, `typeof firebase ===
+  'object'`, `firebase.apps` present, and all core modules initialised — a direct before/after on the
+  failure that motivated the change.
+
+- **Consequence:** `scripts/firebase-selfhost.check.js` (62 suites) ratchets the whole arrangement:
+  the bundles exist and are real UMD payloads rather than truncated downloads or error pages,
+  `app-compat` loads BEFORE the three bundles that depend on it, all four are precached, and no
+  shipped file reaches for the CDN again. Mutation-proved — reintroducing one gstatic tag fails four
+  assertions; dropping one bundle from the precache fails its own. `APP_VERSION` bumped to v278 so
+  existing caches rebuild.
+
+- **Not decided here:** upgrading the SDK. Doing so means re-downloading all four at the same version
+  and updating `vendor/firebase/README.md`; mixing versions across bundles is unsupported by Firebase.
+
 ## ADR-149 — The final production audit: nine money-path defects, and the legal pages Play requires (v277) (2026-08-12)
 
 - **Context:** A full-repository audit treating every prior certification claim — including this

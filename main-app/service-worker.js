@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v277';
+const APP_VERSION = 'v278';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -11,6 +11,12 @@ var ASSETS = [
   './',
   './index.html',
   './css/style.css',
+  /* ADR-150: the self-hosted Firebase SDK. These MUST be precached — the app cannot boot without them,
+     and the whole point of vendoring them was to stop a cold boot depending on a third-party CDN. */
+  './vendor/firebase/firebase-app-compat.js',
+  './vendor/firebase/firebase-auth-compat.js',
+  './vendor/firebase/firebase-firestore-compat.js',
+  './vendor/firebase/firebase-messaging-compat.js',
   './js/state/storage-registry.js',
   './js/state/store.js',
   /* Localization (ADR-111): core + all three UI catalogs precached so every language works offline;
@@ -287,6 +293,9 @@ self.addEventListener('fetch', function (event) {
         /* Update cache on successful fetch for assets and Firebase CDN */
         if (response.ok) {
           var urlBase = url.split('?')[0];
+          /* ADR-150: the gstatic prefix is retained deliberately. It costs nothing, and it keeps a
+             browser that still holds a cached index.html referencing the old CDN URLs working through
+             the changeover instead of failing to cache its SDK. */
           if (urlBase.startsWith('https://www.gstatic.com/firebasejs/') || isAppAsset) {
             var clone = response.clone();
             caches.open(CACHE_NAME).then(function (cache) {
