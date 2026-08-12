@@ -16,6 +16,8 @@ Set in: Vercel Dashboard → `quantreflex` project → Settings → Environment 
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | Firebase Admin SDK service account JSON (single line) |
 | `RAZORPAY_WEBHOOK_SECRET` | ✅ | Razorpay webhook HMAC secret |
 | `CRON_SECRET` | ✅ | Bearer secret for the Vercel cron endpoints |
+| `NOTIFY_INTERNAL_SECRET` | ✅ | Bearer secret for the internal `/api/notify` endpoint. **A real secret** — it is the only thing standing between the public internet and the push/inbox fan-out. Surfaced by the WS5/WS6 self-audit, which found it used in three apps and documented in none. |
+| `NODE_ENV` | ⬜ | Set by Vercel. Read only to widen the CORS allowlist to localhost in development. |
 | `PLAY_PACKAGE_NAME` | ⬜ | **Google Play (ADR-145).** The Android package name, e.g. the value chosen in `PLAY_CONSOLE_HANDOFF.md` step 2. **Unset today.** While unset, `isConfigured()` is false and every Play path refuses — no purchase can be granted. Setting it is what turns Play verification on. |
 | `PLAY_SERVICE_ACCOUNT` | ⬜ | **Google Play (ADR-145).** Optional. Service-account JSON for `androidpublisher`. Falls back to `FIREBASE_SERVICE_ACCOUNT`, which is the documented setup — that account's email is the one invited to Play Console. Only set this if the two ever need to differ. |
 | `PLAY_RTDN_SECRET` | ⬜ | **Google Play (ADR-146).** Shared secret in the Pub/Sub push endpoint's query string. **If unset the RTDN endpoint returns 500, never accepting a notification** — an unset secret is a closed door, not an open one. |
@@ -38,8 +40,15 @@ Set in: Vercel Dashboard → `quantreflex-admin` project → Settings → Enviro
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | Firebase Admin SDK service account JSON (same as main app) |
+| `CRON_SECRET` | ✅ | Bearer secret for the daily `/api/cron/sweep` |
+| `NOTIFY_INTERNAL_SECRET` | ✅ | Must match the main app's value — it authenticates admin→main notification fan-out |
+| `NOTIFY_ENDPOINT_URL` | ⬜ | Full URL of the main app's `/api/notify`. Falls back to `MAIN_APP_URL` + `/api/notify`. |
+| `MAIN_APP_URL` | ⬜ | Main app origin, used to derive the notify endpoint when the above is unset |
+| `OPENAI_ADMIN_KEY` | ⬜ | OpenAI **admin** key for org-level usage reporting in the AI Command Center. Read-only telemetry; absent = that panel is empty. |
 
 > The Admin App uses the same Firebase project, so the same service account works.
+> `CRON_SECRET` through `MAIN_APP_URL` were surfaced by the WS5/WS6 self-audit — used in code,
+> documented nowhere.
 
 ---
 
@@ -50,6 +59,18 @@ Set in: Vercel Dashboard → `quantreflex-coaching` project → Settings → Env
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | Firebase Admin SDK service account JSON |
+| `NOTIFY_INTERNAL_SECRET` | ✅ | Must match the main app's value — authenticates coaching→main notification fan-out |
+| `NOTIFY_ENDPOINT_URL` | ⬜ | Full URL of the main app's `/api/notify`. Falls back to `MAIN_APP_URL` + `/api/notify`. |
+| `MAIN_APP_URL` | ⬜ | Main app origin, used to derive the notify endpoint when the above is unset |
+
+---
+
+## Not deployment variables
+
+`LAYOUT_URL`, `LAYOUT_DIR`, `LAYOUT_LOCALES`, `LAYOUT_SCREENS`, `LAYOUT_THEMES`, `LAYOUT_VIEWPORTS`,
+`PX_SHOTS_DIR` and `AP_LOCALES` appear in `main-app/scripts/dev/*` only. They configure local
+px-diff/layout tooling and are **never read by deployed code**. Listed here so a future audit does not
+mistake them for missing production configuration.
 
 ---
 

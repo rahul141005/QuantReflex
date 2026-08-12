@@ -217,5 +217,26 @@ if (skuMap) {
   console.log('  note: PLAY_SKUS not yet defined (pre-WS5 state) — not enforced');
 }
 
+/* ---- the CLIENT's SKU list is a THIRD copy and must not drift ----------------------------------
+   Found by the WS5/WS6 self-audit: shared/constants and playBillingService were ratcheted against
+   each other, but `js/payments/play-provider.js` carries its own inline list (shared/ is outside the
+   deploy root, so a copy is unavoidable — an unchecked copy is not).
+
+   Drift here fails QUIETLY and in the fail-safe direction, which is exactly why it needs a ratchet:
+   the client would ask the Play catalogue about a product id that does not exist, canUsePlayBilling()
+   would answer sku_missing, and the app would drop to reader mode with no purchase control and no
+   error — a shop that silently stops selling. */
+if (skuMap) {
+  const ppSrc = R('js/payments/play-provider.js');
+  const clientSkus = ppSrc.match(/var SKUS = \[([^\]]+)\]/);
+  ok('play-provider.js declares its SKU list', !!clientSkus);
+  if (clientSkus) {
+    const ids = clientSkus[1].split(',').map(t => t.trim().replace(/^'|'$/g, ''));
+    ok('★ client SKU list == shared PLAY_SKUS (6m)', ids.indexOf(skuMap[1]) !== -1, ids.join(','));
+    ok('★ client SKU list == shared PLAY_SKUS (12m)', ids.indexOf(skuMap[2]) !== -1, ids.join(','));
+    ok('★ the client offers exactly the products the server allowlists — no more', ids.length === 2, ids.join(','));
+  }
+}
+
 console.log('payment-parity.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
