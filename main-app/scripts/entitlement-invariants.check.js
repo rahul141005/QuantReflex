@@ -246,6 +246,31 @@ ok('revokePayment DOES annotate the policy verdict (recorded, never enforced)',
 ok('an out-of-policy refund raises a securityEvent rather than being refused',
   /refund_out_of_policy/.test(aiSrc));
 
+/* ADR-146 (WS6): the same rule, extended to every CALLER of a revocation path.
+   Ratcheting only revokePayment was sufficient while Razorpay's webhook was the sole caller. Play
+   adds two more — the RTDN endpoint and the reconciliation sweep — and a window check placed in
+   EITHER would ignore a day-40 Google refund just as effectively as one placed inside revokePayment,
+   while leaving revokePayment itself provably clean. So the ratchet follows the callers.
+   Comments are stripped first: these files must be free to EXPLAIN the rule they obey. */
+['api/payment/play-rtdn.js', 'api/payment/webhook.js'].forEach(function (rel) {
+  var src = R(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok('★ ' + rel + ' never gates a revocation on refund eligibility',
+    !/refundPolicy\.eligibility\s*\(/.test(src) && !/REFUND_WINDOW/.test(src) && !/STATE_EXPIRED/.test(src));
+});
+/* Reconciliation lives inside the payment domain API; scope the check to its function body so the
+   user-facing refund-request actions in the same file — which SHOULD gate on eligibility — are not
+   caught by it. That distinction is the whole of ADR-143: eligibility gates REQUESTS, never EXECUTION. */
+(function () {
+  var payApi = R('api/payment.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  var m = payApi.match(/async function _playReconcile\([\s\S]*?\n\}\n/);
+  ok('_playReconcile is locatable for the refund-policy ratchet', !!m && m[0].length > 400);
+  var body = m ? m[0] : '';
+  ok('★★ Play reconciliation never gates a revocation on refund eligibility',
+    !/refundPolicy\./.test(body) && !/REFUND_WINDOW/.test(body) && !/STATE_EXPIRED/.test(body));
+  ok('★ Play reconciliation never grants — it may only acknowledge or revoke',
+    !/activatePremium\s*\(/.test(body));
+})();
+
 /* the window itself is declared exactly once in the repo */
 const policySrc = R('services/refundPolicy.js');
 ok('the 24-hour window is declared in services/refundPolicy.js',

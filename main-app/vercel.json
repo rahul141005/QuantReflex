@@ -1,32 +1,63 @@
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        }
       ]
     },
     {
       "source": "/service-worker.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
       ]
     }
   ],
   "functions": {
-    "api/ai.js": { "maxDuration": 60 },
-    "api/payment.js": { "maxDuration": 15 },
-    "api/payment/webhook.js": { "maxDuration": 15 },
-    "api/account.js": { "maxDuration": 30 },
-    "api/duel.js": { "maxDuration": 30 },
-    "api/report.js": { "maxDuration": 15 }
+    "api/ai.js": {
+      "maxDuration": 60
+    },
+    "api/payment.js": {
+      "maxDuration": 15
+    },
+    "api/payment/webhook.js": {
+      "maxDuration": 15
+    },
+    "api/account.js": {
+      "maxDuration": 30
+    },
+    "api/duel.js": {
+      "maxDuration": 30
+    },
+    "api/report.js": {
+      "maxDuration": 15
+    }
   },
   "crons": [
-    { "path": "/api/duel?action=cron-sweep", "schedule": "0 2 * * *" }
+    {
+      "path": "/api/duel?action=cron-sweep",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/payment?action=play-reconcile",
+      "schedule": "0 3 * * *"
+    }
   ],
   "cleanUrls": false
 }

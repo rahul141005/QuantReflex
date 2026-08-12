@@ -261,7 +261,7 @@ async function _verifyPlay(req, res) {
      the eventual RTDN can complete it against a known uid, and grant NOTHING. The reserved row
      carries no capture time, because there has been no capture. */
   if (purchase.state === 'pending') {
-    try { await _reservePendingPlayRow(paymentId, req.userId, planType, purchase); } catch (e) {
+    try { await _reservePendingPlayRow(paymentId, req.userId, planType, Object.assign({ productId: productId, purchaseToken: purchaseToken }, purchase)); } catch (e) {
       console.error('[PaymentFlow] PLAY_PENDING_RESERVE_FAILED | ' + e.message);
     }
     console.info('[PaymentFlow] PLAY_PENDING | uid: ' + req.userId + ' | plan: ' + planType);
@@ -320,7 +320,13 @@ async function _verifyPlay(req, res) {
   }
   try {
     await admin.firestore().collection('payments').doc(paymentId).set({
-      provider: 'play', productId: productId, acknowledged: acknowledged
+      provider: 'play', productId: productId, acknowledged: acknowledged,
+      /* The token is stored because reconciliation MUST be able to re-ask Google about this purchase,
+         and the doc id is only its sha256 — hashing is one-way. Without it a row whose acknowledgement
+         failed could never be repaired, and Google would auto-refund it after three days.
+         Disclosure is bounded: `payments` is server-write-only and owner-read-only (firestore.rules),
+         so the only person who can read this token is the person Google issued it to. */
+      purchaseToken: purchaseToken
     }, { merge: true });
   } catch (_) { /* the grant already happened; reconciliation will re-derive this */ }
 
@@ -338,6 +344,8 @@ async function _reservePendingPlayRow(paymentId, uid, planType, purchase) {
     if (doc.exists) return;
     tx.set(ref, {
       uid: uid, plan: planType, provider: 'play', status: 'pending',
+      productId: purchase.productId || null,
+      purchaseToken: purchase.purchaseToken || null,
       orderId: purchase.orderId || null,
       /* No capturedAtMs: nothing has been captured. `capturedAtSource:'unknown'` keeps ADR-143
          honest — if this row somehow reached a refund request, the policy routes it to human review
@@ -485,7 +493,100 @@ async function _refundCancel(req, res) {
   }
 }
 
-module.exports = withAuth(async function (req, res) {
+/* ── ?action=play-reconcile (ADR-146, WS6) ───────────────────────────────────────────────────────
+   THE DEGRADED MODE, and the safety net under RTDN.
+
+   RTDN is push-based, so anything that stops it — Pub/Sub unavailable on the billing plan, a
+   misconfigured topic, our endpoint down during a deploy — silently stops entitlement corrections.
+   PAYMENT_READINESS records the decision for that case: reconcile-only, with a ≤24h refund lag. This
+   is that reconciler, and it is NOT a second grant path.
+
+   It sweeps `payments` where provider == 'play' AND acknowledged == false, which is precisely the set
+   that can lose money: Google AUTO-REFUNDS any purchase left unacknowledged for three days. For each
+   row it re-asks Google and acts on the answer:
+     · still purchased → acknowledge (the retry that saves the sale)
+     · voided/refunded → revoke through the canonical path
+     · pending         → leave alone; nothing has been captured
+   It never grants an entitlement to a row that does not already have one, so a bug here cannot
+   manufacture Premium — the worst it can do is fail to fix something, which the next run retries. */
+var RECONCILE_PAGE = 50;
+
+async function _playReconcile(req, res) {
+  var secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(500).json({ error: { code: 'CRON_SECRET_MISSING', message: 'CRON_SECRET is not configured.' } });
+  var header = (req.headers && req.headers['authorization']) || '';
+  var provided = header.indexOf('Bearer ') === 0 ? header.substring(7) : header;
+  var a = String(provided || ''), b = String(secret);
+  var equal = a.length === b.length;
+  if (equal) { var diff = 0; for (var i = 0; i < a.length; i++) diff |= (a.charCodeAt(i) ^ b.charCodeAt(i)); equal = diff === 0; }
+  if (!equal) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
+
+  var result = { scanned: 0, acknowledged: 0, revoked: 0, pending: 0, failed: 0, skipped: 0 };
+
+  /* No Play configuration ⇒ nothing to reconcile against. A no-op, reported honestly, never an error
+     that would make a cron look broken when it is simply not applicable yet. */
+  if (!playBilling.isConfigured()) {
+    console.info('[PaymentFlow] PLAY_RECONCILE_SKIPPED | ' + playBilling.configState());
+    return res.json({ success: true, skipped: 'not_configured', result: result });
+  }
+
+  try {
+    var snap = await admin.firestore().collection('payments')
+      .where('provider', '==', 'play').where('acknowledged', '==', false).limit(RECONCILE_PAGE).get();
+
+    var rows = [];
+    snap.forEach(function (d) { rows.push({ id: d.id, data: d.data() || {} }); });
+    result.scanned = rows.length;
+
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var productId = row.data.productId || row.data.plan;
+      var token = row.data.purchaseToken;
+      /* The purchase token is what Google is asked about, and the doc id is only its HASH — hashing is
+         one-way, so a row that never stored the token cannot be reconciled. Recorded and skipped
+         rather than guessed at. */
+      if (!token || !playBilling.planTypeForProduct(productId)) { result.skipped++; continue; }
+
+      var purchase = null;
+      try {
+        purchase = await playBilling.getProductPurchase(productId, token);
+      } catch (e) {
+        result.failed++;                      /* transient or terminal — the next run retries */
+        continue;
+      }
+
+      if (purchase.state === 'pending') { result.pending++; continue; }
+
+      if (purchase.state !== 'purchased') {
+        /* Cancelled or voided while we were not listening — this is the missed-RTDN case. */
+        try {
+          if (row.data.uid && row.data.status === 'paid') {
+            await aiService.revokePayment(row.data.uid, row.id, { reason: 'play_reconcile_voided' });
+            result.revoked++;
+          }
+          await admin.firestore().collection('payments').doc(row.id).set({ acknowledged: true }, { merge: true });
+        } catch (e) { result.failed++; }
+        continue;
+      }
+
+      try {
+        if (!purchase.acknowledged) await playBilling.acknowledgeProductPurchase(productId, token);
+        await admin.firestore().collection('payments').doc(row.id).set({ acknowledged: true }, { merge: true });
+        result.acknowledged++;
+      } catch (e) { result.failed++; }
+    }
+
+    console.info('[PaymentFlow] PLAY_RECONCILE | ' + JSON.stringify(result));
+    /* Announce truncation rather than letting a full page read as "everything is fine". */
+    if (result.scanned === RECONCILE_PAGE) console.warn('[PaymentFlow] PLAY_RECONCILE_PAGE_FULL | more rows remain for the next run');
+    return res.json({ success: true, result: result, more: result.scanned === RECONCILE_PAGE });
+  } catch (err) {
+    console.error('[PaymentFlow] PLAY_RECONCILE_FAILED | ' + err.message);
+    return res.status(500).json({ error: { code: 'RECONCILE_FAILED', message: 'Reconciliation failed.' }, result: result });
+  }
+}
+
+var _authed = withAuth(async function (req, res) {
   if (methodGuard(req, res, 'POST')) return;
 
   var action = req.query.action || '';
@@ -498,3 +599,12 @@ module.exports = withAuth(async function (req, res) {
   if (action === 'verify-play') return _verifyPlay(req, res);
   return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown payment action: ' + action, retryable: false } });
 });
+
+/* `play-reconcile` is dispatched OUTSIDE withAuth because a cron has no user token — the same shape
+   `api/duel.js` uses for its sweep. It authenticates on CRON_SECRET instead, so the two auth
+   boundaries stay separate rather than one being weakened to admit the other. */
+module.exports = function (req, res) {
+  var action = (req.query && req.query.action) || '';
+  if (action === 'play-reconcile') return _playReconcile(req, res);
+  return _authed(req, res);
+};
