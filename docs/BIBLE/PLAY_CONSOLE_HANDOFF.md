@@ -1,33 +1,33 @@
 # Google Play setup — what you need to do, step by step
 
-**Status:** waiting on you. Nothing in this document can be done by code.
+**Status:** steps 1–3 are DONE. Next action is **step 4** (create the two products).
 **Last updated:** 2026-08-12
 
 ---
 
-## Read this first (2 minutes)
+## Where you actually are
 
-The Google Play half of QuantReflex payments is **built and tested**. What is missing is not code —
-it is a set of values that only Google can create, and only after you register a Play Console
-account. This document is the list of those values, what to click to get each one, and where it goes.
+**Already done — confirmed by you:**
 
-**Nothing is broken while you wait.** The app checks whether Play is configured before it does
-anything. Right now it isn't, so:
+- ✅ **Step 1** — Play Console developer account created and identity-verified.
+- ✅ **Step 2** — package name decided and **LOCKED**: `com.quantreflex.app`
+- ✅ **Step 3** — the QuantReflex app entry exists in Play Console.
 
-- Anyone using the website or the installed web app buys Premium through Razorpay exactly as today.
-- Nothing about existing customers, refunds or Premium access changes.
-- There is no Android app yet, so there is nobody to be affected.
+`com.quantreflex.app` is now built into QuantReflex as the canonical application id
+(`main-app/services/playBillingService.js`). You do **not** need to enter it anywhere — a check in the
+codebase refuses to let a second, different package name appear. It is immutable: Play binds an app to
+its package name permanently.
 
-**One rule, and it matters more than everything else here:** never invent or guess any value in this
-document. If you are not sure a value is right, stop and ask. A wrong fingerprint (step 7) does not
-show an error — it quietly turns the Android app into a web browser, which would put QuantReflex in
-breach of Google's payment policy and can get the app removed from the Play Store. That is the one
-mistake that cannot be undone. Leaving a value empty is always safe; guessing it is not.
+**Still to do:** steps 4 through 10 below.
 
-**How long this takes:** about 2–3 hours of clicking spread over a few days, because Google reviews
-the account (1–2 days) and reviews the app (a few days to two weeks for the first release).
+**Nothing is broken while you work through them.** Website and installed-app customers buy Premium
+through Razorpay exactly as before, and the Android app cannot take money until you switch it on in
+step 9.
 
-**What it costs:** $25, one time, forever. There is no renewal fee.
+**One rule that matters more than everything else here:** never invent or guess a value. If you are
+unsure, stop and ask. A wrong fingerprint (step 7) does not show an error — it quietly turns the
+Android app into a web browser, which would breach Google's payment policy and can get the app
+removed. Leaving a value empty is always safe; guessing it is not.
 
 ---
 
@@ -37,10 +37,10 @@ Do these in order. Each one needs the one before it.
 
 | # | Step | Where | How long |
 |---|---|---|---|
-| 1 | Create the Play Console account | Google | 15 min + 1–2 days waiting |
-| 2 | Decide the package name | Just a decision | 10 min |
-| 3 | Create the app entry | Play Console | 10 min |
-| 4 | Create the two products (₹299, ₹399) | Play Console | 15 min |
+| ~~1~~ | ~~Create the Play Console account~~ | — | ✅ **DONE** |
+| ~~2~~ | ~~Decide the package name~~ — locked to `com.quantreflex.app` | — | ✅ **DONE** |
+| ~~3~~ | ~~Create the app entry~~ | — | ✅ **DONE** |
+| **4** | **Create the two products (₹299, ₹399)** ← **START HERE** | Play Console | 15 min |
 | 5 | Turn on the Google API access | Google Cloud | 20 min |
 | 6 | Build and upload the Android app | A tool called Bubblewrap | 45 min |
 | 7 | Copy the signing fingerprint | Play Console → QuantReflex | 15 min |
@@ -50,50 +50,13 @@ Do these in order. Each one needs the one before it.
 
 ---
 
-## Step 1 — Create the Play Console account
+## Steps 1–3 — done
 
-1. Go to **https://play.google.com/console/signup**
-2. Sign in with the Google account you want to own the app **forever**. This cannot be changed later —
-   use an account you control personally, not one belonging to someone else.
-3. Choose **Personal** (unless you have a registered company).
-4. Pay the **$25** registration fee.
-5. Google will ask you to verify your identity with a government ID. Do it straight away — this is the
-   part that takes 1–2 days.
+The account exists, the app entry exists, and the package name is locked to **`com.quantreflex.app`**.
 
-**You'll know it worked when:** you can sign in at https://play.google.com/console and see a
-dashboard rather than a signup form.
-
----
-
-## Step 2 — Decide the package name
-
-The package name is the app's permanent internal ID. It looks like a backwards web address.
-
-**Suggested: `com.quantreflex.app`**
-
-**This can NEVER be changed after step 6.** Not renamed, not corrected. If you get it wrong you have
-to publish a completely new app and every existing install is stranded. So decide it now, write it
-down, and use exactly the same text everywhere.
-
-Rules: lowercase only, no spaces, no hyphens, at least one dot, and it must not start with `com.example`.
-
-> **Tell me the package name you chose** and I will set it in QuantReflex for you. It goes in a
-> setting called `PLAY_PACKAGE_NAME` — see step 9.
-
----
-
-## Step 3 — Create the app entry
-
-1. Play Console → **All apps** → **Create app**
-2. App name: **QuantReflex**
-3. Default language: **English (India)** (or your preference)
-4. App or game: **App**
-5. Free or paid: **Free** — this is correct even though Premium costs money. "Paid" means users pay to
-   *download*. QuantReflex is free to download and sells Premium inside the app. Choosing "Paid" here
-   cannot be undone and would break the whole payment design.
-6. Accept the declarations → **Create app**
-
-**You'll know it worked when:** QuantReflex appears in your app list.
+Nothing further is needed from you here, and nothing about these can be changed now. If you ever see a
+different package name anywhere in QuantReflex, that is a bug — tell me, because addressing the wrong
+Google application makes every purchase fail with an error that looks exactly like an invalid receipt.
 
 ---
 
@@ -170,7 +133,7 @@ You need a computer for this step. If you don't have one, tell me and we'll find
 
 1. Install Node.js from https://nodejs.org (the LTS version)
 2. Open a terminal and run: `npm install -g @bubblewrap/cli`
-3. Run: `bubblewrap init --manifest https://app.quantreflex.com/manifest.json`
+3. Run: `bubblewrap init --manifest https://www.quantreflex.app/manifest.json`
 4. When it asks:
    - Package name → **the exact name you chose in step 2**
    - Application name → **QuantReflex**
@@ -205,7 +168,7 @@ gets apps removed from the Play Store.
 
 **You'll know it worked when:** after I publish the file, Google's tester at
 https://developers.google.com/digital-asset-links/tools/generator reports **success** for
-`https://app.quantreflex.com` and your package name. Check this **before** step 10.
+`https://www.quantreflex.app` and your package name. Check this **before** step 10.
 
 ---
 
@@ -238,9 +201,9 @@ and clicking it reports success.
 Two things, both of which I do:
 
 1. Add these settings in Vercel (I'll do this — I just need the values from you):
-   - `PLAY_PACKAGE_NAME` — from step 2
-   - `PLAY_RTDN_SECRET` — I generate this
-   - `PLAY_RTDN_AUDIENCE` — from step 8, if you did step 8
+   - `PLAY_RTDN_SECRET` — I generate this; you don't supply anything
+   - `PLAY_RTDN_AUDIENCE` — from step 8, only if you completed step 8
+   - *(the package name needs no setting — `com.quantreflex.app` is built in)*
 2. Turn on the switch: **Super Admin → Emergency Controls → `playBilling` → enable**
 
 Until that switch is on, the Android app shows Premium's benefits with **no buy button** and the
@@ -270,7 +233,7 @@ before switching payments on, and you can switch them off instantly if anything 
 | What you see | What it means | What to do |
 |---|---|---|
 | Address bar visible in the app | Step 7 fingerprint is wrong | **Stop.** Don't buy anything. Tell me. |
-| "Purchasing isn't available in this version" | The `playBilling` switch is off, or `PLAY_PACKAGE_NAME` isn't set | Step 9 |
+| "Purchasing isn't available in this version" | The `playBilling` switch is off, or the service account has no Play access | Step 9, then re-check step 5 |
 | Purchase succeeds but Premium doesn't unlock | Step 5 permissions | Re-check 5b and 5c |
 | Refund doesn't switch Premium off | Step 8 not done | Wait 24h — the backup should catch it. If not, tell me. |
 | "This purchase is already linked to another account" | Working correctly | One purchase, one account. Expected. |
@@ -279,10 +242,13 @@ before switching payments on, and you can switch them off instantly if anything 
 
 ## What I need from you, in one list
 
-1. The **package name** (step 2)
-2. The **SHA-256 App Signing fingerprint** (step 7)
-3. Whether **Pub/Sub needed billing** (step 8)
-4. A yes when you're ready for me to **switch `playBilling` on** (step 9)
+1. Confirmation that the **two products** exist and are Active (step 4)
+2. Confirmation that the **service account was invited** and the API enabled (step 5)
+3. The **SHA-256 App Signing fingerprint** (step 7) — the single most important value
+4. Whether **Pub/Sub needed billing** (step 8)
+5. A yes when you're ready for me to **switch `playBilling` on** (step 9)
+
+The package name is no longer on this list — it is locked and built in.
 
 Everything else is already done and tested in the codebase.
 

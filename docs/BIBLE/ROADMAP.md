@@ -143,16 +143,17 @@ document**, which GOVERNANCE names as the owner of planning and sequencing. Trac
 | WS4 | Provider-neutral client facade (`QRPayments`) | ✅ shipped (ADR-144) |
 | WS5 | Server-side Play verification (`verify-play`) | ✅ **code + tests** — *not live* (ADR-145) |
 | WS6 | RTDN + reconciliation | ✅ **code + tests** — *not live* (ADR-146) |
-| WS7 | TWA wrapper + assetlinks | ⏸ **blocked on ops.** `/.well-known/` now serves correctly and `assetlinks.check.js` refuses a placeholder fingerprint. The file itself cannot exist before Play App Signing does. |
+| WS7 | TWA wrapper + assetlinks | ⏸ **blocked on ops.** Play Console app now EXISTS as `com.quantreflex.app` (ADR-147). `/.well-known/` now serves correctly and `assetlinks.check.js` refuses a placeholder fingerprint. The file itself cannot exist before Play App Signing does. |
 | WS8 | Rollout, dashboards, governance, Payment Version 3.0 | ⏸ after WS7 |
 
 **The distinction that matters.** WS5/WS6 are complete as *code with automated tests* — 143 assertions,
 every guard mutation-proved — and **have never run against the real Google Play Store**. No Play Console
 application, no service account, no managed products, no Pub/Sub topic. Every Play path refuses while
-`PLAY_PACKAGE_NAME` is unset, so nothing degrades while this waits.
+the operator switch `config/playBilling` is off, so nothing degrades while this waits.
 
-**Blocked on one external step:** registering a Play Console developer account ($25 one-time). The full
-manual checklist is [PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
+**Play Console account and app now exist** (ADR-147). Remaining external steps: managed products,
+service-account grant, signing fingerprint, Pub/Sub topic. The full manual checklist is
+[PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
 
 **Nothing Play-dependent has been fabricated** — no fingerprint, no package name, no service account,
 no assetlinks file — by design, and enforced by a check that fails on placeholder values.

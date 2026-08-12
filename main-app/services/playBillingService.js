@@ -8,15 +8,18 @@
  * ─────────────────────────────────────────────────────────────────────────────────────────────────
  * ABSENCE IS A STATE, NOT A DEFAULT
  *
- * There is no Play Console application yet. That is not a gap to be filled with a plausible value —
- * it is a condition this module reports honestly and everything downstream refuses on:
+ * The Play Console application NOW EXISTS (ADR-147), so the package name is a known constant. What is
+ * still absent is the service-account credential and the Play API grant. That absence is not a gap to
+ * be filled with a plausible value — it is a condition this module reports honestly, and everything
+ * downstream refuses on:
  *
  *     isConfigured() === false   ⇒   verify-play 503 · RTDN 503 · reconcile no-op · client reader mode
  *
  * So there is no package name, no service-account, no fingerprint and no product price anywhere in
- * this repository. `PLAY_PACKAGE_NAME` is unset today, and while it is unset **no Play purchase can be
- * granted by any path**. A placeholder here would be worse than nothing: it would let the code look
- * finished while silently addressing a Google application that does not exist.
+ * this repository — no service-account key, no fingerprint, no product price. And no Play purchase can
+ * be granted by any path while `config/playBilling` is off, which is checked BEFORE this module is
+ * consulted. A fabricated credential or fingerprint would be worse than nothing: it would let the code
+ * look finished while silently failing against the real store.
  *
  * ─────────────────────────────────────────────────────────────────────────────────────────────────
  * WHY THE PACKAGE NAME CANNOT BE SPOOFED
@@ -50,12 +53,30 @@ var crypto = require('crypto');
 
 /* ── configuration ─────────────────────────────────────────────────────────────────────────────── */
 
-/* The Play application id (e.g. the value you register on Play Console). Absent today. It is read
-   lazily on every call rather than captured at module load so a serverless instance that starts
-   before the env var is set does not cache "not configured" for its whole lifetime. */
+/**
+ * THE CANONICAL PLAY APPLICATION ID — one value, one home (ADR-147).
+ *
+ * `com.quantreflex.app` is the package name of the REAL Google Play Console application, which now
+ * exists. It is immutable: Play binds an application to its package name permanently, so this string
+ * can never change without publishing a different app and stranding every install.
+ *
+ * It is a CONSTANT here rather than an environment variable because it is no longer a decision
+ * waiting to be made — it is an external fact, and a fact belongs in code where a ratchet can hold it
+ * to one value. Before the Play Console app existed this was deliberately env-only, so that no
+ * invented package name could sit in the repository looking authoritative. That reason has expired.
+ *
+ * `PLAY_PACKAGE_NAME` still overrides it, for exactly two uses: pointing a staging deployment at a
+ * separate Play application, and the check suites, which set a `com.example.*` fixture. Production
+ * needs no environment variable at all — and one fewer thing to set wrong is one fewer way to
+ * address the wrong Google application.
+ */
+var CANONICAL_PACKAGE_NAME = 'com.quantreflex.app';
+
+/* Read lazily on every call rather than captured at module load, so a serverless instance that
+   starts before an override is set does not cache the wrong answer for its whole lifetime. */
 function packageName() {
   var v = process.env.PLAY_PACKAGE_NAME;
-  return (typeof v === 'string' && v.trim()) ? v.trim() : null;
+  return (typeof v === 'string' && v.trim()) ? v.trim() : CANONICAL_PACKAGE_NAME;
 }
 
 /* Service-account credentials. Defaults to the Firebase service account because the documented setup
@@ -77,21 +98,30 @@ function _credentials() {
 }
 
 /**
- * Is there enough real configuration to talk to Google at all?
+ * Can we ATTEMPT to talk to Google at all? (ADR-147)
  *
- * Both halves are required, and neither is inferable: a package name with no credentials cannot
- * authenticate, and credentials with no package name have nothing to address. Callers MUST check this
- * and refuse — none of them may proceed on a guess.
+ * Since the Play Console application exists, the package name is always known, so this now turns
+ * entirely on whether we hold service-account credentials. Callers MUST check it and refuse.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT CLAIM: that the service account has been GRANTED access to the
+ * Play Console application, or that the androidpublisher API is enabled. Neither is knowable without
+ * asking Google, and inventing a local flag to assert it would be exactly the fake-completeness this
+ * module exists to avoid. Those show up at call time as 401/403, which `_call` classifies as
+ * RETRYABLE — because they become correct the moment the permission is granted, and a purchase must
+ * survive that window rather than be rejected during it.
+ *
+ * So this is not the switch that turns Play billing on. `config/playBilling` is, it is checked BEFORE
+ * this in `_playGate`, and it is off until an operator enables it. That ordering is what makes it
+ * safe for the package name to be a constant.
  */
 function isConfigured() {
-  return packageName() !== null && _credentials() !== null;
+  return _credentials() !== null;
 }
 
-/** Why not, in one token, for logs and for the super-admin readiness panel. Never shown to a user. */
+/** Why not, in one token, for logs and the super-admin readiness panel. Never shown to a user. */
 function configState() {
-  if (packageName() === null) return 'no_package_name';
   if (_credentials() === null) return 'no_service_account';
-  return 'configured';
+  return 'credentials_present';
 }
 
 /* ── the product allowlist ─────────────────────────────────────────────────────────────────────── */
@@ -313,6 +343,7 @@ module.exports = {
   getProductPurchase: getProductPurchase,
   acknowledgeProductPurchase: acknowledgeProductPurchase,
   paymentDocId: paymentDocId,
+  CANONICAL_PACKAGE_NAME: CANONICAL_PACKAGE_NAME,
   planTypeForProduct: planTypeForProduct,
   skuList: skuList,
   PLAY_SKUS: PLAY_SKUS,

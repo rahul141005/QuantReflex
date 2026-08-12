@@ -483,16 +483,39 @@ console.log('Google Play RTDN + reconciliation (ADR-146, WS6)\n');
   ok((await reconcile('anything')).status === 500, 'T17 ★★ an unset CRON_SECRET is a 500, never an open cron');
   process.env.CRON_SECRET = savedCron;
 
+  /* ADR-147 moved what "unconfigured" means. The Play Console application exists, so the package name
+     is a constant and can no longer be missing; the credential still can. The asymmetry being proved
+     is unchanged and is the important part: reconciliation NO-OPS (a cron that cannot work is not a
+     failure), while an RTDN 500s (acking it would discard a real money event forever). */
   reset(); resetGoogle();
-  var savedPkg = process.env.PLAY_PACKAGE_NAME;
-  delete process.env.PLAY_PACKAGE_NAME;
+  var savedSa = process.env.PLAY_SERVICE_ACCOUNT, savedFb = process.env.FIREBASE_SERVICE_ACCOUNT;
+  delete process.env.PLAY_SERVICE_ACCOUNT; delete process.env.FIREBASE_SERVICE_ACCOUNT;
   var r17 = await reconcile();
   ok(r17.status === 200 && r17.body.skipped === 'not_configured',
-    'T17 ★ with no Play configuration reconciliation is a reported NO-OP, not a failure', JSON.stringify(r17.body));
+    'T17 ★ with no Play credentials reconciliation is a reported NO-OP, not a failure', JSON.stringify(r17.body));
   var r17b = await post(envelope(purchasedNote('t17')));
   ok(r17b.status === 500,
     'T17 ★★ but an RTDN arriving while unconfigured returns 500 — acking it would DISCARD a real purchase');
-  process.env.PLAY_PACKAGE_NAME = savedPkg;
+  process.env.PLAY_SERVICE_ACCOUNT = savedSa; process.env.FIREBASE_SERVICE_ACCOUNT = savedFb;
+
+  /* ── T17b — the RTDN package guard now compares against the REAL application id (ADR-147) ───── */
+  reset(); resetGoogle();
+  var savedPkg2 = process.env.PLAY_PACKAGE_NAME;
+  delete process.env.PLAY_PACKAGE_NAME;                       /* fall back to the canonical constant */
+  var realPkgNote = purchasedNote('t17b');
+  realPkgNote.packageName = 'com.quantreflex.app';
+  await dbStub.collection('payments').doc(playBilling.paymentDocId('t17b'))
+    .set({ uid: 'u17b', plan: 'premium_6m', provider: 'play', status: 'pending', acknowledged: false });
+  var r17c = await post(envelope(realPkgNote));
+  ok(r17c.status === 200 && r17c.body.status === 'granted',
+    'T17b ★★ a notification naming the REAL package com.quantreflex.app is accepted', JSON.stringify(r17c.body));
+  reset(); resetGoogle();
+  var wrongPkgNote = purchasedNote('t17d');
+  wrongPkgNote.packageName = 'com.quantreflex.other';
+  var r17d = await post(envelope(wrongPkgNote));
+  ok(r17d.status === 200 && r17d.body.reason === 'wrong_package',
+    'T17b ★★ …and a near-miss package id is still rejected', JSON.stringify(r17d.body));
+  process.env.PLAY_PACKAGE_NAME = savedPkg2;
 
   /* ── T18 — a row with no stored token is skipped, never guessed at ──────────────────────────── */
   reset(); resetGoogle();

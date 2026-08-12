@@ -3,9 +3,10 @@
 **Status:** Implementation gate passed — **READY FOR IMPLEMENTATION** (see §A1).
 **Play Billing code status (updated 2026-08-12):** WS1–WS6 are shipped as **code + automated tests**.
 This line originally read *"No Play Billing code has been written"*, which stopped being true at
-ADR-142 and was corrected by the WS5 audit. **No Google Play integration is live:** there is no Play
-Console application, no service account, no managed products and no Pub/Sub topic, so nothing here has
-ever run against the real store. Every Play path refuses while `PLAY_PACKAGE_NAME` is unset. See
+ADR-142 and was corrected by the WS5 audit. **Updated 2026-08-12 (ADR-147):** the Play Console
+application NOW EXISTS as `com.quantreflex.app`, and that id is pinned in code. **Still not live:** no
+service-account grant, no managed products, no Pub/Sub topic, no signing fingerprint — so nothing here
+has ever run against the real store, and `config/playBilling` remains off. See
 [PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
 **Architectural source of truth:** the Phase 4 blueprint in `QuantReflex-Stabilization-Plan.md`
 (§1–§21). This register does not restate it; it certifies the foundation the blueprint assumes and
@@ -253,7 +254,7 @@ signing fingerprint and no Play-dependent production config exists in this repo 
 **Prerequisites (ops, before WS5–WS7):** Play Console account · final package name · Play App Signing ·
 two managed products at **₹299/₹399** (not the ₹349/₹499 the blueprint's Prerequisites still say) ·
 `FIREBASE_SERVICE_ACCOUNT` invited with finance + order-management · androidpublisher API enabled ·
-Pub/Sub topic (resolve the Spark-plan question first) · `GOOGLE_PLAY_PACKAGE_NAME` on Vercel.
+Pub/Sub topic (resolve the Spark-plan question first) · `PLAY_PACKAGE_NAME` on Vercel.
 
 | Order | Workstream | Why here | Risk | Rollback |
 |---|---|---|---|---|
@@ -289,13 +290,13 @@ file that looked correct in review. So this is a checklist, not a stub.
 
 | # | Item | Where it comes from | Consumed by |
 |---|---|---|---|
-| 1 | **Final package name** (e.g. `com.quantreflex.app`) — immutable once published | your decision, before first upload | `assetlinks.json`, `GOOGLE_PLAY_PACKAGE_NAME`, TWA manifest |
+| 1 | **Final package name** (e.g. `com.quantreflex.app`) — immutable once published | your decision, before first upload | `assetlinks.json`, `PLAY_PACKAGE_NAME`, TWA manifest |
 | 2 | **Play App Signing SHA-256 fingerprint** | Play Console → Setup → App integrity → *App signing key certificate*. **Not** your upload key — Play re-signs, so the upload key's fingerprint will fail verification | `assetlinks.json` |
 | 3 | **Two managed products** (one-time, **not** subscriptions) at **₹299** and **₹399** | Play Console → Monetise → In-app products. Product ids must equal the `planType` values `premium_6m` / `premium_12m`, or WS5's server-side allowlist rejects them | Play Billing, WS5 allowlist |
 | 4 | **Service-account invitation** | Play Console → Users and permissions → invite the `FIREBASE_SERVICE_ACCOUNT` email with *View financial data* + *Manage orders and subscriptions* | WS5 `androidpublisher` calls |
 | 5 | **`androidpublisher` API enabled** | Google Cloud console, same project as the service account | WS5 |
 | 6 | **Pub/Sub topic + push subscription** to `/api/payment/play-rtdn`, and the topic name entered in Play Console → Monetisation setup | **Resolve the Spark-plan question first** — if Pub/Sub is unavailable, WS6 degrades to reconcile-only with a ≤24h refund lag, which is a decision, not a bug | WS6 |
-| 7 | **`GOOGLE_PLAY_PACKAGE_NAME`** on Vercel (all environments) | item 1 | WS5 pins it server-side so a token from another app cannot be redeemed |
+| 7 | **`PLAY_PACKAGE_NAME`** on Vercel (all environments) | item 1 | WS5 pins it server-side so a token from another app cannot be redeemed |
 
 ### Repo work that unblocks the moment 1–2 land
 

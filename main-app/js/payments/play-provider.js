@@ -23,8 +23,8 @@
  * Why both. (1) alone means Google would take the money and our server would then refuse to verify it
  * — a charge with no entitlement, and the worst outcome available. (2) alone means the server is
  * willing but this device cannot actually complete a purchase. Neither is sufficient; the conjunction
- * is. Today (2) is false on every deployment because there is no Play Console application, so no
- * purchase control renders anywhere.
+ * is. Today (2) is false on every deployment because the operator switch `config/playBilling` is off
+ * and the service account has no Play API grant yet, so no purchase control renders anywhere.
  *
  * WHAT "NOT READY" MEANS — unchanged from WS4, and the point of the whole workstream:
  * the facade answers `PROVIDER_UNAVAILABLE`, the paywall renders the value proposition with NO

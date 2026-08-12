@@ -15,6 +15,12 @@ const aiService = require('../../services/aiService');
  * Production domains + localhost for development.
  */
 var _ALLOWED_ORIGINS = [
+  /* `www` is the CANONICAL serving host — the apex 307-redirects to it (ADR-147). It was missing
+     here, which was survivable only because the main app calls its own API same-origin, so CORS
+     never engaged. Any genuine cross-origin call from the real site would have been rejected, and
+     the TWA (which will open the canonical host) makes that path live. Both are listed: the apex
+     stays because it is a valid entry point and its redirect must not be the thing that fixes CORS. */
+  'https://www.quantreflex.app',
   'https://quantreflex.app',
   'https://dev.quantreflex.app',
   'https://admin.quantreflex.app'

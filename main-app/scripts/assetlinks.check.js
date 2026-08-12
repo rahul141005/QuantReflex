@@ -141,16 +141,93 @@ if (found.length === 0) {
          here is that those values appear NOWHERE ELSE. Without this exemption the check would reject
          a genuine, correct assetlinks.json, i.e. it would block the very work it exists to protect. */
       if (path.relative(APP, full).replace(/\\/g, '/').indexOf('.well-known/assetlinks.json') !== -1) return;
+      var rel = path.relative(APP, full).replace(/\\/g, '/');
       var src = fs.readFileSync(full, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-      /* A real fingerprint, a service-account private key, or a hardcoded Android package. */
-      if (/([0-9A-F]{2}:){31}[0-9A-F]{2}/i.test(src)) offenders.push(path.relative(APP, full) + ' (fingerprint-shaped literal)');
-      if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(src)) offenders.push(path.relative(APP, full) + ' (private key)');
-      if (/['"]com\.(quantreflex|krisveltrix)[a-z0-9_.]*['"]/i.test(src)) offenders.push(path.relative(APP, full) + ' (hardcoded package name)');
+      /* A real fingerprint or a service-account private key must never appear in source at all. */
+      if (/([0-9A-F]{2}:){31}[0-9A-F]{2}/i.test(src)) offenders.push(rel + ' (fingerprint-shaped literal)');
+      if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(src)) offenders.push(rel + ' (private key)');
+      /* ADR-147: the package name is no longer forbidden — the Play Console application exists and
+         `com.quantreflex.app` is its real, permanent id. What IS forbidden is a SECOND copy. It may
+         live in exactly one module, so no deployment can ever address a different Google application
+         than the one the ratchet below pins. */
+      if (/['"]com\.(quantreflex|krisveltrix)[a-z0-9_.]*['"]/i.test(src) && rel !== 'services/playBillingService.js') {
+        offenders.push(rel + ' (duplicate package identity — it belongs only in playBillingService.js)');
+      }
     });
   }
   walk(APP);
-  ok('★★ no fabricated Play identity (fingerprint, private key, or hardcoded package) in shipped code',
+  ok('★★ no fabricated Play identity, and no duplicate package identity, in shipped code',
     offenders.length === 0, offenders.join(', '));
+})();
+
+/* ── 4. ONE canonical package identity (ADR-147) ─────────────────────────────────────────────────
+   `com.quantreflex.app` is the real Play Console application id and is immutable — Play binds an app
+   to its package name permanently. The danger is no longer a fabricated value; it is DRIFT: a second
+   literal somewhere, or documentation naming a different id than the code pins. A deployment that
+   addressed the wrong Google application would fail every verification with a 404 that looks exactly
+   like an invalid purchase token. */
+(function () {
+  var pbSrc = fs.readFileSync(path.join(APP, 'services/playBillingService.js'), 'utf8');
+  var m = pbSrc.match(/var CANONICAL_PACKAGE_NAME = '([^']+)'/);
+  ok('★ playBillingService declares exactly one canonical package name', !!m);
+  if (!m) return;
+  var pkg = m[1];
+
+  ok('★★ the canonical package name is the real Play Console application id',
+    pkg === 'com.quantreflex.app', pkg);
+  ok('exactly one declaration of it exists in that module',
+    (pbSrc.match(/CANONICAL_PACKAGE_NAME\s*=\s*'/g) || []).length === 1);
+  ok('★ the environment may OVERRIDE it but the constant is the fallback (production needs no env var)',
+    /process\.env\.PLAY_PACKAGE_NAME/.test(pbSrc) && /:\s*CANONICAL_PACKAGE_NAME;/.test(pbSrc));
+
+  /* The env var name itself is a drift surface: docs once said GOOGLE_PLAY_PACKAGE_NAME while the
+     code read PLAY_PACKAGE_NAME, which would have had an operator set a variable nothing reads. */
+  var wrongEnvName = ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md', 'docs/BIBLE/PAYMENT_READINESS.md',
+                      'docs/BIBLE/PAYMENT_ARCHITECTURE.md', 'docs/ENVIRONMENT_VARIABLES.md']
+    .filter(function (d) {
+      var p = path.join(APP, '..', d);
+      return fs.existsSync(p) && /GOOGLE_PLAY_PACKAGE_NAME/.test(fs.readFileSync(p, 'utf8'));
+    });
+  ok('★★ no document names a package env var the code does not read',
+    wrongEnvName.length === 0, wrongEnvName.join(', '));
+
+  /* Documentation must name the SAME id the code pins. */
+  ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md', 'docs/BIBLE/PAYMENT_ARCHITECTURE.md'].forEach(function (d) {
+    var p = path.join(APP, '..', d);
+    if (!fs.existsSync(p)) return;
+    var txt = fs.readFileSync(p, 'utf8');
+    var others = (txt.match(/com\.quantreflex[a-z0-9_.]*/gi) || []).filter(function (s) { return s !== pkg; });
+    ok('★ ' + d + ' names no package id other than the canonical one', others.length === 0, others.join(', '));
+  });
+})();
+
+/* ── 5. the TWA origin must be an origin this API actually serves (ADR-147) ───────────────────────
+   Found the hard way: the handoff told the operator to run
+   `bubblewrap init --manifest https://app.quantreflex.com/manifest.json`, and that host DOES NOT
+   EXIST — it was inherited from a stale architecture document. Following it would have produced a TWA
+   wrapping a dead origin, and asset-link verification against a domain that resolves to nothing.
+
+   The authoritative list of real origins is the CORS allowlist the API enforces, so that is what this
+   ratchets against: any quantreflex host named in the setup documentation must be one the server is
+   actually willing to talk to. */
+(function () {
+  var mw = fs.readFileSync(path.join(APP, 'api/_lib/middleware.js'), 'utf8');
+  var block = (mw.match(/_ALLOWED_ORIGINS\s*=\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  var allowed = (block.match(/https:\/\/[a-z0-9.-]+/g) || []);
+  ok('★ the CORS allowlist is parseable and non-empty', allowed.length > 0, allowed.join(', '));
+
+  var docs = ['docs/BIBLE/PLAY_CONSOLE_HANDOFF.md'];
+  var strays = [];
+  docs.forEach(function (d) {
+    var p = path.join(APP, '..', d);
+    if (!fs.existsSync(p)) return;
+    (fs.readFileSync(p, 'utf8').match(/https:\/\/[a-z0-9.-]*quantreflex[a-z0-9.-]*/gi) || [])
+      .forEach(function (u) {
+        if (allowed.indexOf(u.toLowerCase()) === -1) strays.push(d + ' → ' + u);
+      });
+  });
+  ok('★★ every quantreflex origin in the setup guide is one the API actually accepts',
+    strays.length === 0, strays.join(', '));
 })();
 
 console.log('\n──────────────────────────────');

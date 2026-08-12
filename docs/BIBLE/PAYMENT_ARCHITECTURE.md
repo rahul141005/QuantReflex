@@ -91,15 +91,22 @@ Client (paywall.js → QRPayments → razorpay-provider.js)
 > **Two statuses, deliberately separate.**
 > **Code + automated tests:** complete — 143 assertions across `play-billing.check.js` and
 > `play-rtdn.check.js`, every guard mutation-proved.
-> **External integration:** **NOT LIVE.** There is no Play Console application, no service account, no
-> managed products and no Pub/Sub topic. Nothing below has ever run against the real Google Play
-> Store. See [PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
+> **External integration:** **NOT LIVE.** The Play Console application now exists
+> (`com.quantreflex.app`, ADR-147) and that id is pinned in code — but there is still no
+> service-account grant, no managed products, no signing fingerprint and no Pub/Sub topic. Nothing
+> below has ever run against the real Google Play Store, and `config/playBilling` remains off. See
+> [PLAY_CONSOLE_HANDOFF.md](PLAY_CONSOLE_HANDOFF.md).
 
-**Absence of configuration is a first-class state.** `playBillingService.isConfigured()` is the single
-authority, and every caller refuses on it. `PLAY_PACKAGE_NAME` is unset today, so **no Play purchase
-can be granted by any path** — `verify-play` 503s, the RTDN endpoint 500s (so Pub/Sub retries rather
-than losing a notification), reconciliation no-ops, and the client shows Premium's value with no
-purchase control. No package name, service account, fingerprint or Play price exists in this repository.
+**Absence of configuration is a first-class state.** The gate order in `_playGate` is
+`paymentKillSwitch` → `config/playBilling` → `isConfigured()`, and the operator switch sits **before**
+the configuration check — which is precisely what makes it safe for the package name to be a code
+constant (ADR-147). `config/playBilling` is off, so **no Play purchase can be granted by any path**:
+`verify-play` 503s, the RTDN endpoint 500s (so Pub/Sub retries rather than losing a notification),
+reconciliation no-ops, and the client shows Premium's value with no purchase control.
+`isConfigured()` now reports only whether service-account credentials are present; it deliberately
+does **not** claim the account has been granted Play access, because that is knowable only by asking
+Google — it surfaces at call time as a retryable 401/403. No service-account key, fingerprint or Play
+price exists in this repository.
 
 ```
 Client (paywall.js → QRPayments → play-provider.js)

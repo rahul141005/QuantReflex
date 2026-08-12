@@ -1,6 +1,6 @@
 # QuantReflex: Master Ecosystem Intelligence & Architecture Overview
 
-This document serves as the definitive technical and architectural master guide for the **QuantReflex** ecosystem. It maps the exact current state of the main PWA application (`app.quantreflex.com`) and provides the architectural blueprint for building the Super Admin App (`dev.quantreflex.app`) into the same secure, modular ecosystem.
+This document serves as the definitive technical and architectural master guide for the **QuantReflex** ecosystem. It maps the exact current state of the main PWA application (`www.quantreflex.app`) and provides the architectural blueprint for building the Super Admin App (`dev.quantreflex.app`) into the same secure, modular ecosystem.
 
 ---
 
@@ -240,7 +240,7 @@ To maintain ecosystem continuity and eliminate context-switching friction for de
 **The Ecosystem Master Plan:**
 QuantReflex is transitioning from an isolated, client-heavy procedural trainer into a centrally managed, serverless educational platform. 
 
-The main app (`app.quantreflex.com`) remains an ultra-fast, local-first practice environment. It uses Vercel strictly for transactional security (Payments, AI) and Firestore for cross-device state synchronization.
+The main app (`www.quantreflex.app`) remains an ultra-fast, local-first practice environment. It uses Vercel strictly for transactional security (Payments, AI) and Firestore for cross-device state synchronization.
 
 The future Super Admin App (`dev.quantreflex.app`) will serve as the operational command center. By mirroring the Vanilla JS architecture and minimal SaaS aesthetic, it will ensure technical consistency and maintainability. It will interact with the database purely through secure, admin-gated Vercel endpoints, guaranteeing that the high-speed performance of the main app is never compromised by administrative bloat.
 

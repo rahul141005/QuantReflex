@@ -395,12 +395,16 @@ console.log('Google Play purchase verification (ADR-145, WS5)\n');
   ok((await verifyPlay('u13', 'premium_6m', 'x'.repeat(5000))).status === 400, 'T13 an over-long token is refused');
   ok(GOOGLE.gets.length === 0, 'T13 ★ none of these reached Google');
 
-  /* ── T14 — WITH NO PLAY CONFIGURATION, EVERY PATH REFUSES. This is the state today. ────────── */
+  /* ── T14 — WITH NO SERVICE-ACCOUNT CREDENTIALS, EVERY PATH REFUSES ─────────────────────────────
+     ADR-147 moved the goalposts here, and the test moved with them. The Play Console application now
+     exists, so the package name is a known constant and can no longer be "missing". What can still be
+     missing is the credential that lets us ask Google anything — so that is the absence this asserts.
+     The property being protected is unchanged: no Play path may proceed on incomplete configuration. */
   reset(); resetGoogle();
-  var savedPkg = process.env.PLAY_PACKAGE_NAME;
-  delete process.env.PLAY_PACKAGE_NAME;
-  ok(playBilling.isConfigured() === false, 'T14 ★ isConfigured() is false with no package name');
-  ok(playBilling.configState() === 'no_package_name', 'T14 …and says why');
+  var savedSa = process.env.PLAY_SERVICE_ACCOUNT, savedFb = process.env.FIREBASE_SERVICE_ACCOUNT;
+  delete process.env.PLAY_SERVICE_ACCOUNT; delete process.env.FIREBASE_SERVICE_ACCOUNT;
+  ok(playBilling.isConfigured() === false, 'T14 ★ isConfigured() is false with no service account');
+  ok(playBilling.configState() === 'no_service_account', 'T14 …and says why');
   var r14 = await verifyPlay('u14', 'premium_6m', 'tok-14');
   ok(r14.status === 503 && r14.body.error.code === 'PLAY_NOT_CONFIGURED',
     'T14 ★★ verify-play refuses outright', JSON.stringify(r14.body));
@@ -409,7 +413,23 @@ console.log('Google Play purchase verification (ADR-145, WS5)\n');
   var c14 = await playConfig('u14');
   ok(c14.body.enabled === false && c14.body.skus.length === 0,
     'T14 ★★ play-config tells the client NO, so it never opens a payment sheet the server would refuse');
-  process.env.PLAY_PACKAGE_NAME = savedPkg;
+  process.env.PLAY_SERVICE_ACCOUNT = savedSa; process.env.FIREBASE_SERVICE_ACCOUNT = savedFb;
+
+  /* ── T14b — the canonical package identity (ADR-147) ────────────────────────────────────────── */
+  (function () {
+    var savedPkg = process.env.PLAY_PACKAGE_NAME;
+    delete process.env.PLAY_PACKAGE_NAME;
+    ok(playBilling.packageName() === 'com.quantreflex.app',
+      'T14b ★★ with no override, the package name is the REAL Play Console application id',
+      playBilling.packageName());
+    ok(playBilling.CANONICAL_PACKAGE_NAME === 'com.quantreflex.app',
+      'T14b the canonical constant is exported so a ratchet can pin it');
+    process.env.PLAY_PACKAGE_NAME = 'com.example.other';
+    ok(playBilling.packageName() === 'com.example.other',
+      'T14b ★ an explicit override still wins (staging, and this suite\'s own fixture)');
+    process.env.PLAY_PACKAGE_NAME = savedPkg;
+    ok(playBilling.packageName() === savedPkg, 'T14b …and the override is restored cleanly');
+  })();
 
   /* ── T15 — the operator switches ───────────────────────────────────────────────────────────── */
   reset(); resetGoogle();

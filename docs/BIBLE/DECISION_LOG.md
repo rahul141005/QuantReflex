@@ -8,6 +8,58 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-147 — The Play application id becomes a code constant (v276) (2026-08-12)
+
+**Context.** The Google Play Console developer account has been created and verified, and the
+QuantReflex application now exists in it with the package name **`com.quantreflex.app`**. That name is
+immutable — Play binds an application to its package name permanently.
+
+**Decision.** Promote the package name from an absent environment variable to a **constant in exactly
+one module** (`services/playBillingService.js`), with `PLAY_PACKAGE_NAME` retained purely as an
+override for staging and for the check suites' `com.example.*` fixtures.
+
+**Why this reverses ADR-145, and why that is correct.** ADR-145 deliberately kept the package name
+env-only, so that no invented id could sit in the repository looking authoritative. That reasoning was
+sound *while the id was a decision nobody had made*. It is now an external fact, and a fact belongs in
+code where a ratchet can pin it to one value. The rule the earlier decision was protecting —
+**never fabricate a Google artifact** — is untouched: no fingerprint, service-account key, product
+price or assetlinks file exists in this repository, and the remaining ratchets still refuse them.
+
+**What makes it safe to hardcode.** `_playGate` checks in the order `paymentKillSwitch` →
+`config/playBilling` → `isConfigured()`. The operator switch precedes the configuration check, and it
+is off. So a known package name cannot, by itself, open a purchase path.
+
+**`isConfigured()` narrows accordingly.** It used to mean "package name AND credentials". The package
+name can no longer be missing, so it now means credentials alone — and it deliberately does **not**
+claim the service account has been *granted* Play access. That is knowable only by asking Google, and
+a local flag asserting it would be exactly the fake completeness this module exists to prevent. It
+surfaces at call time as a 401/403, which `_call` classifies as RETRYABLE, so a purchase survives the
+window between "credentials exist" and "permission granted" rather than being rejected inside it.
+
+**One identity, ratcheted three ways** (`assetlinks.check.js`): the constant must equal
+`com.quantreflex.app`; no second `com.quantreflex.*` literal may appear anywhere else in shipped code;
+and no governed document may name a different id. All three are mutation-proved.
+
+**Two live defects surfaced while doing this, both fixed.**
+1. `app.quantreflex.com` **does not resolve** and never did. The setup guide told the operator to run
+   `bubblewrap init` against it — inherited from a stale architecture document — which would have
+   produced a TWA wrapping a dead origin and asset-link verification against nothing. The canonical
+   origin is `https://www.quantreflex.app` (the apex 307-redirects to it). A new ratchet asserts every
+   quantreflex origin named in the setup guide is one the API's CORS allowlist actually accepts.
+2. That allowlist did **not** contain `www.quantreflex.app` — only the apex. Survivable only because
+   the main app calls its own API same-origin, so CORS never engaged; the TWA, which will open the
+   canonical host, makes that path live. Added.
+
+Also corrected: three documents named `GOOGLE_PLAY_PACKAGE_NAME`, an environment variable no code
+reads. An operator following them would have set a variable with no effect and seen no error.
+
+**Consequences.** Production needs no package environment variable at all — one fewer value to set
+wrong, and one fewer way to address the wrong Google application. A wrong package id fails as a 404
+from Google that is indistinguishable from an invalid purchase token, which is precisely why it is
+worth pinning rather than configuring.
+
+---
+
 ## ADR-146 — RTDN treats the notification as a hint, never as evidence (v275) (2026-08-12)
 
 **Context.** Google Play reports purchase and refund events by pushing a Real-Time Developer

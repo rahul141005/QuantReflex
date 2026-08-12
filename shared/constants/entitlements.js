@@ -85,7 +85,8 @@ var DURATIONS_DAYS = {
 // figures in PRICING above remain the Razorpay catalog and the recorded fallback for Play rows.
 //
 // These ids must exist as one-time MANAGED PRODUCTS (not subscriptions) in Play Console before any
-// Play purchase can succeed. Until then `PLAY_PACKAGE_NAME` is unset and every Play path refuses.
+// Play purchase can succeed. The Play Console app exists (com.quantreflex.app, ADR-147); until the
+// products are created and the service account is granted access, every Play path still refuses.
 var PLAY_SKUS = {
   premium_6m: 'premium_6m',
   premium_12m: 'premium_12m'

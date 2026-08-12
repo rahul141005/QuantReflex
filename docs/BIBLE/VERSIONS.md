@@ -9,11 +9,11 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.179 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.80 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.180 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.81 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.13 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.14 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.177 (2026-08-08)** — **Provider-neutral payment facade (ADR-144, WS4).** WS1 established
 > platform truth but nothing branched on it — a Play/TWA build would have offered Razorpay, the one
@@ -26,6 +26,17 @@ Every governed change updates the relevant version number here and records a mig
 > reachable billing service is necessary but not sufficient while no server verification exists to
 > grant against). Play/TWA renders the value proposition with no purchase control, no external route,
 > and Restore intact. Entitlement, refund and ledger behaviour are untouched. Architecture 2.77→2.78,
+> **2.180 (2026-08-12)** — **The Play application id becomes a code constant (ADR-147).** The Play
+> Console app now exists as `com.quantreflex.app`; the id moves from an absent env var to a constant in
+> `services/playBillingService.js`, ratcheted three ways (canonical value · no second literal in
+> shipped code · no document naming a different id). Safe because `config/playBilling` is checked
+> BEFORE `isConfigured()`, so a known package name cannot open a purchase path on its own.
+> `isConfigured()` narrows to "credentials present" and explicitly does not claim Play access has been
+> granted. Two live defects fixed: `app.quantreflex.com` never resolved and was in the setup guide, and
+> the CORS allowlist omitted the canonical `www.quantreflex.app`. Architecture 2.80→2.81, Payment
+> 2.13→2.14. `assetlinks.check` 7→16, `play-billing` 85→89, `play-rtdn` 58→60; 61 suites green.
+> **External: still not live — no service-account grant, products, fingerprint or Pub/Sub topic.**
+
 > **2.179 (2026-08-12)** — **WS6: RTDN + reconciliation (ADR-146).** `api/payment/play-rtdn.js`
 > (serverless function #11 of 12) plus `?action=play-reconcile`. The notification body is a HINT: only
 > the purchase token is read from it, and Google is then asked what is true — which makes duplicate,

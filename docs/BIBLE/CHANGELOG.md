@@ -6,6 +6,56 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-12 — The real Play application arrives: `com.quantreflex.app` (ADR-147)
+
+The Google Play Console account is created and verified, and the QuantReflex app exists in it with the
+package name **`com.quantreflex.app`**. That changes one thing in the repository and surfaces two live
+defects that had nothing to do with it.
+
+- **The package id is now a constant, in exactly one module.** `services/playBillingService.js`
+  declares it; `PLAY_PACKAGE_NAME` survives only as a staging/test override. This reverses ADR-145's
+  env-only stance **deliberately**: that stance protected against inventing an id nobody had chosen,
+  and the id is now an external fact. The rule it was protecting is untouched — no fingerprint,
+  service-account key, product price or assetlinks file exists here, and the ratchets still refuse
+  them. Production now needs no package environment variable at all.
+- **Safe because of gate ORDER, not because of the constant.** `_playGate` runs
+  `paymentKillSwitch` → `config/playBilling` → `isConfigured()`. The operator switch precedes the
+  config check and is off, so a known package name cannot open a purchase path by itself.
+- **`isConfigured()` narrows to "credentials present"** and deliberately does NOT claim the service
+  account has been *granted* Play access — that is knowable only by asking Google, and it surfaces as
+  a retryable 401/403 so a purchase survives the grant window rather than being rejected inside it.
+
+**Two live defects, found while doing this:**
+
+- **`app.quantreflex.com` does not resolve, and never did.** The setup guide told the operator to run
+  `bubblewrap init` against it, inherited from a stale architecture document. Following it would have
+  produced a TWA wrapping a dead origin and asset-link verification against nothing — the exact
+  silent-degradation failure the whole workstream is built to prevent. The canonical origin is
+  `https://www.quantreflex.app`; the apex 307-redirects to it. Corrected in both documents.
+- **The CORS allowlist omitted `www.quantreflex.app`** — the host that actually serves the app. It
+  listed only the apex. Survivable today only because the main app calls its own API same-origin, so
+  CORS never engages; the TWA will open the canonical host and make that path live. Added.
+
+**Also corrected:** three documents named `GOOGLE_PLAY_PACKAGE_NAME`, an environment variable no code
+reads. An operator following them would have set a variable with no effect and seen no error.
+
+**The setup guide now matches reality** — steps 1–3 are marked done, step 4 is flagged as the next
+action, and the package name is no longer something to supply.
+
+- **Ratchets** (`assetlinks.check` 7 → 16): the canonical value; no second `com.quantreflex.*` literal
+  in shipped code; no governed document naming a different id; no document naming an env var the code
+  does not read; and every quantreflex origin in the setup guide must be one the CORS allowlist
+  accepts. **All five mutation-proved.**
+- `play-billing` 85 → 89 and `play-rtdn` 58 → 60, with T14/T17 rewritten: "unconfigured" now means
+  absent credentials rather than an absent package name, and new assertions prove the real id is
+  accepted while a near-miss (`com.quantreflex.other`) is still rejected.
+- npm test 0 failed (61 suites).
+
+**Still not live.** No service-account grant, no managed products, no signing fingerprint, no Pub/Sub
+topic. `config/playBilling` remains off and nothing has run against the real store.
+
+---
+
 ## 2026-08-12 — Google Play: WS5 verification, WS6 RTDN + reconciliation, WS7 preparation
 
 Two statuses, kept separate throughout, because they mean different things:
