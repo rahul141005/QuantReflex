@@ -122,16 +122,21 @@ eq(days(NOW, E.stackExpiry(null, E.MAX_TRIAL_DAYS, NOW)) <= 365, true, '8 a max-
 
 /* ── 9. MIRROR CONTRACT: byte-identical copies across deploy roots ────────── */
 var canonical = fs.readFileSync(path.join(__dirname, '..', 'data', 'entitlement-core.js'), 'utf8');
-[
-  ['functions/entitlement-core.js', '../../functions/entitlement-core.js'],
-  ['super-admin-app/api/_lib/entitlement-core.js', '../../super-admin-app/api/_lib/entitlement-core.js'],
-  ['super-admin-app/js/entitlement-core.js', '../../super-admin-app/js/entitlement-core.js']
-].forEach(function (pair) {
-  var p = path.join(__dirname, pair[1]);
-  ok(fs.existsSync(p), '9 mirror exists: ' + pair[0]);
+/* The list is DERIVED from the generator rather than restated here (ADR-149). Two hand-maintained
+   copies of the same list is how a mirror gets added to the sync script and silently never checked —
+   or checked and never generated. Parsing the generator makes "declared" and "verified" the same
+   fact. */
+var syncSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'scripts', 'sync-entitlement-core.js'), 'utf8');
+var copiesBlock = (syncSrc.match(/var COPIES = \[([\s\S]*?)\n\];/) || [])[1] || '';
+var MIRRORS = (copiesBlock.match(/'([^']+entitlement-core\.js)'/g) || [])
+  .map(function (s) { return s.replace(/'/g, ''); });
+ok(MIRRORS.length >= 3, '9 the mirror list was parsed out of sync-entitlement-core.js', MIRRORS.join(', '));
+MIRRORS.forEach(function (rel) {
+  var p = path.join(__dirname, '..', '..', rel);
+  ok(fs.existsSync(p), '9 mirror exists: ' + rel);
   if (fs.existsSync(p)) {
     ok(fs.readFileSync(p, 'utf8') === canonical,
-      '9 mirror is byte-identical: ' + pair[0] + ' (run: node scripts/sync-entitlement-core.js)');
+      '9 mirror is byte-identical: ' + rel + ' (run: node scripts/sync-entitlement-core.js)');
   }
 });
 

@@ -371,6 +371,28 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
       (ud0.plan === 'premium') ? ud0.planExpiry : null,
       days
     );
+    /* ADR-149 (audit G-1) — SNAPSHOT THE ENTITLEMENT THIS PAYMENT IS STACKING ON TOP OF, when that
+       entitlement is not a purchase.
+       The write two blocks below sets `planSource:'purchase'`. That single field is the only evidence
+       that the days underneath came from somewhere else, and overwriting it is what makes a later
+       refund destructive: `revokePayment` refuses to touch an entitlement whose planSource is not
+       'purchase', but it reads the CURRENT value — which this write is about to replace. It then
+       recomputes the expiry from the `payments` ledger alone, and `entitlementLedger` has no
+       representation of an admin/coaching/trial grant, so a refund of THIS payment would revoke
+       months it never sold.
+       Grant time is the only moment the displaced state is still knowable, so it is recorded here, on
+       the row, inside the same transaction as the grant. Rows written before this existed simply have
+       no `priorGrant` and behave exactly as they did. */
+    var displacedGrant = null;
+    if (entitlement.isActivePremium(ud0) && ud0.planSource && ud0.planSource !== 'purchase') {
+      displacedGrant = {
+        planExpiry: ud0.planExpiry,
+        planType: ud0.planType || null,
+        planSource: ud0.planSource,
+        isTrial: ud0.isTrial === true,
+        trialEnd: ud0.trialEnd || null
+      };
+    }
     var paymentDoc2 = {
       uid: uid,
       plan: planType,
@@ -399,6 +421,7 @@ async function activatePremium(uid, planType, paymentId, orderId, gateway) {
       claimedAt: new Date().toISOString()
     };
     if (gateway && gateway.currency) paymentDoc2.currency = String(gateway.currency).slice(0, 8);
+    if (displacedGrant) paymentDoc2.priorGrant = displacedGrant;
     if (amountMismatch) { paymentDoc2.amountExpected = expectedPaise; paymentDoc2.amountMismatch = true; }
     if (orderId) paymentDoc2.orderId = String(orderId);
     if (completingPending) tx.set(paymentRef, paymentDoc2, { merge: true });
@@ -488,13 +511,14 @@ async function revokePayment(uid, paymentId, opts) {
   var nowIso = new Date(now).toISOString();
   var paymentRef = db.collection('payments').doc(String(paymentId));
   var userRef = db.collection('users').doc(uid);
-  var out = { status: 'refunded', tombstoned: false, revoked: false, planExpiry: null, skipped: null, outOfPolicy: false };
+  var out = { status: 'refunded', tombstoned: false, revoked: false, planExpiry: null, skipped: null, outOfPolicy: false, restoredPriorGrant: null };
   var outOfPolicy = false;
 
   await db.runTransaction(async function (tx) {
     /* Reset on every attempt — see the same note in activatePremium. A retried transaction must not
        inherit a `skipped` reason (or a `revoked` verdict) from an attempt that never committed. */
     out.tombstoned = false; out.revoked = false; out.planExpiry = null; out.skipped = null;
+    out.restoredPriorGrant = null;
     outOfPolicy = false;
     /* All reads first. The ledger query is EQUALITY-ONLY and deliberately carries no orderBy: an
        orderBy('claimedAt') would silently DROP any historical row that predates the field, and a
@@ -502,7 +526,12 @@ async function revokePayment(uid, paymentId, opts) {
     var paymentDoc = await tx.get(paymentRef);
     var userDoc = await tx.get(userRef);
     var ledgerSnap = await tx.get(
-      db.collection('payments').where('uid', '==', uid).where('status', '==', 'paid')
+      /* ADR-149: `partially_refunded` rows belong in the replay too. A partial refund deliberately
+         does NOT shorten the term — revokePayment's own status guard treats `partially_refunded` as a
+         live grant it may still act on — but the ledger query excluded them, so a later FULL refund
+         of a different purchase replayed a ledger that had silently dropped one. The result was the
+         opposite of the stated policy: the entitlement the partial refund preserved got revoked. */
+      db.collection('payments').where('uid', '==', uid).where('status', 'in', ['paid', 'partially_refunded'])
     );
 
     var ud0 = (userDoc.exists ? userDoc.data() : null) || {};
@@ -584,7 +613,10 @@ async function revokePayment(uid, paymentId, opts) {
       if (!isFinite(pdays) || pdays <= 0) pdays = Number(PREMIUM_DURATION_DAYS[v.plan]) || 0;
       var claimedAtMs = entitlement.toMillis(v.claimedAt);
       if (!(pdays > 0) || !(claimedAtMs > 0)) { indeterminate = indeterminate || d.id; return; }
-      entries.push({ claimedAtMs: claimedAtMs, days: pdays });
+      /* ADR-149: this row's own record of what it stacked on, so the replay credits the coverage it
+         actually sold rather than restarting its term at claimedAt. */
+      entries.push({ claimedAtMs: claimedAtMs, days: pdays,
+                     baselineMs: entitlement.toMillis(v.priorGrant && v.priorGrant.planExpiry) });
     });
 
     if (indeterminate) {
@@ -598,15 +630,47 @@ async function revokePayment(uid, paymentId, opts) {
       return;
     }
 
+    /* ADR-149 (audit G-1) — THE FLOOR THIS REFUND MAY NOT GO BELOW.
+       The replay above reconstructs only what PURCHASES are owed. If this purchase (or an earlier
+       surviving one) was stacked on top of an admin grant, a coaching grant or a trial, those days
+       are invisible to the ledger and would be revoked along with the purchase — destroying an
+       entitlement this refund has no authority over. `priorGrant` is the snapshot activatePremium
+       took at the moment that entitlement was displaced; a row that carries none contributes no
+       floor, so pre-ADR-149 rows behave exactly as before. Lapsed snapshots are ignored: they were
+       already worth nothing when the refund arrived. */
+    var floor = null;
+    function _considerPriorGrant(row) {
+      var pg = row && row.priorGrant;
+      if (!pg) return;
+      var ms = entitlement.toMillis(pg.planExpiry);
+      if (!(ms > now)) return;
+      if (!floor || ms > floor.ms) floor = { ms: ms, snap: pg };
+    }
+    _considerPriorGrant(existing);
+    ledgerSnap.forEach(function (d) { if (d.id !== String(paymentId)) _considerPriorGrant(d.data() || {}); });
+
     var newExpiryMs = ledger.recomputeExpiry(entries, now);
+    var replayMs = (newExpiryMs !== null && ledger.isStillPremium(newExpiryMs, now)) ? newExpiryMs : 0;
+    var floorMs = floor ? floor.ms : 0;
+    var owedMs = Math.max(replayMs, floorMs);
     var patch;
-    if (newExpiryMs !== null && ledger.isStillPremium(newExpiryMs, now)) {
-      /* A revoke may only ever SHORTEN. If the stored expiry is already earlier than the replay says
+    if (owedMs > now) {
+      /* A revoke may only ever SHORTEN. If the stored expiry is already earlier than what is owed
          (an admin trimmed it, or a legacy row is missing from the ledger), keep the stored one —
          a refund must never hand out access. */
       var curMs = entitlement.toMillis(ud0.planExpiry);
-      var finalMs = (curMs > 0 && curMs < newExpiryMs) ? curMs : newExpiryMs;
+      var finalMs = (curMs > 0 && curMs < owedMs) ? curMs : owedMs;
       patch = { plan: 'premium', planExpiry: new Date(finalMs).toISOString() };
+      if (floor && floorMs >= replayMs) {
+        /* What survives is the displaced grant, not a purchase. Its provenance has to come back with
+           it: leaving planSource:'purchase' would tell the NEXT refund that it owns days no purchase
+           ever bought — which is precisely the bug this closes, one refund later. */
+        patch.planType = floor.snap.planType || null;
+        patch.planSource = floor.snap.planSource;
+        patch.isTrial = floor.snap.isTrial === true;
+        patch.trialEnd = floor.snap.trialEnd || null;
+        out.restoredPriorGrant = floor.snap.planSource;
+      }
       out.planExpiry = patch.planExpiry;
       out.revoked = false;
     } else {
@@ -653,7 +717,8 @@ async function revokePayment(uid, paymentId, opts) {
     _recordEntitlementSecurityEvent('refund_revoke_skipped', uid, paymentId, out.skipped);
   } else {
     console.info('[PaymentFlow] PREMIUM_REVOKED | uid: ' + uid + ' | paymentId: ' + paymentId +
-      ' | revoked: ' + out.revoked + ' | expiry: ' + (out.planExpiry || 'none') + ' | tombstone: ' + out.tombstoned);
+      ' | revoked: ' + out.revoked + ' | expiry: ' + (out.planExpiry || 'none') + ' | tombstone: ' + out.tombstoned +
+      (out.restoredPriorGrant ? ' | restored prior ' + out.restoredPriorGrant + ' grant' : ''));
   }
 
   /* Mirror the entitlement into the JWT claim. Non-fatal: Firestore is the source of truth, and a

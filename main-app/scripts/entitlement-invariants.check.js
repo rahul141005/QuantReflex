@@ -184,8 +184,14 @@ ok('revoke refuses to touch an entitlement whose planSource is no longer a purch
 ok('revoke tombstones even when the grant never landed (a late capture then hits the refuse branch)',
   /tomb\.tombstone\s*=\s*true/.test(aiSrc) && /out\.tombstoned\s*=\s*!existing/.test(aiSrc));
 ok('the ledger query carries no orderBy (a missing field must not silently drop a purchase)',
-  /where\('uid',\s*'==',\s*uid\)\.where\('status',\s*'==',\s*'paid'\)/.test(aiSrc) &&
-  !/where\('status',\s*'==',\s*'paid'\)\s*\.orderBy/.test(aiSrc));
+  /where\('uid',\s*'==',\s*uid\)\.where\('status',/.test(aiSrc) &&
+  !/where\('status',[^\n]*\)\s*\.orderBy/.test(aiSrc));
+/* ADR-149: and it must include partially-refunded rows. A partial refund deliberately does not
+   shorten the term — revokePayment's own status guard treats such a row as a live grant — so a
+   ledger that queried `status == 'paid'` alone silently dropped it, and the next full refund of a
+   DIFFERENT purchase revoked the entitlement the partial refund had explicitly preserved. */
+ok('★ the ledger replay includes partially-refunded purchases, which are still live grants',
+  /where\('status',\s*'in',\s*\['paid',\s*'partially_refunded'\]\)/.test(aiSrc));
 
 /* W4: the payment row must record what the GATEWAY said it captured, not our own catalog price. */
 ok('the payment row records the gateway-reported amount when available (W4)',
@@ -267,8 +273,25 @@ ok('an out-of-policy refund raises a securityEvent rather than being refused',
   var body = m ? m[0] : '';
   ok('★★ Play reconciliation never gates a revocation on refund eligibility',
     !/refundPolicy\./.test(body) && !/REFUND_WINDOW/.test(body) && !/STATE_EXPIRED/.test(body));
-  ok('★ Play reconciliation never grants — it may only acknowledge or revoke',
-    !/activatePremium\s*\(/.test(body));
+  /* ADR-149 NARROWED THIS INVARIANT, DELIBERATELY. It used to be an absolute ban on activatePremium
+     in the sweep, whose purpose was that reconciliation can never MANUFACTURE Premium. But the ban
+     had a cost the original framing missed: a row reserved by `verify-play` and never completed (the
+     client died mid-verify, or Google was unreachable and only the reservation landed) is a customer
+     who PAID AND GOT NOTHING, and the sweep would acknowledge it and mark it settled — removing it
+     from its own working set forever with no entitlement ever granted. RTDN normally completes such a
+     row; reconciliation exists precisely for when RTDN does not, so it has to be able to do the one
+     thing that matters.
+     The protection is kept by making the grant NARROW instead of forbidden, and each half is
+     asserted below: reconciliation may only COMPLETE a row it already holds — pending, with a uid
+     this server recorded from an authenticated request — and only when Google itself reports the
+     purchase as purchased. It may still never create a row, and never invent a uid. */
+  ok('★★ Play reconciliation may only COMPLETE a pending row that already names its owner',
+    /row\.data\.status\s*===\s*'pending'\s*&&\s*row\.data\.uid/.test(body));
+  ok('★★ …and any grant it makes is inside that guard, using the row\'s own uid',
+    !/activatePremium\s*\(/.test(body) ||
+    /if\s*\(row\.data\.status\s*===\s*'pending'\s*&&\s*row\.data\.uid\)\s*\{[\s\S]{0,400}?activatePremium\(row\.data\.uid,/.test(body));
+  ok('★★ Play reconciliation never CREATES a payment row (it cannot invent a purchase)',
+    !/_reservePendingPlayRow\s*\(/.test(body) && !/\.create\s*\(/.test(body));
 })();
 
 /* the window itself is declared exactly once in the repo */
@@ -328,6 +351,42 @@ const auth = R('js/auth.js');
 ok('store.js has no getPremiumStatus/setPremiumStatus', !/getPremiumStatus|setPremiumStatus/.test(store));
 ok('store.js KEYS has no premium slot', !/premium:\s*'qr_premium'/.test(store));
 ok('auth.js no longer writes qr_premium', !/setPremiumStatus|localStorage\.setItem\('qr_premium'/.test(auth));
+
+/* ---- 7. the `premium` JWT claim stays a MIRROR and never becomes a gate (ADR-149) ----
+   The claim is written on grant and cleared on lapse, but NOTHING reads it, and nothing may. The
+   Super Admin grant path deliberately does not write it — a bulk coaching grant would otherwise cost
+   one Firebase Auth write per student for a field with no reader — so an admin-granted user
+   legitimately carries `premium:false`. A server fast path that trusted the claim would therefore
+   deny access to exactly the users an administrator just granted it to, and the symptom would look
+   like the grant silently failing.
+   This is the ratchet that stops that fast path from ever being built. It is scoped to SERVER code:
+   claimsService itself is the writer, and check scripts must stay free to test for it. */
+(function () {
+  const fs = require('fs');
+  const path = require('path');
+  const ROOT = path.join(__dirname, '..', '..');
+  const READS_CLAIM = /\b(decoded|token|claims|payload|req\.user)\s*(\.|\[['"])premium\b/;
+  const offenders = [];
+  function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    entries.forEach(function (e) {
+      if (e.name === 'node_modules' || e.name === '.git' || e.name === 'scripts') return;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(full); return; }
+      if (!/\.js$/.test(e.name)) return;
+      const rel = path.relative(ROOT, full).replace(/\\/g, '/');
+      if (rel.indexOf('services/claimsService.js') !== -1) return;      /* the writer */
+      const src = fs.readFileSync(full, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      if (READS_CLAIM.test(src)) offenders.push(rel);
+    });
+  }
+  ['main-app/api', 'main-app/services', 'super-admin-app/api', 'coaching-admin-app/api', 'functions']
+    .forEach(function (d) { walk(path.join(ROOT, d)); });
+  ok('★★ no server gate reads the `premium` JWT claim (it is a mirror, and admin grants do not set it)',
+    offenders.length === 0, offenders.join(', '));
+})();
 
 console.log('entitlement-invariants.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

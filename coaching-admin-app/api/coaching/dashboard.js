@@ -8,6 +8,11 @@
 
 const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
+/* ADR-149: the ONE entitlement rule (generated mirror — scripts/sync-entitlement-core.js).
+   `plan` alone is not an entitlement: a lapsed student keeps `plan:'premium'` on their document
+   until the server next self-heals it, so projecting the raw field showed their coaching a Premium
+   badge for a subscription that had already ended. */
+const entitlement = require('../_lib/entitlement-core');
 
 if (!admin.apps.length) {
   try {
@@ -130,7 +135,7 @@ async function handler(req, res) {
       totalQuestionsSolved += attempted;
 
       // Premium (v2: single tier) — PAID only; trials are tracked separately so they aren't double-counted.
-      if (u.plan === 'premium' && !u.isTrial) premiumUsers++;
+      if (entitlement.isActivePremium(u) && !u.isTrial) premiumUsers++;
 
       // Category stats aggregation (for weak topics)
       const catStats = stats.categoryStats || {};
@@ -153,7 +158,7 @@ async function handler(req, res) {
         streak: stats.dailyStreak || 0,
         lastActive: safeTimestamp(stats.lastActiveDate || u.updatedAt),
         totalAttempted: attempted,
-        plan: u.plan === 'premium' ? 'premium' : 'free',
+        plan: entitlement.isActivePremium(u) ? 'premium' : 'free',
         isTrial: !!u.isTrial,
         sessionImprovement: (typeof sessImp === 'number' && isFinite(sessImp))
           ? parseFloat(sessImp.toFixed(1)) : null

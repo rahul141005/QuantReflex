@@ -155,8 +155,23 @@ async function handler(req, res) {
         if (!plan) plan = onotes.plan;
         if (!uid) uid = onotes.uid;
       } catch (fetchErr) {
+        /* ADR-149: this used to ack 200 — telling Razorpay "handled" for a CAPTURED payment we had
+           failed to attribute. A Razorpay outage or timeout here is transient, and 200 is a permanent
+           answer: the event is never redelivered, the customer is charged, and nothing is granted or
+           even recorded. 500 asks for a retry, which is safe because activatePremium is idempotent on
+           payments/{paymentId} — the same reasoning the refund path already applies. An orphan row is
+           written first so the payment is visible to a human even if every retry fails. */
         console.error('[webhook] Could not fetch order for uid/plan recovery:', fetchErr.message);
-        return res.status(200).json({ status: 'ignored', reason: 'order fetch failed' });
+        try {
+          await admin.firestore().collection('paymentOrphans').doc(String(paymentId)).set({
+            provider: 'razorpay', paymentId: String(paymentId), orderId: String(orderId),
+            plan: plan || null, reason: 'order_fetch_failed', status: 'unresolved',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch (orphanErr) {
+          console.error('[webhook] Failed to write paymentOrphans record:', orphanErr.message);
+        }
+        return res.status(500).json({ error: { code: 'ORDER_LOOKUP_FAILED', retryable: true } });
       }
     }
 
@@ -181,7 +196,19 @@ async function handler(req, res) {
     /* Validate plan is known */
     var planConfig = paymentService.getPlanConfig(plan);
     if (!planConfig) {
+      /* ADR-149: 200 is correct — a retry cannot make an unknown plan known — but recording nothing
+         was not. Captured money against an unrecognised plan is exactly the case a human must see,
+         and the sibling no-uid branch above already writes an orphan for the same reason. */
       console.error('[webhook] Unknown plan:', plan, 'orderId:', orderId);
+      try {
+        await admin.firestore().collection('paymentOrphans').doc(String(paymentId)).set({
+          provider: 'razorpay', paymentId: String(paymentId), orderId: String(orderId),
+          uid: uid || null, plan: plan || null, reason: 'unknown_plan', status: 'unresolved',
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (orphanErr) {
+        console.error('[webhook] Failed to write paymentOrphans record:', orphanErr.message);
+      }
       return res.status(200).json({ status: 'ignored', reason: 'unknown plan' });
     }
 

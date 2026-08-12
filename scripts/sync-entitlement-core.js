@@ -25,7 +25,12 @@ var COPIES = [
   /* Super-admin serverless (grant/revoke endpoints) — api/_lib is always in the function bundle. */
   'super-admin-app/api/_lib/entitlement-core.js',
   /* Super-admin browser (plan badges in the users list / drawer / payments views). */
-  'super-admin-app/js/entitlement-core.js'
+  'super-admin-app/js/entitlement-core.js',
+  /* Coaching-admin serverless (ADR-149). Its student/dashboard endpoints projected `plan` straight
+     from the raw field, so a LAPSED student still showed a Premium badge to their coaching until the
+     server happened to self-heal the document. Resolving at the API boundary keeps the browser badge
+     helper dumb and keeps every reader of `plan` in the product in agreement. */
+  'coaching-admin-app/api/_lib/entitlement-core.js'
 ];
 
 var src = fs.readFileSync(CANONICAL, 'utf8');

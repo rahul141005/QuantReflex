@@ -11,11 +11,23 @@
  * manual `aggregate-metrics` admin action) persist it to metrics/{date} + metrics/latest.
  */
 const admin = require('firebase-admin');
+/* ADR-149: THE entitlement rule (generated mirror — scripts/sync-entitlement-core.js). A raw
+   `plan === 'premium'` counts users whose term has already lapsed, because the document keeps
+   `plan:'premium'` until the server next self-heals it. */
+const entitlement = require('./entitlement-core');
+
+/* The payment statuses that represent money that ACTUALLY MOVED (ADR-149). A reserved Play row is
+   `status:'pending'` with no `amount`, so without this gate the historical fallback below priced an
+   uncaptured purchase at a retired launch price and wrote it into the append-only daily snapshot.
+   `refunded` / `partially_refunded` ARE counted here: they were real sales, and the refund is
+   subtracted separately below so gross and net both stay truthful. */
+const CAPTURED_STATUS = { paid: true, refunded: true, partially_refunded: true };
 
 /* HISTORICAL fallback only — used exclusively for legacy payments docs written before the `amount`
    field existed (pre 2026-06-11), which were all sold at the launch prices below. Every modern doc
    carries its own `amount`, so this map must NOT track live price changes (₹299/₹399 since Phase 4)
-   or historical revenue would be misreported. Deliberately exempt from payment-parity.check.js. */
+   or historical revenue would be misreported. Deliberately exempt from payment-parity.check.js.
+   It is now reached ONLY by a captured row, per CAPTURED_STATUS above. */
 const PREMIUM_PRICE_PAISE = { premium_6m: 34900, premium_12m: 49900 };
 
 /* Normalize any stored timestamp (Firestore Timestamp | ISO/locale string | number | {_seconds}) to ms. */
@@ -99,6 +111,12 @@ async function computeDailySnapshot(db) {
     const p = doc.data();
     /* A refund-before-capture tombstone is not a sale — it never contributed revenue to undo. */
     if (p.tombstone === true) return;
+    /* ADR-149: nor is a RESERVED row. `_reservePendingPlayRow` writes `status:'pending'` with a
+       `plan` but deliberately NO `amount`, because nothing has been captured — so the historical
+       fallback below valued a purchase that may never complete at the RETIRED ₹349/₹499 launch
+       prices and wrote it into the append-only daily snapshot, where it can never be recomputed.
+       Count only rows that represent money that actually moved. */
+    if (!CAPTURED_STATUS[p.status || 'paid']) return;
     const amt = (typeof p.amount === 'number' && p.amount > 0) ? p.amount : (PREMIUM_PRICE_PAISE[p.plan] || 0);
     revenueTotalPaise += amt;
     if (p.plan === 'premium_12m') revenue12mCount++;
@@ -210,7 +228,7 @@ async function writeCoachingRollups(db) {
         const att = s.totalAttempted || 0, cor = s.totalCorrect || 0;
         attempts += att;
         if (att > 0) { sumAcc += Math.round((cor / att) * 100); accN++; }
-        if (u.plan === 'premium' && !u.isTrial) premiumCount++;   // PAID premium only (trials counted separately)
+        if (entitlement.isActivePremium(u) && !u.isTrial) premiumCount++;   // PAID premium only (trials counted separately)
         if (u.isTrial) trialCount++;
       });
 
@@ -250,4 +268,7 @@ async function writeCoachingRollups(db) {
   return written;
 }
 
-module.exports = { computeDailySnapshot, writeCoachingRollups, PREMIUM_PRICE_PAISE };
+module.exports = {
+  /* Exported so the CSV export in admin/system.js applies the SAME rule — two copies of "what counts
+     as revenue" is how the dashboard and the export come to disagree. */
+  CAPTURED_STATUS, computeDailySnapshot, writeCoachingRollups, PREMIUM_PRICE_PAISE };

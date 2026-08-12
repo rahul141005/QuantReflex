@@ -81,14 +81,22 @@ function recomputeExpiry(entries, nowMs) {
     /* A row we cannot place in time or whose duration is nonsense is dropped rather than guessed at:
        silently inventing a claimedAt would let a corrupt row extend a real entitlement. */
     if (!isFinite(c) || c <= 0 || !isFinite(d) || d <= 0) continue;
-    rows.push({ claimedAtMs: c, days: d });
+    /* ADR-149: a purchase made while a NON-purchase grant was live did not start its term at
+       `claimedAt` — it stacked on top of that grant, and the customer was sold coverage ABOVE it.
+       `baselineMs` is that grant's expiry, recorded on the payment row at grant time (`priorGrant`).
+       It only ever moves a row's start FORWARD, and only for rows that actually carry the evidence,
+       so a ledger of ordinary purchases replays exactly as it always did. Without it the replay
+       under-counts such a purchase by however long the underlying grant had left — i.e. it silently
+       takes away access the customer paid for. */
+    var b = Number(e.baselineMs);
+    rows.push({ claimedAtMs: c, days: d, baselineMs: (isFinite(b) && b > 0) ? b : 0 });
   }
   if (!rows.length) return null;
   rows.sort(function (a, b) { return a.claimedAtMs - b.claimedAtMs; });
 
   var running = 0;
   for (var j = 0; j < rows.length; j++) {
-    running = stackFrom(rows[j].claimedAtMs, running, rows[j].days);
+    running = stackFrom(Math.max(rows[j].claimedAtMs, rows[j].baselineMs), running, rows[j].days);
   }
   return running;
 }

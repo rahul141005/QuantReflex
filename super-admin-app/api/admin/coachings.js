@@ -361,7 +361,7 @@ async function handler(req, res) {
       const students = [];
       snap.forEach(function (doc) {
         const u = doc.data();
-        students.push({ uid: doc.id, name: (u.profile && u.profile.name) || u.email || 'Unknown', email: u.email || '', plan: u.plan === 'premium' ? 'premium' : 'free', planExpiry: u.planExpiry || null, accountStatus: u.accountStatus || 'active', lastActive: (u.stats && u.stats.lastActiveDate) || null });
+        students.push({ uid: doc.id, name: (u.profile && u.profile.name) || u.email || 'Unknown', email: u.email || '', plan: u.plan === 'premium' ? 'premium' : 'free', planType: u.planType || null, planExpiry: u.planExpiry || null, planSource: u.planSource || null, isTrial: !!u.isTrial, accountStatus: u.accountStatus || 'active', lastActive: (u.stats && u.stats.lastActiveDate) || null });
       });
       return res.status(200).json({ coachingId: coachingId, count: students.length, students: students, truncated: students.length >= limit });
     }

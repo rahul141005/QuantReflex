@@ -318,6 +318,31 @@ async function acknowledgeProductPurchase(productId, purchaseToken) {
   return true;
 }
 
+/**
+ * Consume a purchase — i.e. hand the SKU back so the customer can buy it again (ADR-149).
+ *
+ * WHY THIS IS NOT OPTIONAL. QuantReflex sells a TIME-LIMITED unlock (182 or 365 days) as a one-time
+ * in-app product. Google keeps a one-time product OWNED until it is consumed, and refuses any second
+ * purchase of an owned SKU with ITEM_ALREADY_OWNED. Acknowledging alone is therefore a trap that
+ * springs six months after the first sale: the customer's term lapses, they try to renew inside the
+ * Play app, and Play tells them they already own it — with no way for them to pay us.
+ *
+ * Consumability is decided by the APP, not by a Play Console setting: a one-time product is
+ * "consumable" precisely because we call this. So this call IS the renewal path.
+ *
+ * ORDER MATTERS. Consume only after the entitlement is durably granted and the purchase acknowledged.
+ * Consuming first would hand the SKU back before we had recorded what it bought, and a crash in
+ * between would leave a customer who paid, owns nothing, and has no entitlement.
+ *
+ * Consuming does NOT waive our refund obligations: a consumed purchase still appears in Google's
+ * voidedPurchases feed, so `play-rtdn` still revokes on refund.
+ */
+async function consumeProductPurchase(productId, purchaseToken) {
+  if (!isConfigured()) throw new PlayBillingError('PLAY_NOT_CONFIGURED', 'Play Billing is not configured.', false);
+  await _call('POST', _productUrl(productId, purchaseToken) + ':consume', {});
+  return true;
+}
+
 /* ── ids ───────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -342,6 +367,7 @@ module.exports = {
   packageName: packageName,
   getProductPurchase: getProductPurchase,
   acknowledgeProductPurchase: acknowledgeProductPurchase,
+  consumeProductPurchase: consumeProductPurchase,
   paymentDocId: paymentDocId,
   CANONICAL_PACKAGE_NAME: CANONICAL_PACKAGE_NAME,
   planTypeForProduct: planTypeForProduct,

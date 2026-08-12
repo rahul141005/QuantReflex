@@ -8,6 +8,11 @@
 
 const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
+/* ADR-149: the ONE entitlement rule (generated mirror — scripts/sync-entitlement-core.js).
+   `plan` alone is not an entitlement: a lapsed student keeps `plan:'premium'` on their document
+   until the server next self-heals it, so projecting the raw field showed their coaching a Premium
+   badge for a subscription that had already ended. */
+const entitlement = require('../_lib/entitlement-core');
 
 /* Field mask for the roster scan (ADR-030 — the real "Students is slow" fix; ADR-029 only added .limit(),
    which bounds row COUNT but not per-doc PAYLOAD). Selecting just these fields makes Firestore return ~15
@@ -158,7 +163,7 @@ async function _handleList(db, coachingId, req, res) {
       lastActive: safeTimestamp(stats.lastActiveDate || u.updatedAt),
       totalAttempted: attempted,
       totalCorrect: correct,
-      plan: u.plan === 'premium' ? 'premium' : 'free',
+      plan: entitlement.isActivePremium(u) ? 'premium' : 'free',
       isTrial: !!u.isTrial,
       weakTopic: weakTopic,
       // Honest cold-start speed signal (ADR-030) — rolling within-session improvement %, read cheaply off the
@@ -281,7 +286,7 @@ async function _handleDetails(db, coachingId, req, res) {
       uid,
       name: (userData.profile && userData.profile.name) || userData.email || 'Unknown',
       email: userData.email || '',
-      plan: userData.plan === 'premium' ? 'premium' : 'free',
+      plan: entitlement.isActivePremium(userData) ? 'premium' : 'free',
       isTrial: !!userData.isTrial,
       createdAt: safeTimestamp(userData.createdAt),
       engagementLevel

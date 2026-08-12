@@ -84,13 +84,18 @@ function query(col, filters) {
   return {
     __isQuery: true,
     where: function (field, op, value) {
-      if (op !== '==') throw new Error('stub supports == only, got ' + op);
-      return query(col, filters.concat([[field, value]]));
+      /* `in` is modelled because the ledger query needs it (ADR-149): a partially-refunded row is
+         still a live grant and must be replayed. Firestore treats `in` as a disjunction of equality
+         filters, which is exactly what the predicate below does. */
+      if (op !== '==' && op !== 'in') throw new Error('stub supports ==/in only, got ' + op);
+      return query(col, filters.concat([[field, value, op]]));
     },
     get: function () {
       var store = COL[col] || {};
       var rows = Object.keys(store).filter(function (id) {
-        return filters.every(function (f) { return store[id][f[0]] === f[1]; });
+        return filters.every(function (f) {
+          return f[2] === 'in' ? f[1].indexOf(store[id][f[0]]) !== -1 : store[id][f[0]] === f[1];
+        });
       }).map(function (id) {
         var snapshot = JSON.parse(JSON.stringify(store[id]));
         return { id: id, data: function () { return snapshot; } };
@@ -557,6 +562,91 @@ console.log('Payment grant/revoke money path (ADR-141, WS2)\n');
   setImmediate(function () { badHandlers.data(Buffer.from(JSON.stringify(refundEvent('pay_18j', 29900, 29900, { uid: 'u18j' })), 'utf8')); badHandlers.end(); });
   await badP;
   ok(badOut.status === 401, 'T18j an invalid webhook signature is rejected with 401');
+
+  /* ───────── T20 · a refund must not destroy the grant it was stacked on (ADR-149, audit G-1) ─────────
+     The hole: revokePayment refuses to touch an entitlement whose planSource is not 'purchase' — but it
+     reads the CURRENT value, and a purchase landing on an admin grant OVERWRITES planSource to
+     'purchase'. The ledger replay then reconstructs from `payments` rows only, and no admin grant is
+     in there, so refunding the purchase revoked months nobody had sold. */
+
+  /* T20a the snapshot is taken at grant time, on the row */
+  reset(); ORDERS = { order_20a: { notes: { uid: 'u20a', plan: 'premium_6m' } } };
+  seedPremium('u20a', daysAhead(120), { planSource: 'admin', planType: 'premium_12m' });
+  await aiService.activatePremium('u20a', 'premium_6m', 'pay_20a', 'order_20a', { amountPaise: 29900 });
+  /* Null-safe on purpose: when the snapshot is missing every assertion below it must REPORT, not
+     throw. A TypeError aborts the whole run and hides how much the mutation actually broke. */
+  function prior(id) { return (payment(id) || {}).priorGrant || {}; }
+  ok(prior('pay_20a').planSource === 'admin',
+    'T20a ★ a purchase stacking on an admin grant records the displaced grant on the payment row');
+  ok(prior('pay_20a').planExpiry === iso(daysAhead(120)),
+    'T20a …with the admin expiry it displaced');
+  ok(user('u20a').planSource === 'purchase' && user('u20a').planExpiry === iso(daysAhead(120) + 182 * DAY),
+    'T20a …and the user doc still stacks exactly as before (no behaviour change to the grant)');
+
+  /* T20b the headline: refunding that purchase leaves the admin grant intact */
+  var r20b = await aiService.revokePayment('u20a', 'pay_20a', { reason: 'razorpay_refund' });
+  ok(user('u20a').plan === 'premium',
+    'T20b ★★ refunding the purchase does NOT drop the user to free — the admin grant survives');
+  ok(user('u20a').planExpiry === iso(daysAhead(120)),
+    'T20b ★★ …and the surviving expiry is exactly the admin grant\'s, not the stacked one');
+  ok(user('u20a').planSource === 'admin' && user('u20a').planType === 'premium_12m',
+    'T20b ★ …with its provenance restored, so the NEXT refund sees it is not a purchase');
+  ok(r20b.revoked === false && r20b.restoredPriorGrant === 'admin',
+    'T20b the restoration is reported to the caller, not silent');
+  ok(payment('pay_20a').status === 'refunded', 'T20b the money is still recorded as returned');
+
+  /* T20c a trial underneath is restored as a trial, not relabelled */
+  reset(); ORDERS = { order_20c: { notes: { uid: 'u20c', plan: 'premium_6m' } } };
+  seedPremium('u20c', daysAhead(20), { planSource: 'trial', planType: null, isTrial: true, trialEnd: iso(daysAhead(20)) });
+  await aiService.activatePremium('u20c', 'premium_6m', 'pay_20c', 'order_20c', { amountPaise: 29900 });
+  await aiService.revokePayment('u20c', 'pay_20c', { reason: 'razorpay_refund' });
+  ok(user('u20c').isTrial === true && user('u20c').planSource === 'trial' && user('u20c').trialEnd === iso(daysAhead(20)),
+    'T20c ★ a displaced TRIAL comes back as a trial, with its trialEnd');
+
+  /* T20d a LAPSED prior grant is worth nothing and must not resurrect access */
+  reset(); ORDERS = { order_20d: { notes: { uid: 'u20d', plan: 'premium_6m' } } };
+  seedPremium('u20d', daysAhead(1), { planSource: 'admin', planType: 'premium_6m' });
+  await aiService.activatePremium('u20d', 'premium_6m', 'pay_20d', 'order_20d', { amountPaise: 29900 });
+  /* the admin term has since expired — the snapshot is stale by the time the refund lands */
+  COL.payments.pay_20d.priorGrant = Object.assign({}, COL.payments.pay_20d.priorGrant, { planExpiry: iso(daysAgo(3)) });
+  var r20d = await aiService.revokePayment('u20d', 'pay_20d', { reason: 'razorpay_refund' });
+  ok(user('u20d').plan === 'free' && r20d.revoked === true,
+    'T20d ★★ a prior grant that has already LAPSED is not a floor — the refund still revokes');
+
+  /* T20e no snapshot on a plain purchase, and pre-ADR-149 rows are unaffected */
+  reset(); ORDERS = { order_20e: { notes: { uid: 'u20e', plan: 'premium_6m' } } };
+  await aiService.activatePremium('u20e', 'premium_6m', 'pay_20e', 'order_20e', { amountPaise: 29900 });
+  ok(payment('pay_20e').priorGrant === undefined,
+    'T20e a purchase with nothing underneath records no priorGrant (no wasted field)');
+  await aiService.revokePayment('u20e', 'pay_20e', { reason: 'razorpay_refund' });
+  ok(user('u20e').plan === 'free', 'T20e ★ …and a lone refunded purchase still revokes to free');
+
+  /* T20f the floor also survives an EARLIER purchase carrying the snapshot */
+  reset();
+  ORDERS = { order_20f1: { notes: { uid: 'u20f', plan: 'premium_6m' } }, order_20f2: { notes: { uid: 'u20f', plan: 'premium_6m' } } };
+  seedPremium('u20f', daysAhead(400), { planSource: 'admin', planType: 'premium_12m' });
+  await aiService.activatePremium('u20f', 'premium_6m', 'pay_20f1', 'order_20f1', { amountPaise: 29900 });
+  await aiService.activatePremium('u20f', 'premium_6m', 'pay_20f2', 'order_20f2', { amountPaise: 29900 });
+  await aiService.revokePayment('u20f', 'pay_20f2', { reason: 'razorpay_refund' });
+  ok(user('u20f').plan === 'premium' && user('u20f').planExpiry === iso(daysAhead(400) + 182 * DAY),
+    'T20f ★ refunding the second purchase leaves the admin floor AND the first purchase intact');
+
+  /* ───────── T21 · a PARTIALLY refunded purchase is still a live grant (ADR-149) ─────────
+     Policy: a partial refund returns some money but does NOT shorten the term — revokePayment's own
+     status guard treats `partially_refunded` as a row it may still act on. But the ledger query read
+     `status == 'paid'` only, so the replay silently DROPPED such rows, and a later full refund of a
+     different purchase revoked the entitlement the partial refund had explicitly preserved. */
+  reset(); ORDERS = {};
+  seedPremium('u21', daysAhead(300));
+  seedPaid('p21a', 'u21', daysAgo(10), 182);
+  COL.payments.p21a.status = 'partially_refunded';        /* kept its full term, by policy */
+  seedPaid('p21b', 'u21', daysAgo(5), 182);
+  var r21 = await aiService.revokePayment('u21', 'p21b', { reason: 'razorpay_refund' });
+  ok(user('u21').plan === 'premium' && r21.revoked === false,
+    'T21 ★★ refunding one purchase does not revoke a PARTIALLY refunded one that is still running');
+  ok(user('u21').planExpiry === iso(daysAgo(10) + 182 * DAY),
+    'T21 ★ …and the surviving expiry is the partially-refunded purchase\'s full term',
+    user('u21').planExpiry);
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

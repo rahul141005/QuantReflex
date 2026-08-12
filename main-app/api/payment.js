@@ -247,6 +247,18 @@ async function _verifyPlay(req, res) {
        never tell the client "no such purchase" — a retryable answer keeps a paid purchase recoverable
        (the client retries, and reconciliation catches it even if the client never comes back). */
     if (err && err.retryable) {
+      /* ADR-149: the comment above promised "reconciliation catches it even if the client never comes
+         back" — and that was not true here. Reconciliation sweeps `payments`; on this path no row had
+         been written yet, so a purchase whose FIRST verification hit a Google outage was invisible to
+         the safety net, and the money sat unacknowledged until Google auto-refunded it three days
+         later. Reserve the row first so the promise holds. Idempotent, and it early-returns on an
+         existing document, so it cannot disturb a token already bound to another account. */
+      try {
+        await _reservePendingPlayRow(playBilling.paymentDocId(purchaseToken), req.userId, planType,
+          { productId: productId, purchaseToken: purchaseToken });
+      } catch (e2) {
+        console.error('[PaymentFlow] PLAY_UNREACHABLE_RESERVE_FAILED | ' + e2.message);
+      }
       console.error('[PaymentFlow] PLAY_VERIFY_UNAVAILABLE | ' + err.code + ' | uid: ' + req.userId);
       return res.status(503).json({ error: { code: 'PLAY_VERIFY_UNAVAILABLE', message: 'Could not confirm your purchase with Google Play. Please try again in a moment.', retryable: true } });
     }
@@ -343,20 +355,38 @@ async function _verifyPlay(req, res) {
       console.error('[PaymentFlow] PLAY_ACK_FAILED | paymentId: ' + paymentId + ' | ' + e.message);
     }
   }
+
+  /* CONSUME — after the grant AND after the acknowledgement (ADR-149). Google keeps a one-time
+     product OWNED until it is consumed and refuses any second purchase of an owned SKU, so without
+     this the customer cannot RENEW when their 182/365 days lapse: Play answers ITEM_ALREADY_OWNED and
+     there is no way for them to pay us. Same failure discipline as the acknowledgement — never fatal
+     (the money moved and access is granted), recorded on the row, retried by reconciliation. */
+  var consumed = purchase.consumed;
+  if (acknowledged && !consumed) {
+    try {
+      await playBilling.consumeProductPurchase(productId, purchaseToken);
+      consumed = true;
+    } catch (e) {
+      console.error('[PaymentFlow] PLAY_CONSUME_FAILED | paymentId: ' + paymentId + ' | ' + e.message);
+    }
+  }
+
   try {
-    /* Only `acknowledged` is genuinely new here — identity was written by the reservation above, and
-       is repeated so a row reserved by an older deployment is healed on its next verification.
-       If THIS write fails the row is still complete enough to reconcile: it carries the token and
-       `acknowledged:false`, so the sweep finds it and retries the acknowledgement. That is the whole
+    /* Only `acknowledged`/`consumed` are genuinely new here — identity was written by the reservation
+       above, and is repeated so a row reserved by an older deployment is healed on its next
+       verification. If THIS write fails the row is still complete enough to reconcile: it carries the
+       token and `acknowledged:false`, so the sweep finds it and retries both steps. That is the whole
        point of reserving first. */
     await admin.firestore().collection('payments').doc(paymentId).set({
-      provider: 'play', productId: productId, purchaseToken: purchaseToken, acknowledged: acknowledged
+      provider: 'play', productId: productId, purchaseToken: purchaseToken,
+      acknowledged: acknowledged, consumed: consumed === true
     }, { merge: true });
   } catch (e) {
     console.error('[PaymentFlow] PLAY_ACK_FLAG_WRITE_FAILED | paymentId: ' + paymentId + ' | ' + e.message);
   }
 
-  console.info('[PaymentFlow] PLAY_VERIFIED | uid: ' + req.userId + ' | plan: ' + planType + ' | expiry: ' + expiry + ' | acked: ' + acknowledged);
+  console.info('[PaymentFlow] PLAY_VERIFIED | uid: ' + req.userId + ' | plan: ' + planType + ' | expiry: ' + expiry +
+    ' | acked: ' + acknowledged + ' | consumed: ' + (consumed === true));
   return res.json({ success: true, plan: planType, expiry: expiry });
 }
 
@@ -390,6 +420,9 @@ async function _reservePendingPlayRow(paymentId, uid, planType, purchase) {
          rather than inventing a window start. */
       capturedAtMs: null, capturedAtSource: 'unknown',
       acknowledged: false,
+      /* ADR-149: present from the row's first moment for the same reason `acknowledged` is — the
+         reconcile sweep matches `== false`, and a MISSING field matches nothing. */
+      consumed: false,
       claimedAt: null,
       reservedAt: new Date().toISOString()
     });
@@ -539,14 +572,29 @@ async function _refundCancel(req, res) {
    PAYMENT_READINESS records the decision for that case: reconcile-only, with a ≤24h refund lag. This
    is that reconciler, and it is NOT a second grant path.
 
-   It sweeps `payments` where provider == 'play' AND acknowledged == false, which is precisely the set
-   that can lose money: Google AUTO-REFUNDS any purchase left unacknowledged for three days. For each
-   row it re-asks Google and acts on the answer:
-     · still purchased → acknowledge (the retry that saves the sale)
+   It sweeps `payments` for the two unfinished states, both of which cost real money:
+     · acknowledged == false — Google AUTO-REFUNDS any purchase left unacknowledged for three days;
+     · consumed == false     — an unconsumed one-time SKU stays OWNED, so the customer physically
+                               cannot buy it again when their term lapses (ADR-149).
+   Two queries rather than one derived flag ON PURPOSE: a row written by an older deployment carries
+   no new field at all, and a MISSING field does not match `== false` in Firestore — the precise trap
+   ADR-148 was written to close. Sweeping the two fields that have always been written keeps every
+   historical row reachable. The union is de-duplicated by document id.
+   For each row it re-asks Google and acts on the answer:
+     · still purchased → COMPLETE a reserved row (see below), then acknowledge, then consume
      · voided/refunded → revoke through the canonical path
      · pending         → leave alone; nothing has been captured
-   It never grants an entitlement to a row that does not already have one, so a bug here cannot
-   manufacture Premium — the worst it can do is fail to fix something, which the next run retries. */
+
+   ON GRANTING (ADR-149 narrowed this, deliberately — the ratchet in entitlement-invariants.check.js
+   asserts the narrowed form). This sweep used to be forbidden from granting at all, so that a bug
+   here could not manufacture Premium. But a row this server RESERVED and never completed — the
+   client died mid-verify, or Google was unreachable and only the reservation landed — is a customer
+   who paid and got nothing, and acknowledging it removed it from this sweep's own working set
+   forever. RTDN normally completes such a row; reconciliation exists for when RTDN does not.
+   So the sweep may now COMPLETE, and only complete: `status === 'pending'` AND a `uid` this server
+   wrote from an authenticated request AND Google itself reporting `purchased`. It still cannot
+   create a payments row, cannot invent a uid, and cannot grant against a row it does not hold —
+   which is what "cannot manufacture Premium" actually meant. */
 var RECONCILE_PAGE = 50;
 
 async function _playReconcile(req, res) {
@@ -559,7 +607,7 @@ async function _playReconcile(req, res) {
   if (equal) { var diff = 0; for (var i = 0; i < a.length; i++) diff |= (a.charCodeAt(i) ^ b.charCodeAt(i)); equal = diff === 0; }
   if (!equal) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
 
-  var result = { scanned: 0, acknowledged: 0, revoked: 0, pending: 0, failed: 0, skipped: 0 };
+  var result = { scanned: 0, granted: 0, acknowledged: 0, consumed: 0, revoked: 0, pending: 0, failed: 0, skipped: 0 };
 
   /* No Play configuration ⇒ nothing to reconcile against. A no-op, reported honestly, never an error
      that would make a cron look broken when it is simply not applicable yet. */
@@ -569,11 +617,21 @@ async function _playReconcile(req, res) {
   }
 
   try {
-    var snap = await admin.firestore().collection('payments')
-      .where('provider', '==', 'play').where('acknowledged', '==', false).limit(RECONCILE_PAGE).get();
+    var pending = await Promise.all([
+      admin.firestore().collection('payments')
+        .where('provider', '==', 'play').where('acknowledged', '==', false).limit(RECONCILE_PAGE).get(),
+      admin.firestore().collection('payments')
+        .where('provider', '==', 'play').where('consumed', '==', false).limit(RECONCILE_PAGE).get()
+    ]);
 
-    var rows = [];
-    snap.forEach(function (d) { rows.push({ id: d.id, data: d.data() || {} }); });
+    var rows = [], seen = {};
+    pending.forEach(function (snap) {
+      snap.forEach(function (d) {
+        if (seen[d.id]) return;               /* a row failing BOTH steps appears in both queries */
+        seen[d.id] = true;
+        rows.push({ id: d.id, data: d.data() || {} });
+      });
+    });
     result.scanned = rows.length;
 
     for (var i = 0; i < rows.length; i++) {
@@ -602,15 +660,47 @@ async function _playReconcile(req, res) {
             await aiService.revokePayment(row.data.uid, row.id, { reason: 'play_reconcile_voided' });
             result.revoked++;
           }
-          await admin.firestore().collection('payments').doc(row.id).set({ acknowledged: true }, { merge: true });
+          /* A voided purchase needs neither acknowledgement nor consumption; marking BOTH settled is
+             what takes it out of the sweep, and leaving either false would re-scan it forever. */
+          await admin.firestore().collection('payments').doc(row.id)
+            .set({ acknowledged: true, consumed: true }, { merge: true });
         } catch (e) { result.failed++; }
         continue;
       }
 
       try {
+        /* ADR-149: a RESERVED row whose purchase Google now reports as `purchased` is a customer who
+           PAID AND GOT NOTHING — the client died mid-verify, or verify-play only got as far as the
+           reservation before Google went unreachable. The sweep used to acknowledge such a row and
+           mark it settled, which removed it from its own working set forever while the entitlement
+           was still missing: the money was kept and the product was not delivered.
+           Complete it through the ONE canonical grant (activatePremium merges onto this very row via
+           its `completingPending` branch) BEFORE settling anything. */
+        if (row.data.status === 'pending' && row.data.uid) {
+          try {
+            await aiService.activatePremium(row.data.uid, playBilling.planTypeForProduct(productId),
+              row.id, purchase.orderId, {
+                provider: 'play', capturedAtMs: purchase.purchaseTimeMillis, currency: 'INR'
+              });
+            result.granted++;
+          } catch (ge) {
+            /* A TERMINAL refusal (the token belongs to another account, or the purchase was already
+               refunded) will never succeed on a retry. Log it and fall through to settle the row so
+               it leaves the sweep; anything else is transient and belongs to the outer catch. */
+            if (ge && (ge.code === 'PAYMENT_REPLAY' || ge.code === 'PAYMENT_REFUNDED')) {
+              console.warn('[PaymentFlow] PLAY_RECONCILE_GRANT_REFUSED | ' + ge.code + ' | ' + row.id);
+              result.skipped++;
+            } else { throw ge; }
+          }
+        }
         if (!purchase.acknowledged) await playBilling.acknowledgeProductPurchase(productId, token);
         await admin.firestore().collection('payments').doc(row.id).set({ acknowledged: true }, { merge: true });
-        result.acknowledged++;
+        if (row.data.acknowledged !== true) result.acknowledged++;
+        /* Consume second, and only once acknowledged — same order as the live path. A consume failure
+           leaves `consumed:false`, so the next run retries it without re-acknowledging. */
+        if (!purchase.consumed) await playBilling.consumeProductPurchase(productId, token);
+        await admin.firestore().collection('payments').doc(row.id).set({ consumed: true }, { merge: true });
+        result.consumed++;
       } catch (e) { result.failed++; }
     }
 

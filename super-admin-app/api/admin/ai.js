@@ -8,6 +8,10 @@
 const { withAdminAuth, parseBody, formatError } = require('../_lib/middleware');
 const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
+/* ADR-149: THE entitlement rule (generated mirror — scripts/sync-entitlement-core.js). A raw
+   `plan === 'premium'` counts users whose term has already lapsed, because the document keeps
+   `plan:'premium'` until the server next self-heals it. */
+const entitlement = require('../_lib/entitlement-core');
 
 if (!admin.apps.length) {
   try {
@@ -88,14 +92,14 @@ async function _usage(db, res) {
     if (wpToday >= 25) abuseFlags.push('high-daily-usage');
     if (gptCalls > 300) abuseFlags.push('heavy-gpt-user');
     if (Number(estCost) > 1.0) abuseFlags.push('high-cost');
-    if (user.plan !== 'premium' && wp > 5) abuseFlags.push('over-free-cap');
+    if (!entitlement.isActivePremium(user) && wp > 5) abuseFlags.push('over-free-cap');
 
     analytics.push({
       uid: uid,
       displayName: (user.profile && user.profile.name) || user.email || 'Unknown',
       email: user.email || 'N/A',
       coachingId: user.coachingId || 'Independent',
-      isPremium: user.plan === 'premium',
+      isPremium: entitlement.isActivePremium(user),
       totalWP: wp,
       totalExp: exp,
       totalCalls: wp + exp,

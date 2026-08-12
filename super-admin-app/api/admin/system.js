@@ -1,5 +1,5 @@
 const { withAdminAuth, formatError } = require('../_lib/middleware');
-const { computeDailySnapshot, PREMIUM_PRICE_PAISE } = require('../_lib/metrics');
+const { computeDailySnapshot, PREMIUM_PRICE_PAISE, CAPTURED_STATUS: CAPTURED_REVENUE_STATUS } = require('../_lib/metrics');
 const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
 
@@ -325,7 +325,7 @@ async function handler(req, res) {
         cap = 20000;
         const snap = await db.collection('payments').limit(cap).get();
         rows = [['paymentId', 'uid', 'plan', 'amountINR', 'status', 'claimedAt', 'orderId']];
-        snap.forEach(d => { const p = d.data(); const amt = (typeof p.amount === 'number' && p.amount > 0) ? p.amount : (PREMIUM_PRICE_PAISE[p.plan] || 0); rows.push([d.id, p.uid || '', p.plan || '', (amt / 100), p.status || 'paid', _safeTS(p.claimedAt) || '', p.orderId || '']); });
+        snap.forEach(d => { const p = d.data(); if (p.tombstone === true || !CAPTURED_REVENUE_STATUS[p.status || 'paid']) return;   /* ADR-149: a reserved (uncaptured) row has no amount and must not be priced from the retired launch map */ const amt = (typeof p.amount === 'number' && p.amount > 0) ? p.amount : (PREMIUM_PRICE_PAISE[p.plan] || 0); rows.push([d.id, p.uid || '', p.plan || '', (amt / 100), p.status || 'paid', _safeTS(p.claimedAt) || '', p.orderId || '']); });
         filename = 'revenue.csv';
       } else if (type === 'ai-usage') {
         cap = 10000; /* ADR-023: was unbounded — a 1M-user collectionGroup scan would OOM the 512 MB function. */
@@ -434,7 +434,7 @@ async function handler(req, res) {
         snap.forEach(function (doc) {
           if (userMap[doc.id]) return;
           const d = doc.data();
-          userMap[doc.id] = { uid: doc.id, name: (d.profile && d.profile.name) || d.email || 'Unknown', email: d.email || '', coachingId: d.coachingId || null, plan: d.plan === 'premium' ? 'premium' : 'free', accountStatus: d.accountStatus || 'active' };
+          userMap[doc.id] = { uid: doc.id, name: (d.profile && d.profile.name) || d.email || 'Unknown', email: d.email || '', coachingId: d.coachingId || null, plan: d.plan === 'premium' ? 'premium' : 'free', planType: d.planType || null, planExpiry: d.planExpiry || null, planSource: d.planSource || null, isTrial: !!d.isTrial, accountStatus: d.accountStatus || 'active' };
         });
       });
       const coachMap = {};

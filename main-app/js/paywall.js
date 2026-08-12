@@ -503,8 +503,15 @@ function showPaywall(featureType) {
         clearTimeout(t);
         if (!okRead) { finish('paywall.restoreFailed', false); return; }
         /* Decided by the ONE canonical rule, not by re-reading fields here. If it says premium, the
-           paywall itself is now wrong to be open — close it. */
-        finish(canAccess() ? 'paywall.restoreFound' : 'paywall.restoreNone', canAccess());
+           paywall itself is now wrong to be open — close it.
+           ADR-149: this called `canAccess()` with NO ARGUMENTS. `canAccess(feature, user)` answers
+           "is this feature reachable", so an undefined feature is not in `_LOCKED_FEATURES` and the
+           function correctly returned TRUE — for everyone. Every free user who tapped Restore was
+           told "Premium restored — you're all set" and had the paywall closed on them. The predicate
+           needed is "does this user hold Premium", which is `hasActivePremium()`; it is evaluated
+           ONCE so the message and the close decision can never disagree. */
+        var nowPremium = hasActivePremium();
+        finish(nowPremium ? 'paywall.restoreFound' : 'paywall.restoreNone', nowPremium);
       });
     } catch (_) {
       clearTimeout(t);

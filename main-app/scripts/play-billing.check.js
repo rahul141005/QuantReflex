@@ -167,27 +167,41 @@ var GOOGLE = {
   throwNetwork: false,   /* simulate a timeout / DNS failure */
   badJson: false,
   acks: [],              /* every :acknowledge URL that was called */
+  consumes: [],          /* every :consume URL that was called (ADR-149) */
   gets: [],              /* every products.get URL that was called */
-  ackStatus: 200
+  ackStatus: 200,
+  consumeStatus: 200
 };
 function resetGoogle() {
   GOOGLE.purchase = { purchaseState: 0, orderId: 'GPA.TEST-0001', purchaseTimeMillis: String(hoursAgo(2)), acknowledgementState: 0, consumptionState: 0 };
   GOOGLE.status = 200; GOOGLE.throwNetwork = false; GOOGLE.badJson = false;
-  GOOGLE.acks = []; GOOGLE.gets = []; GOOGLE.ackStatus = 200;
+  GOOGLE.acks = []; GOOGLE.consumes = []; GOOGLE.gets = []; GOOGLE.ackStatus = 200; GOOGLE.consumeStatus = 200;
 }
 resetGoogle();
 
 global.fetch = function (url, opts) {
+  /* Three distinct endpoints, counted separately. Lumping :consume in with the products.get branch
+     would make every "Google was never contacted" assertion below silently weaker. */
   var isAck = /:acknowledge$/.test(url);
-  if (isAck) GOOGLE.acks.push(url); else GOOGLE.gets.push(url);
+  var isConsume = /:consume$/.test(url);
+  if (isAck) GOOGLE.acks.push(url);
+  else if (isConsume) GOOGLE.consumes.push(url);
+  else GOOGLE.gets.push(url);
   if (GOOGLE.throwNetwork) return Promise.reject(new Error('socket hang up'));
-  var status = isAck ? GOOGLE.ackStatus : GOOGLE.status;
+  var status = isAck ? GOOGLE.ackStatus : (isConsume ? GOOGLE.consumeStatus : GOOGLE.status);
+  /* A SUCCESSFUL write changes what Google would say next — model that, rather than making each test
+     hand-set the flag. Without this the stub claims a purchase is still unacknowledged after we just
+     acknowledged it, and "does not repeat work Google already did" can only be tested by fiat. */
+  if (status >= 200 && status < 300) {
+    if (isAck) GOOGLE.purchase.acknowledgementState = 1;
+    if (isConsume) GOOGLE.purchase.consumptionState = 1;
+  }
   return Promise.resolve({
     ok: status >= 200 && status < 300,
     status: status,
     json: function () {
       if (GOOGLE.badJson) return Promise.reject(new Error('Unexpected end of JSON input'));
-      return Promise.resolve(isAck ? {} : GOOGLE.purchase);
+      return Promise.resolve((isAck || isConsume) ? {} : GOOGLE.purchase);
     }
   });
 };
@@ -601,6 +615,88 @@ console.log('Google Play purchase verification (ADR-145, WS5)\n');
     'T24 ★★ a later reconcile run FINDS the row and completes the acknowledgement',
     JSON.stringify(recon24.body.result));
   ok(P(id24).acknowledged === true, 'T24 …and the row is repaired');
+
+  /* ── T25 — CONSUMPTION, i.e. whether the customer can ever buy again (ADR-149) ────────────────
+     A one-time Play product stays OWNED until it is consumed, and Google refuses a second purchase of
+     an owned SKU. QuantReflex sells a 182/365-day term that is MEANT to be re-bought, so failing to
+     consume is a bug whose symptom appears six months after the first sale: the customer's access
+     lapses, they try to renew in the Play app, and Play tells them they already own it. */
+  resetGoogle(); reset();
+  var r25 = await verifyPlay('u25', 'premium_6m', 'tok-25');
+  var id25 = playBilling.paymentDocId('tok-25');
+  ok(r25.body && r25.body.success === true, 'T25 the purchase is granted');
+  ok(GOOGLE.consumes.length === 1, 'T25 ★★ the purchase is CONSUMED, so the SKU can be bought again on renewal');
+  ok(GOOGLE.consumes[0].indexOf('/purchases/products/premium_6m/tokens/tok-25') !== -1,
+    'T25 …addressing the same product + token', GOOGLE.consumes[0]);
+  ok(P(id25).consumed === true, 'T25 the row records that it was consumed');
+  ok(GOOGLE.acks.length === 1 && GOOGLE.acks[0].length > 0,
+    'T25 ★ acknowledgement still happens — consuming does not replace it');
+
+  /* T25b ORDER: never consume something that was not acknowledged. Handing the SKU back before the
+     three-day acknowledgement deadline is met would risk both the refund AND the entitlement. */
+  resetGoogle(); reset();
+  GOOGLE.ackStatus = 500;
+  await verifyPlay('u25b', 'premium_6m', 'tok-25b');
+  ok(GOOGLE.consumes.length === 0,
+    'T25b ★★ a purchase whose acknowledgement FAILED is not consumed');
+  ok(P(playBilling.paymentDocId('tok-25b')).consumed === false,
+    'T25b …and the row says so, so the sweep retries both steps');
+
+  /* T25c a consume failure never costs the customer their access */
+  resetGoogle(); reset();
+  GOOGLE.consumeStatus = 500;
+  var r25c = await verifyPlay('u25c', 'premium_6m', 'tok-25c');
+  ok(r25c.body && r25c.body.success === true,
+    'T25c ★★ a failed consumption never blocks a grant the user already paid for');
+  ok(P(playBilling.paymentDocId('tok-25c')).acknowledged === true &&
+     P(playBilling.paymentDocId('tok-25c')).consumed === false,
+    'T25c …the row is acknowledged but records consumed:false for the sweep');
+
+  /* T25d …and the sweep finds it. This is the half that would silently rot: the row is acknowledged,
+     so the ORIGINAL `acknowledged == false` query would never see it again. */
+  GOOGLE.consumeStatus = 200; GOOGLE.acks = []; GOOGLE.consumes = [];
+  var recon25 = await reconcile();
+  ok(recon25.body.result.scanned === 1,
+    'T25d ★★ the sweep finds an acknowledged-but-unconsumed row (the ack-only query would miss it)',
+    JSON.stringify(recon25.body.result));
+  ok(GOOGLE.consumes.length === 1 && P(playBilling.paymentDocId('tok-25c')).consumed === true,
+    'T25d …and consumes it, restoring the customer\'s ability to renew');
+  ok(GOOGLE.acks.length === 0,
+    'T25d ★ …without re-acknowledging what Google already reports as acknowledged');
+
+  /* T25e a purchase Google already reports as consumed is not consumed twice */
+  resetGoogle(); reset();
+  GOOGLE.purchase.consumptionState = 1;
+  await verifyPlay('u25e', 'premium_6m', 'tok-25e');
+  ok(GOOGLE.consumes.length === 0, 'T25e an already-consumed purchase is not consumed again');
+  ok(P(playBilling.paymentDocId('tok-25e')).consumed === true, 'T25e …and the row still records it');
+
+  /* ── T26 — a purchase must never be invisible to the safety net (ADR-149) ─────────────────────
+     verify-play's own comment promised "reconciliation catches it even if the client never comes
+     back". On the retryable branch that was false: no row had been written yet, and reconciliation
+     sweeps `payments`. A first verification that hit a Google outage produced a paid purchase with no
+     record anywhere — unacknowledged, so Google auto-refunded it three days later. */
+  resetGoogle(); reset();
+  GOOGLE.status = 503;
+  var r26 = await verifyPlay('u26', 'premium_6m', 'tok-26');
+  var id26 = playBilling.paymentDocId('tok-26');
+  ok(r26.status === 503 && r26.body.error.retryable === true, 'T26 a Google outage answers 503/retryable');
+  ok(P(id26).uid === 'u26' && P(id26).purchaseToken === 'tok-26',
+    'T26 ★★ …and the row is RESERVED anyway, so the purchase is visible to reconciliation');
+  ok(P(id26).status === 'pending' && U('u26').plan !== 'premium',
+    'T26 ★★ …while granting nothing — a reservation is not an entitlement');
+
+  /* T26b and the sweep then completes it once Google is reachable: this is a customer who PAID and,
+     before this fix, would have been acknowledged-and-closed with no Premium at all. */
+  resetGoogle();
+  var recon26 = await reconcile();
+  ok(recon26.body.result.granted === 1,
+    'T26b ★★ reconciliation GRANTS the reserved purchase rather than silently closing it',
+    JSON.stringify(recon26.body.result));
+  ok(U('u26').plan === 'premium' && U('u26').planSource === 'purchase',
+    'T26b ★★ …the customer who paid now actually has Premium');
+  ok(P(id26).status === 'paid' && P(id26).acknowledged === true && P(id26).consumed === true,
+    'T26b …and the row is settled only after the grant committed');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

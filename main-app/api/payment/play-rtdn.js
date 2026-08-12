@@ -238,14 +238,23 @@ async function _handleOneTime(note) {
     try { await playBilling.acknowledgeProductPurchase(productId, purchaseToken); acknowledged = true; }
     catch (e) { console.error('[PaymentFlow] PLAY_RTDN_ACK_FAILED | ' + e.message); }
   }
+  /* Consume (ADR-149). Without it the SKU stays owned and the customer cannot repurchase when their
+     term lapses. Same ordering rule as the interactive path: only after acknowledgement. */
+  var consumed = purchase.consumed;
+  if (acknowledged && !consumed) {
+    try { await playBilling.consumeProductPurchase(productId, purchaseToken); consumed = true; }
+    catch (e) { console.error('[PaymentFlow] PLAY_RTDN_CONSUME_FAILED | ' + e.message); }
+  }
   try {
     await admin.firestore().collection('payments').doc(paymentId)
       .set({ provider: 'play', productId: productId, acknowledged: acknowledged,
+             consumed: consumed === true,
              /* Needed by reconciliation — the doc id is only the token's hash. See api/payment.js. */
              purchaseToken: purchaseToken }, { merge: true });
   } catch (_) { /* reconciliation re-derives this */ }
 
-  console.info('[PaymentFlow] PLAY_RTDN_GRANTED | uid: ' + uid + ' | plan: ' + planType + ' | acked: ' + acknowledged);
+  console.info('[PaymentFlow] PLAY_RTDN_GRANTED | uid: ' + uid + ' | plan: ' + planType +
+    ' | acked: ' + acknowledged + ' | consumed: ' + (consumed === true));
   return { status: 200, body: { status: 'granted' } };
 }
 

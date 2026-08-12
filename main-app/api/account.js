@@ -63,6 +63,54 @@ async function _deleteByField(db, collectionName, fieldName, uid) {
   return deleted;
 }
 
+/**
+ * RETAIN the user's financial rows instead of deleting them (ADR-149).
+ *
+ * Account deletion used to run `_deleteByField(db, 'payments', 'uid', uid)`. That is the one
+ * collection in this list that must NOT be deleted, for three independent reasons — any one of which
+ * is sufficient on its own:
+ *
+ * 1. IT IS THE ONLY THING BINDING A PLAY PURCHASE TO AN ACCOUNT. A Google Play purchase token carries
+ *    no uid; Google has no idea who our users are. The binding is the row itself, and the guard is
+ *    literally `existing.uid !== uid → PAYMENT_REPLAY` (services/aiService.js). The document id is
+ *    `gp_<sha256(purchaseToken)>`, so deleting the row deletes the binding — and the same purchase,
+ *    still 'purchased' and un-refunded in Google's records, can be redeemed again on a brand-new
+ *    account. Deletion is self-service, so this turned one ₹299 purchase into unlimited Premium:
+ *    buy → delete account → register again → replay the token → repeat.
+ * 2. Transaction records have to outlive the customer relationship for tax/GST record-keeping. Every
+ *    erasure regime carves out data retained to meet a legal obligation, and this is that data.
+ * 3. Lifetime revenue is computed by SCANNING this collection (super-admin-app/api/_lib/metrics.js),
+ *    so deleting rows silently rewrites historical revenue for a period that is already closed.
+ *
+ * The erasure obligation is met by REDACTION rather than removal. In practice these rows already hold
+ * no personal data — no name, no email, no address, no card details (Razorpay and Google hold those)
+ * — only a uid, an amount, a plan and timestamps. The uid is retained DELIBERATELY: Firebase never
+ * reissues a uid, so once the auth account is gone it identifies nobody, and it is precisely the
+ * field the replay guard compares. The row is marked so the Super Admin queue, reconciliation and any
+ * future retention sweep can all see that the customer is gone.
+ */
+async function _retainPaymentsForDeletedUser(db, uid, nowIso) {
+  let marked = 0;
+  let cursor = null;
+  while (true) {
+    let q = db.collection('payments').where('uid', '==', uid).limit(100);
+    if (cursor) q = q.startAfter(cursor);
+    const snapshot = await q.get();
+    if (snapshot.empty) break;
+    const batch = db.batch();
+    snapshot.docs.forEach(function (doc) {
+      batch.set(doc.ref, { userDeleted: true, userDeletedAt: nowIso }, { merge: true });
+    });
+    await batch.commit();
+    marked += snapshot.size;
+    /* Unlike the delete loops above, these documents SURVIVE the write — so the query would return
+       the same page forever without a cursor. */
+    cursor = snapshot.docs[snapshot.docs.length - 1];
+    if (snapshot.size < 100) break;
+  }
+  return marked;
+}
+
 /* ADR-122: the DECISION half of the studentCount maintenance below, extracted to module scope so
    scripts/firestore-durability.check.js executes THIS function rather than a re-implementation of it.
    Pure: given the user-doc data (or null when the doc is already gone), return the coaching id whose
@@ -80,7 +128,7 @@ async function _delete(req, res, db) {
   const uid = req.userId;
   console.log('[account:delete] Starting account deletion for uid:', uid);
 
-  const report = { subcollections: {}, payments: 0, aiInsights: 0, aiStudyPlans: 0, userDoc: false, authAccount: false };
+  const report = { subcollections: {}, paymentsRetained: 0, aiInsights: 0, aiStudyPlans: 0, userDoc: false, authAccount: false };
 
   try {
     const userDocRef = db.collection('users').doc(uid);
@@ -154,7 +202,9 @@ async function _delete(req, res, db) {
 
     /* Delete related top-level documents in parallel. */
     const results = await Promise.all([
-      _deleteByField(db, 'payments', 'uid', uid).catch(function (err) { console.warn('[account:delete] payments cleanup error:', err.message); return 0; }),
+      /* ADR-149: RETAINED and marked, never deleted — see _retainPaymentsForDeletedUser for why
+         (Play token binding / tax records / revenue history). */
+      _retainPaymentsForDeletedUser(db, uid, new Date().toISOString()).catch(function (err) { console.warn('[account:delete] payments retention error:', err.message); return 0; }),
       _deleteByField(db, 'aiInsights', 'userId', uid).catch(function (err) { console.warn('[account:delete] aiInsights cleanup error:', err.message); return 0; }),
       _deleteByField(db, 'aiStudyPlans', 'userId', uid).catch(function (err) { console.warn('[account:delete] aiStudyPlans cleanup error:', err.message); return 0; }),
       // ADR-062: the per-user AI docs keyed by uid — previously orphaned on deletion (GDPR completeness).
@@ -162,7 +212,7 @@ async function _delete(req, res, db) {
       db.collection('aiContext').doc(uid).delete().then(function () { return 1; }).catch(function (err) { console.warn('[account:delete] aiContext cleanup error:', err.message); return 0; }),
       _deleteByField(db, 'aiDaily', 'uid', uid).catch(function (err) { console.warn('[account:delete] aiDaily cleanup error:', err.message); return 0; })
     ]);
-    report.payments = results[0];
+    report.paymentsRetained = results[0];
     report.aiInsights = results[1];
     report.aiStudyPlans = results[2];
     report.aiPlanner = results[3];

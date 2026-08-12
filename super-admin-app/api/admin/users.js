@@ -230,7 +230,7 @@ async function handler(req, res) {
       snap.forEach(function (doc) {
         const d = doc.data();
         if ((d.accountStatus || 'active') === 'archived') return;
-        users.push({ uid: doc.id, displayName: (d.profile && d.profile.name) || d.email || 'Unknown', email: d.email || '', coachingId: d.coachingId || null, plan: d.plan === 'premium' ? 'premium' : 'free', accountStatus: d.accountStatus || 'active', lastActive: (d.stats && d.stats.lastActiveDate) || null, createdAt: (d.profile && d.profile.createdAt) || null, inactiveFlaggedAt: d.inactiveFlaggedAt || null });
+        users.push({ uid: doc.id, displayName: (d.profile && d.profile.name) || d.email || 'Unknown', email: d.email || '', coachingId: d.coachingId || null, plan: d.plan === 'premium' ? 'premium' : 'free', planType: d.planType || null, planExpiry: safeTimestampToISO(d.planExpiry), planSource: d.planSource || null, isTrial: !!d.isTrial, accountStatus: d.accountStatus || 'active', lastActive: (d.stats && d.stats.lastActiveDate) || null, createdAt: (d.profile && d.profile.createdAt) || null, inactiveFlaggedAt: d.inactiveFlaggedAt || null });
       });
       return res.status(200).json({ days: days, count: users.length, data: users });
     }

@@ -1,26 +1,36 @@
 /**
- * claimsService.js — Firebase Custom JWT Claims for Entitlements
+ * claimsService.js — the `premium` custom JWT claim.
  *
- * WHAT THIS DOES:
- * When a user pays for Premium, we store the entitlement in
- * Firestore (the source of truth). But we ALSO embed it in the user's
- * JWT token as a "custom claim". This way, the server can check entitlement
- * by reading the token (0 Firestore reads) instead of querying Firestore
- * (2 reads per API call).
+ * READ THIS BEFORE USING THE CLAIM FOR ANYTHING (ADR-149).
  *
- * HOW IT WORKS:
- * 1. User pays → server calls setEntitlementClaims(uid, { premium: true })
- * 2. Firebase Auth embeds { premium: true } inside the user's JWT
- * 3. Next time the user's token refreshes (every 1 hour, or on force-refresh),
- *    the new claims are available
- * 4. Server can read decoded.premium from the JWT instead of querying Firestore
+ * NOTHING READS `decoded.premium`, AND NOTHING MAY. The single server-side entitlement decision is
+ * `aiService.resolveUserAuth`, which reads users/{uid} from Firestore. This module only WRITES a
+ * mirror of that decision into the token. `entitlement-invariants.check.js` asserts the absence of
+ * any reader, and will fail the build if one appears.
  *
- * IMPORTANT:
- * - Claims are set SERVER-SIDE ONLY via Firebase Admin SDK
- * - Clients CANNOT forge or modify claims
- * - Claims take up to 1 hour to propagate (or immediately on force-refresh)
- * - Firestore remains the source of truth; claims are a fast-path optimization
- * - If this fails, the system still works (Firestore is checked as fallback)
+ * That is not an oversight — it is the design, for three reasons:
+ *
+ * 1. THE MIRROR IS ALLOWED TO BE STALE, AND OFTEN IS. A claim only reaches the client on the next
+ *    token refresh (up to an hour). More importantly, the Super Admin grant path deliberately does
+ *    NOT call this: a bulk coaching grant would otherwise cost one Firebase Auth write per student
+ *    (200 students = 200 writes, rate-limited and slow) for a field with no reader. So a legitimately
+ *    premium, admin-granted user routinely carries `premium:false`.
+ * 2. THEREFORE A FAST PATH BUILT ON IT WOULD DENY PAID USERS. Reading it as a gate would lock out
+ *    exactly the users an administrator just granted access to — the failure would look like the
+ *    grant silently not working.
+ * 3. The read it would save is already amortised: `resolveUserAuth` resolves entitlement AND the
+ *    single-device session in ONE document read (ADR-072), not the two this file's original comment
+ *    claimed.
+ *
+ * What the claim IS for: it is written on grant and cleared on lapse/revocation so the token never
+ * carries an entitlement the account no longer has. Keeping it truthful costs nothing and means a
+ * future feature that needs a coarse hint has a field that is not actively lying.
+ *
+ * OTHER PROPERTIES:
+ * - Claims are set SERVER-SIDE ONLY via the Firebase Admin SDK; clients cannot forge them.
+ * - `setCustomUserClaims` REPLACES the whole object, so this merges (see below — writing `{premium}`
+ *   alone used to lock admins out of their own consoles).
+ * - Every call is best-effort: a claims failure must never fail a payment.
  */
 
 const admin = require('firebase-admin');
