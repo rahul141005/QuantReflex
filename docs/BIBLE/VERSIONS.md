@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.183 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.81 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.184 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.16 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.184 (2026-08-13)** — **A background repaint may not outrank the screen the user is on (ADR-151).**
+> `FirestoreSync`'s own debounced write echoed back through the ADR-072 listener as a remote change
+> (because `updatedAt` counted as one), firing the ADR-118 repaint ~2s after any local save. On
+> `practice` that repaint runs `Router.onShow` → `_activeDrillEngine.cleanup()`, and its two stand-down
+> guards only cover a session between `begin()` and `finish()` — so it destroyed the pre-session "Begin
+> Challenge" screen and the results card, the two places users reported being thrown out of. `updatedAt`
+> is still mirrored but no longer marks a change, and both repaint sites (including the previously
+> unguarded ADR-117 hydration catch-up) now stand down on `_holdsTransientUi()`, which covers
+> `_activeDrillEngine` for the whole engine lifetime. Separately, the drill engine gained a one-shot
+> `onStart` hook fired from `begin()` so a free user's daily DI/Reasoning set is spent when they START
+> it, not when they open the screen to look at it. Free-user set decks are clamped to the remaining
+> daily questions, and the Practice-tab allowance card moved out of `home-view.js`, shows from 0
+> (superseding ADR-091's cold-start rule for this card) and reports all three free limits.
+> Architecture 2.81→2.82, Bible 2.183→2.184, `APP_VERSION` v278→v279.
 
 > **2.177 (2026-08-08)** — **Provider-neutral payment facade (ADR-144, WS4).** WS1 established
 > platform truth but nothing branched on it — a Play/TWA build would have offered Razorpay, the one

@@ -25,6 +25,12 @@ var DEFAULT_PLAN = 'premium_12m';
    two in lockstep — scripts/daily-limit.check.js asserts they never drift. */
 var FREE_DAILY_QUESTION_LIMIT = 20;
 
+/* Free-tier per-day quota for SHARED-CONTEXT SETS (ADR-107): one new DI set and one new Reasoning set per day.
+   Their questions still count against FREE_DAILY_QUESTION_LIMIT above — this is an additional, narrower cap on how
+   many *sets* may be opened, not a separate question budget. Named here (ADR-151) so the practice gates and the
+   Practice-tab quota card read the same number instead of each hardcoding `1`. */
+var FREE_DAILY_SETS_PER_KIND = 1;
+
 /* Every premium-gated feature. With the single tier, all of these require premium. Kept in lockstep with
    shared/constants/entitlements.js → PREMIUM_FEATURES by scripts/entitlement-parity.check.js (ADR-109). */
 var _LOCKED_FEATURES = {
@@ -150,6 +156,11 @@ function canOpenExplain() {
 
 function getDailyQuestionLimit() {
   return hasPremiumAccess(_getAccessUserState()) ? Infinity : FREE_DAILY_QUESTION_LIMIT;
+}
+
+/* Per-day cap on NEW DI / Reasoning sets. Infinity for premium, mirroring getDailyQuestionLimit's shape. */
+function getDailySetLimit() {
+  return hasPremiumAccess(_getAccessUserState()) ? Infinity : FREE_DAILY_SETS_PER_KIND;
 }
 
 function hasReachedDailyLimit() {
@@ -560,6 +571,7 @@ global.canOpenExplain = canOpenExplain;
 global.markFreeExplainExhausted = markFreeExplainExhausted;
 global.showPaywall = showPaywall;
 global.getDailyQuestionLimit = getDailyQuestionLimit;
+global.getDailySetLimit = getDailySetLimit;
 global.hasReachedDailyLimit = hasReachedDailyLimit;
 global.hasPremiumAccess = hasPremiumAccess;
 global.hasActivePremium = hasActivePremium;   /* canonical alias — one active-premium decision app-wide */
@@ -570,6 +582,7 @@ global.Paywall = {
   showPaywall: showPaywall,
   closeModal: _closePaywallModal,   /* FW-W2: router nav-teardown closes via the handle (listeners + lock stay balanced) */
   getDailyQuestionLimit: getDailyQuestionLimit,
+  getDailySetLimit: getDailySetLimit,
   hasReachedDailyLimit: hasReachedDailyLimit,
   hasPremiumAccess: hasPremiumAccess,
   hasActivePremium: hasActivePremium,

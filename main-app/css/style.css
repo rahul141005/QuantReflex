@@ -1329,6 +1329,26 @@ html.dark-mode .offline-banner {
 .quota-fill.quota-full {
   background: var(--qr-grad-bar-danger);
 }
+/* ADR-151: the two per-day set allowances, shown under the question bar so all three free limits
+   are legible in one glance on the Practice tab. */
+.quota-sets {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  margin-top: .45rem;
+}
+.quota-set {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--qr-text-dim);
+  background: var(--qr-surface-3);
+  border-radius: 999px;
+  padding: .1rem .5rem;
+}
+.quota-set.quota-set-spent {
+  color: var(--qr-danger);
+  opacity: .85;
+}
 .quota-warning {
   display: block;
   margin-top: .25rem;
@@ -1367,6 +1387,8 @@ html.dark-mode .daily-quota-card {
 html.dark-mode .quota-label { color: #94a3b8; }
 html.dark-mode .quota-count { color: #e2e8f0; }
 html.dark-mode .quota-bar { background: #334155; }
+html.dark-mode .quota-set { background: #334155; color: #94a3b8; }
+html.dark-mode .quota-set.quota-set-spent { color: #fca5a5; }
 html.dark-mode .quota-warning { color: #fca5a5; }
 html.dark-mode .quota-upgrade-link { color: #60a5fa; }
 

@@ -116,6 +116,37 @@ var FirestoreSync = (function () {
      `settings` and `stats` are deliberately absent — they are client-owned and merge-sensitive. */
   var REFRESH_SCALARS = ['plan', 'planType', 'planSource', 'isTrial', 'coachingId'];
   var REFRESH_STAMPS = ['planExpiry', 'trialEnd', 'planUpdatedAt', 'updatedAt'];
+  /* ADR-151: `updatedAt` is still MIRRORED from the snapshot (the durable pending-buffer replay compares
+     against the last KNOWN server updatedAt — see _persistPendingBuffer/_replayPendingBuffer), but it must
+     never COUNT AS A CHANGE. _flushUpdates stamps it with a server sentinel on every single write and never
+     echoes the resolved value back into _memoryCache, so this device's own debounced write always came back
+     looking like a remote edit — and the "an entitlement changed elsewhere" repaint below fired ~2s after
+     literally any local save. That repaint re-runs Router.onShow('practice'), which tears the drill container
+     down: it is what threw users off the pre-session "Begin Challenge" screen and off the results card a
+     couple of seconds after they appeared. Every field that genuinely warrants a repaint is compared
+     individually above/below; a bare timestamp bump is not one of them. */
+  var REFRESH_STAMPS_NO_REPAINT = { updatedAt: true };
+
+  /* ADR-151 — WHEN A BACKGROUND REPAINT MUST STAND DOWN.
+     Two places re-render the current view when server truth arrives (the live user-doc listener and the
+     post-hydration catch-up). Both call Router.showView(currentView), and for `practice` that runs
+     Router.onShow → _activeDrillEngine.cleanup() + _resetPracticeUiToModes(), which destroys whatever the
+     engine had on screen. `_drillActive` / the `drill-session-active` body class only cover a session that
+     has actually STARTED — they are both down on the pre-session "Begin Challenge" screen (the batch opens
+     inside begin()) and again on the results card (finish() calls _exitDrillSession() then endDrillBatch()
+     before rendering it). `_activeDrillEngine` is the one flag that is set for the whole engine lifetime:
+     start screen, live questions, the free-quota pause panel, and results. Checking all three keeps the
+     repaint useful everywhere else while making it incapable of yanking the user out of the engine.
+     Deliberately duck-typed on the global (same style as router.js / app.js) — firestore-sync must not
+     take a hard dependency on the practice controller's load order. */
+  function _holdsTransientUi() {
+    if (_drillActive) return true;
+    try {
+      if (document.body && document.body.classList.contains('drill-session-active')) return true;
+      if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine) return true;
+    } catch (_) { /* a guard must never throw into its caller */ }
+    return false;
+  }
 
   /* Conflict rule for that refresh: a field with an unflushed LOCAL edit is never overwritten by the
      snapshot. Without this, our own debounced write echoing back an older document reverts the just-made
@@ -416,7 +447,10 @@ var FirestoreSync = (function () {
       for (var j = 0; j < REFRESH_STAMPS.length; j++) {
         var sk = REFRESH_STAMPS[j];
         if (d[sk] === undefined || _hasPendingUpdate(sk)) continue;
-        if (_toMillis(d[sk]) !== _toMillis(_memoryCache[sk])) { _memoryCache[sk] = d[sk]; changed = true; }
+        if (_toMillis(d[sk]) !== _toMillis(_memoryCache[sk])) {
+          _memoryCache[sk] = d[sk];
+          if (!REFRESH_STAMPS_NO_REPAINT[sk]) changed = true;
+        }
       }
       if (d.profile && typeof d.profile === 'object' && !_hasPendingUpdate('profile')) {
         try {
@@ -426,11 +460,10 @@ var FirestoreSync = (function () {
         } catch (_) { /* unserialisable — skip rather than thrash */ }
       }
       if (!changed) return;
-      /* Repaint so badges/CTAs reflect the new truth immediately. Never interrupt an active drill —
-         gates re-check live at action time, so deferring the repaint costs nothing. */
-      if (_drillActive) return;
+      /* Repaint so badges/CTAs reflect the new truth immediately — but never on top of transient UI the
+         user is standing in (ADR-151). Gates re-check live at action time, so deferring costs nothing. */
+      if (_holdsTransientUi()) return;
       try {
-        if (document.body && document.body.classList.contains('drill-session-active')) return;
         if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
           var cv = Router.getCurrentView();
           if (cv) Router.showView(cv);
@@ -540,9 +573,11 @@ var FirestoreSync = (function () {
          painted the FREE chrome for what may be a paying user, and the boot transition is a one-shot
          latch so nothing repainted when the data finally arrived. Now that real entitlement is in
          hand, re-render the current view. Gates were always correct (they re-check live at click
-         time); this fixes the stale chrome. Cheap + idempotent: views register via Router.onShow. */
+         time); this fixes the stale chrome. Cheap + idempotent: views register via Router.onShow.
+         ADR-151: same stand-down as the listener above — hydration finishing while the user is on the
+         pre-session screen or a results card must not throw them back to the mode list. */
       try {
-        if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
+        if (!_holdsTransientUi() && typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
           var _cv = Router.getCurrentView();
           if (_cv) Router.showView(_cv);
         }

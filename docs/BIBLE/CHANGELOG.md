@@ -6,6 +6,56 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-13 — Two bugs on the "Begin Challenge" screen: the app walked away, and the set was already spent (ADR-151, v279)
+
+Reported as three symptoms — the pre-session screen bouncing back to Practice after ~2–3 seconds, the
+DI/LR review card doing the same, the Quick Start review card doing the same — plus a free user's one
+daily set being consumed without them answering anything. It was two defects, and one of them explains
+all three navigation symptoms.
+
+**The app walked away.** `js/firestore-sync.js:966` stamps `updatedAt` with `serverTimestamp()` on every
+flush and never echoes the resolved value back into `_memoryCache`. Because `updatedAt` sat in
+`REFRESH_STAMPS`, the ADR-072 live user-doc listener saw this device's *own* debounced write return and
+treated it as a remote change, firing the ADR-118 repaint — `Router.showView(currentView)` — which for
+`practice` runs `Router.onShow` → `_activeDrillEngine.cleanup()` + `_resetPracticeUiToModes()`. Its two
+stand-down guards only cover a session between `begin()` and `finish()`: the pre-session screen has not
+called `_enterDrillSession()` yet (`renderStart()` at `js/drill-engine.js:279` explicitly calls
+`_exitDrillSession()`), and by the time the results card renders, `finish()` has already called
+`_exitDrillSession()` and `endDrillBatch()`. `SYNC_DEBOUNCE_MS = 2000` is the "2–3 seconds" users saw.
+The ADR-117 post-hydration repaint had no guard at all.
+
+Fixed at both ends: `updatedAt` is still mirrored (the durable pending-write buffer needs it) but no
+longer marks the snapshot as changed, and both repaint sites now stand down on `_holdsTransientUi()`,
+which additionally covers `_activeDrillEngine` — the one flag that is set for the whole engine
+lifetime, start screen and results card included.
+
+**The set was already spent.** `startDiSet`/`startLrSet` called `recordSetStarted()` before
+`createDrillEngine(...).start()`, and `start()` renders the pre-session screen rather than starting one.
+Opening a set to look at it — or backing out with "Back to Modes" — burned the day's free set.
+`js/drill-engine.js` gained an `onStart` hook fired once from `begin()` behind a never-reset latch (a
+post-generation-failure Retry must not double-charge), and the launchers spend the allowance there.
+
+**Two related corrections.** Free-user set decks are now clamped to the remaining daily questions
+(`_clampSetToDailyAllowance`), so a user with 2 questions left is no longer shown a 5-question set they
+cannot finish. And the Practice-tab allowance card moved out of `js/views/home-view.js` — where it was
+defined but never called from — into `js/controllers/practice-modes.js`, shows from 0 rather than
+hiding until the first question (**superseding ADR-091's cold-start rule for this card**), and now
+reports all three free limits: 20 questions, 1 DI set, 1 Reasoning set.
+
+**Tests.** Two new suites, both wired into `npm test` (64 total, green).
+`scripts/practice-browser.check.js` runs the real modules in a simulated browser and drives the launch
+as a user does; restoring the pre-fix call order makes it fail with *"opening the set does NOT consume
+the free daily set (got 1)"*, and it asserts the navigation bug's precondition directly — on the
+pre-session screen `_drillActive` is false and `drill-session-active` is absent while
+`_activeDrillEngine` is set. `scripts/practice-session-integrity.check.js` pins the wiring; every guard
+in it was proven load-bearing by deleting it and confirming the named assertion fails.
+`scripts/session-integrity.check.js:68` was updated to assert the widened guard rather than the old
+`_drillActive` literal.
+
+Files: `js/firestore-sync.js`, `js/drill-engine.js`, `js/controllers/practice-modes.js`,
+`js/views/home-view.js`, `js/paywall.js`, `css/style.css`, `locales/{en,hi,mr}.js`, `index.html`,
+`service-worker.js` (APP_VERSION → v279), `package.json`.
+
 ## 2026-08-12 — The final production audit: nine money-path defects + the legal pages Play requires (ADR-149, v277)
 
 A twelve-dimension sweep of the whole repository, treating every prior certification claim — this

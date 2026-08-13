@@ -726,6 +726,9 @@
       backToModesAria: 'Back to practice modes',
       dailyLimitBanner: "🔒 You've reached your daily limit of {count} free questions.<br>Upgrade to Premium for unlimited practice.",
       upgradeNow: 'Upgrade Now',
+      /* ADR-151: free-tier set allowances, shown on the Practice-tab quota card alongside the 20-question bar. */
+      quotaDiSet: 'DI set',
+      quotaLrSet: 'Reasoning set',
       focusAdaptive: 'Focus Training (Adaptive)',
       customAdaptive: 'Custom Training (Adaptive)',
       sessionReview: 'Session Review',

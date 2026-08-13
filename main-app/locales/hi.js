@@ -721,6 +721,8 @@
       backToModesAria: 'अभ्यास मोड पर वापस जाएँ',
       dailyLimitBanner: '🔒 आज के {count} मुफ़्त प्रश्नों की सीमा पूरी हो गई।<br>असीमित अभ्यास के लिए Premium लें।',
       upgradeNow: 'अभी अपग्रेड करें',
+      quotaDiSet: 'DI सेट',
+      quotaLrSet: 'रीज़निंग सेट',
       focusAdaptive: 'फोकस ट्रेनिंग (अडैप्टिव)',
       customAdaptive: 'कस्टम ट्रेनिंग (अडैप्टिव)',
       sessionReview: 'सेशन समीक्षा',

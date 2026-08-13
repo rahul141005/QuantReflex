@@ -44,6 +44,11 @@ function createDrillEngine(container, opts) {
   var autoAdvance = (opts.autoAdvance === true) || /Reflex Drill/.test(mode);
   var reviewMode = opts.reviewMode || false;
   var onFinish = opts.onFinish || null;
+  /* ADR-151: fired ONCE when the user actually commits to the session (inside begin()), never when the engine
+     is merely mounted. Hosts that spend a per-day allowance on a launch hang it here — see startDiSet/startLrSet.
+     Distinct from onResults/onFinish, which are end-of-session hooks. */
+  var onStart = opts.onStart || null;
+  var _onStartFired = false;                /* never reset — the gen-error Retry path clears beginStarted, and a retry must not re-charge the user */
   var onResults = opts.onResults || null;   // optional: host hook to augment the results card (e.g. mock scoring)
   var preloadedQuestions = opts._preloadedQuestions || null;
   var adaptiveMode = opts.adaptive === true;
@@ -1753,6 +1758,16 @@ function createDrillEngine(container, opts) {
   function begin() {
     if (beginStarted) return;
     beginStarted = true;
+    /* ADR-151 — THE SESSION STARTS HERE, NOT WHEN THE ENGINE IS CONSTRUCTED. start() renders the
+       "Begin Challenge" screen for every non-duel launch, so a host that charged a per-day allowance
+       before calling start() charged it for merely LOOKING at the set. One-shot: a Retry after a
+       generation failure resets beginStarted, and the user must not be charged twice for one set. */
+    if (!_onStartFired) {
+      _onStartFired = true;
+      if (typeof onStart === 'function') {
+        try { onStart(); } catch (_e) { /* a host hook must never stop the session from starting */ }
+      }
+    }
     _isFinished = false; /* a restart (Retry / Practice Mistakes / Increase Difficulty) reuses this engine — clear the finished latch */
     _paused = false; /* clear any stale pause latch on (re)start */
     _nextReady = true; /* ensure clean guard state at session start */

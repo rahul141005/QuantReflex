@@ -8,6 +8,67 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-151 — A background repaint may not outrank the screen the user is standing on; a set is spent when it STARTS (v279) (2026-08-13)
+
+- **Context:** A free user opened a DI or Reasoning set, landed on the pre-session "Begin Challenge"
+  screen, and ~2–3 seconds later the app returned them to the Practice mode list on its own — with the
+  set already counted as used. The same 2–3 second bounce was reported on the DI/LR review card and on
+  the Quick Start review card. Reported as three bugs; it was two, and the navigation one explains all
+  three symptoms.
+
+  **The navigation.** `FirestoreSync._flushUpdates` stamps `updatedAt` with a server sentinel on every
+  write and never echoes the resolved value into `_memoryCache`. `updatedAt` was in `REFRESH_STAMPS`,
+  so when the ADR-072 live user-doc listener received this device's *own* write back, the comparison
+  always differed and the ADR-118 "server truth changed elsewhere" repaint fired. That repaint calls
+  `Router.showView(currentView)`; for `practice` that runs `Router.onShow` →
+  `_activeDrillEngine.cleanup()` + `_resetPracticeUiToModes()`, which destroys the drill container.
+  Its two stand-down guards — `_drillActive` and the `drill-session-active` body class — are only
+  raised between `begin()` and `finish()`. On the pre-session screen neither is up yet (`renderStart()`
+  even calls `_exitDrillSession()` explicitly); on the results card both are already down (`finish()`
+  calls `_exitDrillSession()` and then `endDrillBatch()`, which flushes). So the repaint had a clear
+  run at exactly the two screens users complained about. `SYNC_DEBOUNCE_MS = 2000` is the "2–3 seconds".
+  A second repaint site — the ADR-117 post-hydration catch-up — had no guard at all.
+
+  **The consumption.** `startDiSet`/`startLrSet` called `recordSetStarted()` *before*
+  `createDrillEngine(...).start()`, and `start()` renders the pre-session screen rather than starting.
+  The day's one free set was therefore spent by looking at it. Independent of the navigation bug:
+  backing out with "Back to Modes" burned it too.
+
+- **Decision:**
+  1. `updatedAt` is still mirrored from the snapshot (the durable pending-write buffer compares against
+     the last known server value) but no longer counts as a change. A bookkeeping timestamp is not
+     server truth about the user.
+  2. Both repaint sites now stand down on `_holdsTransientUi()` — `_drillActive`, or the
+     `drill-session-active` class, or `_activeDrillEngine` being set. The last is the one that matters:
+     it is non-null for the whole engine lifetime, start screen and results card included.
+  3. The engine gained an `onStart` host hook, fired once from `begin()` behind a never-reset latch (so
+     a post-generation-failure Retry cannot double-charge). The set launchers spend the allowance there.
+  4. Free-user set decks are clamped to the remaining daily questions, so the start screen advertises a
+     count the user can actually finish.
+  5. The Practice-tab allowance card now shows from 0 and reports all three free limits (20 questions,
+     1 DI set, 1 Reasoning set). **This supersedes ADR-091's cold-start rule** for this card: hiding it
+     until the first question meant a free user could not see their allowance until they had spent some
+     of it. The Practice tab is where they choose what to spend it on.
+
+- **Options considered:** guarding only on a new "start screen showing" flag (rejected — it would have
+  left the results card exposed, and a third flag to keep in sync); keeping `updatedAt` as a repaint
+  trigger and relying on the widened guard alone (rejected — the repaint would still fire on every
+  local save on every other view, which is pure waste and was never intended).
+
+- **Verified by execution, not inspection:** `scripts/practice-browser.check.js` runs the real
+  `progress.js`, `paywall.js`, `drill-engine.js` and `practice-modes.js` in a simulated browser and
+  drives the launch the way a user does. Re-introducing the pre-fix ordering makes it fail with
+  *"opening the set does NOT consume the free daily set (got 1)"*. It also asserts the precondition of
+  the navigation bug directly: on the pre-session screen `_drillActive` is false and the
+  `drill-session-active` class is absent while `_activeDrillEngine` is set.
+  `scripts/practice-session-integrity.check.js` pins the wiring; every one of its guards was proven
+  load-bearing by deleting it and watching the named assertion fail.
+
+- **Consequence:** background repaints are now rarer and never destructive. The cost is that a genuine
+  cross-device entitlement change made while the user sits on a start screen or results card is applied
+  on their next navigation instead of immediately — acceptable, because every gate re-checks live at
+  action time, which is why the guard was safe to widen rather than narrow.
+
 ## ADR-150 — The Firebase SDK is self-hosted, not loaded from a CDN (v278) (2026-08-12)
 
 - **Context:** `index.html` loaded the four Firebase compat bundles from `www.gstatic.com`. QuantReflex

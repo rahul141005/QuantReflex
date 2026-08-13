@@ -721,6 +721,8 @@
       backToModesAria: 'सराव मोडकडे परत जा',
       dailyLimitBanner: '🔒 आजची {count} मोफत प्रश्नांची मर्यादा संपली.<br>अमर्याद सरावासाठी Premium घ्या.',
       upgradeNow: 'आता अपग्रेड करा',
+      quotaDiSet: 'DI सेट',
+      quotaLrSet: 'रीझनिंग सेट',
       focusAdaptive: 'फोकस ट्रेनिंग (ॲडॅप्टिव्ह)',
       customAdaptive: 'कस्टम ट्रेनिंग (ॲडॅप्टिव्ह)',
       sessionReview: 'सेशन उजळणी',

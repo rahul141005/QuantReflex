@@ -740,50 +740,6 @@ function _renderSuggestedPractice() {
   }
 }
 
-/* ---- Batch 3: Daily quota indicator (free users) ---- */
-
-/**
- * Show "X / 20 questions today" for free users who have a daily cap.
- * Hidden for premium/paid/trial users.
- */
-function _renderDailyQuota(progress) {
-  var container = document.getElementById('dailyQuotaIndicator');
-  if (!container) return;
-  container.innerHTML = '';
-  container.style.display = 'none';
-
-  if (typeof getDailyQuestionLimit !== 'function') return;
-  var limit = getDailyQuestionLimit();
-  if (limit === Infinity) return; /* Premium user — no cap */
-
-  var used = parseInt(progress.todayAttempted) || 0;
-  if (used === 0) return; /* Cold-start (ADR-091): the cap appears once it's meaningful — never "0/20" before the first question */
-  var remaining = Math.max(0, limit - used);
-  var pct = Math.min(100, Math.round((used / limit) * 100));
-
-  container.style.display = '';
-  container.innerHTML =
-    '<div class="daily-quota-card">' +
-      '<div class="quota-header">' +
-        '<span class="quota-label">' + QRI18n.t('home.dailyQuestions') + '</span>' +
-        '<span class="quota-count">' + used + ' / ' + limit + '</span>' +
-      '</div>' +
-      '<div class="quota-bar">' +
-        '<div class="quota-fill' + (pct >= 100 ? ' quota-full' : '') + '" style="width:' + pct + '%"></div>' +
-      '</div>' +
-      (remaining <= 5 && remaining > 0
-        ? '<span class="quota-warning">' + QRI18n.t('home.questionsRemaining', { count: remaining }) + '</span>'
-        : '') +
-      (remaining === 0
-        ? '<span class="quota-warning">' + QRI18n.t('home.dailyLimitReached') + ' <a href="#" class="quota-upgrade-link" id="quotaUpgradeLink">' + QRI18n.t('home.upgradeForUnlimited') + '</a></span>'
-        : '') +
-    '</div>';
-
-  var upgradeLink = container.querySelector('#quotaUpgradeLink');
-  if (upgradeLink) {
-    upgradeLink.addEventListener('click', function (e) {
-      e.preventDefault();
-      if (typeof showPaywall === 'function') showPaywall('daily_limit');
-    });
-  }
-}
+/* ADR-151: _renderDailyQuota moved to js/controllers/practice-modes.js — it renders #dailyQuotaIndicator,
+   which lives in the PRACTICE view (index.html), and Router.onShow('practice') is its only caller. It was
+   never invoked from Home. */

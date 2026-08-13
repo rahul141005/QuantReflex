@@ -283,6 +283,37 @@ function startSessionReview(wrongQuestions) {
   _startPracticeEngine(drillContainer, config);
 }
 
+/* How many NEW DI (or Reasoning) sets a user gets per day — Infinity for premium. Single definition lives in
+   js/paywall.js (FREE_DAILY_SETS_PER_KIND, exposed via getDailySetLimit) so the gates below and the Practice-tab
+   quota card can never disagree about it (ADR-151). Falls back to 1 only if paywall.js somehow isn't loaded,
+   which would already have failed every other gate on this screen. */
+function _freeSetLimit() {
+  return (typeof getDailySetLimit === 'function') ? getDailySetLimit() : 1;
+}
+
+/* ADR-151 — DON'T ADVERTISE QUESTIONS THE ALLOWANCE CAN'T COVER.
+   A set's questions count against the same 20/day cap as everything else, and the engine already refuses to
+   render question #21 (drill-engine.js → QuotaPolicy.shouldStopForDailyQuota → _renderQuotaReached). But the
+   launch config took `set.questions.length` verbatim, so a free user with 2 questions left opened a set whose
+   start screen promised 5 and then stopped them two questions in. Trim the deck to what they can actually
+   finish so the promise on the start screen is the truth. Premium (limit === Infinity) is never trimmed.
+   Returns a shallow copy — the generator's object is left alone. */
+function _clampSetToDailyAllowance(set, isPremium) {
+  if (isPremium || !set || !Array.isArray(set.questions)) return set;
+  if (typeof getDailyQuestionLimit !== 'function' || typeof loadProgress !== 'function') return set;
+  var limit = getDailyQuestionLimit();
+  if (!isFinite(limit)) return set;
+  var used = parseInt((loadProgress() || {}).todayAttempted) || 0;
+  /* >= 1 is guaranteed by the hasReachedDailyLimit() gate the callers run first; Math.max is belt-and-braces
+     so a future caller can never produce an empty deck (which the engine would treat as a generation failure). */
+  var remaining = Math.max(1, limit - used);
+  if (set.questions.length <= remaining) return set;
+  var trimmed = {};
+  for (var k in set) { if (Object.prototype.hasOwnProperty.call(set, k)) trimmed[k] = set[k]; }
+  trimmed.questions = set.questions.slice(0, remaining);
+  return trimmed;
+}
+
 /* ---- DI Set launcher (ADR-078): one shared chart + linked questions, served by the same drill engine ---- */
 function startDiSet(category) {
   if (typeof DISetEngine === 'undefined' || !DISetEngine.generateSet) {
@@ -295,7 +326,7 @@ function startDiSet(category) {
   /* Per-day SET quota (ADR-107): free users get ONE new DI set per day; Premium is unlimited. Gated on the daily
      counter + hasPremiumAccess (NOT _LOCKED_FEATURES — this is a per-day quota, not an all-or-nothing lock). */
   var _isPremiumSet = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
-  if (!_isPremiumSet && typeof getSetsStartedToday === 'function' && getSetsStartedToday('di') >= 1) {
+  if (!_isPremiumSet && typeof getSetsStartedToday === 'function' && getSetsStartedToday('di') >= _freeSetLimit()) {
     if (typeof showPaywall === 'function') showPaywall('diset_limit');
     return;
   }
@@ -303,6 +334,7 @@ function startDiSet(category) {
   var cat = category || cats[Math.floor(Math.random() * cats.length)];
   var set = DISetEngine.generateSet(cat);
   if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast(QRI18n.t('practice.diSetFailed')); return; }
+  set = _clampSetToDailyAllowance(set, _isPremiumSet);
 
   var modeSelect = document.getElementById('modeSelect');
   var categorySelect = document.getElementById('categorySelect');
@@ -316,6 +348,11 @@ function startDiSet(category) {
     timeLimitSec: null, perQuestionSec: null, category: null,
     diSet: set,
     mode: '📊 ' + QRI18n.t('practice.setSuffix', { label: label }),
+    /* ADR-151: the day's one free set is spent when the user actually STARTS it, not when they open the
+       start screen to look at it. The engine fires this once, from begin(). */
+    onStart: function () {
+      if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('di');
+    },
     onFinish: function (view) {
       if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
       var _dc = document.getElementById('drillContainer');
@@ -332,10 +369,6 @@ function startDiSet(category) {
   if (customPracticeConfig) customPracticeConfig.style.display = 'none';
   drillContainer.style.display = 'block';
   if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
-  /* Count this granted start against today's DI-set quota (ADR-107). Only for free users — Premium is unlimited so
-     the counter is irrelevant to them. Recorded here (after all validation passes) so a build failure never burns
-     the day's one free set. */
-  if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('di');
   _startPracticeEngine(drillContainer, config);
 }
 
@@ -348,7 +381,7 @@ function startLrSet(category) {
   if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('daily_limit'); return; }
   /* Per-day SET quota (ADR-107): free users get ONE new Reasoning set per day; Premium unlimited. */
   var _isPremiumSet = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
-  if (!_isPremiumSet && typeof getSetsStartedToday === 'function' && getSetsStartedToday('lr') >= 1) {
+  if (!_isPremiumSet && typeof getSetsStartedToday === 'function' && getSetsStartedToday('lr') >= _freeSetLimit()) {
     if (typeof showPaywall === 'function') showPaywall('lrset_limit');
     return;
   }
@@ -356,6 +389,7 @@ function startLrSet(category) {
   var cat = category || cats[Math.floor(Math.random() * cats.length)];
   var set = LRSetEngine.generateSet(cat);
   if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast(QRI18n.t('practice.lrSetFailed')); return; }
+  set = _clampSetToDailyAllowance(set, _isPremiumSet);
 
   var modeSelect = document.getElementById('modeSelect');
   var categorySelect = document.getElementById('categorySelect');
@@ -369,6 +403,10 @@ function startLrSet(category) {
     timeLimitSec: null, perQuestionSec: null, category: null,
     diSet: set,
     mode: '🧩 ' + QRI18n.t('practice.setSuffix', { label: label }),
+    /* ADR-151: charged from the engine's begin(), not from this launcher — see startDiSet. */
+    onStart: function () {
+      if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('lr');
+    },
     onFinish: function (view) {
       if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
       var _dc = document.getElementById('drillContainer');
@@ -385,8 +423,6 @@ function startLrSet(category) {
   if (customPracticeConfig) customPracticeConfig.style.display = 'none';
   drillContainer.style.display = 'block';
   if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
-  /* Count this granted start against today's Reasoning-set quota (ADR-107); free users only. */
-  if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('lr');
   _startPracticeEngine(drillContainer, config);
 }
 
@@ -397,6 +433,69 @@ function _startPracticeEngine(drillContainer, config) {
   var engine = createDrillEngine(drillContainer, config);
   _activeDrillEngine = engine;
   engine.start();
+}
+
+/* ---- Free-tier daily allowance card (renders #dailyQuotaIndicator, which lives in the Practice view) ----
+   Moved here from js/views/home-view.js (ADR-151): Router.onShow('practice') is its only caller and the markup
+   is inside the practice mode list, so it belongs with the controller that owns both.
+
+   ADR-151 SUPERSEDES ADR-091's cold-start rule here. ADR-091 hid the card until the first question of the day
+   so a fresh user was never greeted with "0/20". In practice that meant a free user could not see what their
+   allowance WAS until they had already spent some of it, and the three free limits (20 questions, 1 DI set,
+   1 Reasoning set) were never visible together anywhere. The Practice tab is where the user decides what to
+   spend the allowance on, so the card now shows from 0 and reports all three. Premium sees nothing. */
+function _renderDailyQuota(progress) {
+  var container = document.getElementById('dailyQuotaIndicator');
+  if (!container) return;
+  container.innerHTML = '';
+  container.style.display = 'none';
+
+  if (typeof getDailyQuestionLimit !== 'function') return;
+  var limit = getDailyQuestionLimit();
+  if (!isFinite(limit)) return;   /* Premium — no cap, no card */
+
+  var p = progress || {};
+  var used = Math.max(0, parseInt(p.todayAttempted) || 0);
+  var remaining = Math.max(0, limit - used);
+  var pct = Math.min(100, Math.round((used / limit) * 100));
+
+  var setLimit = (typeof getDailySetLimit === 'function') ? getDailySetLimit() : 1;
+  var diUsed = Math.min(setLimit, Math.max(0, parseInt(p.diSetsToday) || 0));
+  var lrUsed = Math.min(setLimit, Math.max(0, parseInt(p.lrSetsToday) || 0));
+
+  /* Every interpolated value below is either an integer computed here or a string from our own locale
+     bundle — same trust model as the rest of this file's template literals. No user input reaches it. */
+  function _setChip(labelKey, u) {
+    return '<span class="quota-set' + (u >= setLimit ? ' quota-set-spent' : '') + '">' +
+      QRI18n.t(labelKey) + ' ' + u + '/' + setLimit + '</span>';
+  }
+
+  container.style.display = '';
+  container.innerHTML =
+    '<div class="daily-quota-card">' +
+      '<div class="quota-header">' +
+        '<span class="quota-label">' + QRI18n.t('home.dailyQuestions') + '</span>' +
+        '<span class="quota-count">' + used + ' / ' + limit + '</span>' +
+      '</div>' +
+      '<div class="quota-bar">' +
+        '<div class="quota-fill' + (pct >= 100 ? ' quota-full' : '') + '" style="width:' + pct + '%"></div>' +
+      '</div>' +
+      '<div class="quota-sets">' + _setChip('practice.quotaDiSet', diUsed) + _setChip('practice.quotaLrSet', lrUsed) + '</div>' +
+      (remaining <= 5 && remaining > 0
+        ? '<span class="quota-warning">' + QRI18n.t('home.questionsRemaining', { count: remaining }) + '</span>'
+        : '') +
+      (remaining === 0
+        ? '<span class="quota-warning">' + QRI18n.t('home.dailyLimitReached') + ' <a href="#" class="quota-upgrade-link" id="quotaUpgradeLink">' + QRI18n.t('home.upgradeForUnlimited') + '</a></span>'
+        : '') +
+    '</div>';
+
+  var upgradeLink = container.querySelector('#quotaUpgradeLink');
+  if (upgradeLink) {
+    upgradeLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (typeof showPaywall === 'function') showPaywall('daily_limit');
+    });
+  }
 }
 
 /**

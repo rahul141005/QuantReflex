@@ -65,7 +65,9 @@ ok(/Session\.onReplaced\(\)/.test(listener), '3 displacement detection preserved
 ok(/_memoryCache\[k\] = d\[k\]/.test(listener) || /_memoryCache\[sk\] = d\[sk\]/.test(listener),
   '3 the snapshot now refreshes the local view (cross-device staleness fix)');
 ok(/_loadedUserId !== uid/.test(listener), '3 refresh is scoped to the loaded user (no cross-user bleed)');
-ok(/_drillActive/.test(listener), '3 repaint never interrupts an active drill');
+/* ADR-151 widened this: the check moved into _holdsTransientUi(), which covers _drillActive AND the whole
+   engine lifetime (pre-session "Begin Challenge" screen, results card) — see practice-session-integrity.check.js. */
+ok(/_holdsTransientUi\(\)/.test(listener), '3 repaint never interrupts an active drill or a mounted engine');
 /* client-owned, merge-sensitive collections must NOT be live-overwritten */
 var refreshSets = sync.slice(sync.indexOf('var REFRESH_SCALARS'), sync.indexOf('var REFRESH_SCALARS') + 260);
 ok(/REFRESH_SCALARS/.test(listener) && /REFRESH_STAMPS/.test(listener), '3 listener refreshes the declared field sets');
