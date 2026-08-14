@@ -159,6 +159,24 @@ function showExitSessionDialog(onConfirm, customOptions) {
   }
 }
 
+/* ADR-153 — THE ONE PREDICATE FOR "THE ENGINE OWNS THE SCREEN".
+   `_drillSessionActive` is NOT that predicate, and this is the trap that produced the results-screen bug:
+   finish() calls _exitDrillSession() BEFORE it paints the results card, so from that moment the flag reads false
+   while the engine still owns the whole viewport. Anything that consulted the flag alone therefore stood down
+   during the drill and then happily tore down the score card the user was reading.
+   `_activeDrillEngine` is the signal with the right lifetime — it is set for the entire engine lifetime (start
+   screen, live questions, the free-quota pause panel AND the results card) and is nulled only by a deliberate
+   navigation. Background repaints must consult THIS, never the raw flag.
+   Exposed as a bare global to match the rest of this file's convention. */
+function _engineOwnsScreen() {
+  try {
+    if (typeof _drillSessionActive !== 'undefined' && _drillSessionActive) return true;
+    if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine) return true;
+    if (document.body && document.body.classList.contains('drill-session-active')) return true;
+  } catch (_) { /* a guard must never throw into its caller */ }
+  return false;
+}
+
 /* Prevent accidental page close / tab close during active drill sessions */
 window.addEventListener('beforeunload', function (e) {
   if (_drillSessionActive) {

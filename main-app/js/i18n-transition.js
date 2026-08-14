@@ -106,8 +106,13 @@
     } catch (_) { return false; }
   }
 
+  /* ADR-153: the body class alone is NOT "a drill is on screen" — finish() removes it before painting the
+     results card, so a language change could repaint the score card away. Defer to the shared predicate. */
   function _drillActive() {
-    try { return !!(document.body && document.body.classList.contains('drill-session-active')); } catch (_) { return false; }
+    try {
+      if (typeof _engineOwnsScreen === 'function') return _engineOwnsScreen();
+      return !!(document.body && document.body.classList.contains('drill-session-active'));
+    } catch (_) { return false; }
   }
 
   /* ---- cascade units: auto-discovered, so every future screen inherits this with zero work ---------- */

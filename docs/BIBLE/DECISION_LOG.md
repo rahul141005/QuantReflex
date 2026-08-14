@@ -8,6 +8,31 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-153 — One predicate for "the engine owns the screen" (v281) (2026-08-14)
+
+- **Context:** ADR-151 closed the *automatic* repaint that threw users off the pre-session screen, but the
+  results/review card stayed exposed. `finish()` calls `_exitDrillSession()` BEFORE it paints that card, so
+  `_drillSessionActive` reads false while the engine still owns the entire viewport. Three separate guards each
+  kept their own narrower notion of "a drill is on screen" and all three stood down there: `js/paywall.js`
+  repainted the current view after a successful activation, and `js/i18n-transition.js` tested only the
+  `drill-session-active` body class. The worst case had money attached — the "Go Premium" banner is appended to
+  the RESULTS card 900 ms after it renders, and `window.__qrResumeAfterUpgrade` is armed in only two places
+  (the free-quota pause panel and the Learn chapter lock), neither of them the results card. So a user could
+  pay and be dumped straight back to the mode list, losing the score card they had just earned.
+
+- **Decision:** one predicate, `_engineOwnsScreen()` in `js/session-manager.js`, true when `_drillSessionActive`
+  OR `_activeDrillEngine` is set OR the body class is present. `_activeDrillEngine` is the leg that matters: it
+  spans the whole engine lifetime — start screen, live questions, quota pause and results — and is nulled only
+  by a deliberate navigation. `js/paywall.js` and `js/i18n-transition.js` now defer to it. Skipping the repaint
+  costs nothing: entitlement is re-derived live at every gate call, so the new plan is already in force.
+
+- **Verified:** every guard proven load-bearing by deletion (2 mutations, 2 caught); 64 suites green; a headless
+  boot reports v281 with zero exceptions and `_engineOwnsScreen` resolving as a real global.
+
+- **Consequence / still open:** Back from the results card still navigates to Practice without confirmation
+  (`js/router.js` popstate falls to its non-session branch). That is user-initiated, not the reported automatic
+  bounce, and is deliberately left for after release.
+
 ## ADR-152 — Three release blockers: an unanswerable mode, a swallowed duel exit, and a purge that overwrote the next user (v280) (2026-08-14)
 
 - **Context:** a final pre-submission blocker pass. Three defects, each independently verified by re-opening

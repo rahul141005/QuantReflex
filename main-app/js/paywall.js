@@ -245,6 +245,15 @@ function _onPurchaseResult(result) {
       if (typeof _resume === 'function') {
         try { _resume(); return; } catch (_e) { window.__qrResumeAfterUpgrade = null; }
       }
+      /* ADR-153: never repaint on top of a live engine. The resume hook above is armed in only TWO places
+         (the free-quota pause panel and the Learn chapter lock), so every OTHER mid-session paywall — the
+         in-drill AI-explain prompt, and the "Go Premium" banner appended to the RESULTS card 900ms after it
+         renders — fell through to here and ran Router.showView(currentView). For `practice` that runs
+         Router.onShow → _activeDrillEngine.cleanup() + _resetPracticeUiToModes(), so the user paid and was
+         immediately dumped back to the mode list, losing the drill or the score card they had just earned.
+         Skipping the repaint costs nothing: entitlement is re-derived live at every gate call, so the new
+         plan is already in force, and the next real navigation repaints with correct chrome anyway. */
+      if (typeof _engineOwnsScreen === 'function' && _engineOwnsScreen()) return;
       var currentView = (typeof Router !== 'undefined' && Router.getCurrentView) ? Router.getCurrentView() : 'home';
       if (currentView && typeof Router !== 'undefined' && Router.showView) Router.showView(currentView);
     });

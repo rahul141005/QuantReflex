@@ -229,5 +229,36 @@ ok(clears === loaded + 1,
 ok(/field === 'stats'/.test(SYNC) && !/_purgedAwaitingHydration\)\s*return;/.test(SYNC),
   'firestore-sync: the purge-gap guard is scoped to `stats`, not a blanket drop (ADR-054 stays intact)');
 
+/* ─────────────── ADR-153 · the results card must survive a background repaint ─────────────── */
+
+var SESSMGR = fs.readFileSync(path.join(ROOT, 'js/session-manager.js'), 'utf8');
+var PAYWALL_SRC = fs.readFileSync(path.join(ROOT, 'js/paywall.js'), 'utf8');
+var I18NT = fs.readFileSync(path.join(ROOT, 'js/i18n-transition.js'), 'utf8');
+
+var owns = fnBody(SESSMGR, '_engineOwnsScreen');
+ok(owns !== null, 'session-manager: _engineOwnsScreen() exists (the one predicate)');
+if (owns) {
+  ok(/_drillSessionActive/.test(owns), '_engineOwnsScreen covers _drillSessionActive (live session)');
+  ok(/_activeDrillEngine/.test(owns),
+    '_engineOwnsScreen covers _activeDrillEngine — THE results-card leg (ADR-153)');
+  ok(/drill-session-active/.test(owns), '_engineOwnsScreen covers the body class');
+}
+
+/* The post-activation repaint in paywall.js must stand down when the engine owns the screen. */
+var payCode = stripComments(PAYWALL_SRC).split('\n');
+var payRepaint = payCode.map(function (l, i) { return { line: l, n: i + 1 }; })
+  .filter(function (r) { return /Router\.showView\(currentView\)/.test(r.line); });
+ok(payRepaint.length === 1, 'paywall: exactly one post-activation repaint site (found ' + payRepaint.length + ')');
+payRepaint.forEach(function (r) {
+  var above = payCode.slice(Math.max(0, r.n - 6), r.n).join('\n');
+  ok(/_engineOwnsScreen\(\)/.test(above),
+    'paywall:' + r.n + ' the post-upgrade repaint stands down when the engine owns the screen (ADR-153)');
+});
+
+/* i18n-transition must not keep its own narrower notion of "a drill is on screen". */
+var i18nDrill = fnBody(I18NT, '_drillActive');
+ok(i18nDrill !== null && /_engineOwnsScreen/.test(i18nDrill),
+  'i18n-transition: _drillActive defers to the shared predicate rather than the body class alone');
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
