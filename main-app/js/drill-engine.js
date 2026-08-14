@@ -387,7 +387,12 @@ function createDrillEngine(container, opts) {
       actions.classList.add('has-skip'); actions.insertBefore(skipBtn, submitBtn);
     }
     qStart = performance.now();
-    if (!isMCQ && typeof showCustomNumpad === 'function') showCustomNumpad(ui.answerInputEl, function () { if (!answered) checkAnswer(ui.answerInputEl.value.trim()); }, _numpadOptsFor(q));
+    /* ADR-152: route the numpad's ↵ through the SAME guarded closure the Submit button and the physical Enter key
+       use (defined above). It previously called checkAnswer directly with no empty-value check, so one stray tap on
+       a blank box graded the question wrong, burned a daily-allowance question and filed a mistake the user never
+       answered — on the one input surface a phone user actually has, since the box is readonly. The single-question
+       path has always done it this way (see the showCustomNumpad call in renderQuestion). */
+    if (!isMCQ && typeof showCustomNumpad === 'function') showCustomNumpad(ui.answerInputEl, function () { submit(); }, _numpadOptsFor(q));
   }
 
   /* Adaptive-keypad options for a question, from the shared answer-format registry (ADR-086): the exact keys its
@@ -1857,8 +1862,15 @@ function createDrillEngine(container, opts) {
         /* DI Set: map the shared-context set into the drill question shape. Each question carries the SET's category
            (so analytics attribute to di-bar/di-line/… exactly like single questions) and the shared chart (so AI
            Explain grounds on the same data); caselet sets carry the worded context for grounding. */
+        /* ADR-152: `options` MUST be carried. LR sets (ADR-079) are multiple-choice with NAME answers
+           (js/lr-set-engine.js builds them through _mcq), and this mapping is the ONLY path they take into the
+           engine. Dropping the array made _renderSetQuestion compute isMCQ === false, which rendered the numeric
+           branch — a `readonly inputmode="none"` box fillable only by the digit numpad — for an answer like
+           "Rohan", while the Submit guard refused the empty box. Every Reasoning Set was therefore impossible to
+           finish. DI sets are unaffected either way (js/di-set-engine.js emits no options; the field is null and
+           the numeric branch still applies), so this is safe for both set types. */
         questions = diSet.questions.map(function (sq) {
-          return { question: sq.question, answer: sq.answer, category: diSet.category, subtype: sq.subtype, chart: diSet.chart || null, aiContext: diSet.context || null };
+          return { question: sq.question, answer: sq.answer, category: diSet.category, subtype: sq.subtype, options: sq.options || null, chart: diSet.chart || null, aiContext: diSet.context || null };
         });
         count = questions.length;
       } else if (preloadedQuestions && preloadedQuestions.length > 0) {

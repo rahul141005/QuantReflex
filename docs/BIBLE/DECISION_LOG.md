@@ -8,6 +8,60 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-152 — Three release blockers: an unanswerable mode, a swallowed duel exit, and a purge that overwrote the next user (v280) (2026-08-14)
+
+- **Context:** a final pre-submission blocker pass. Three defects, each independently verified by re-opening
+  the code and executing it, not by trusting a prior audit's line references.
+
+  **1. Every Reasoning Set was impossible to finish.** `js/lr-set-engine.js` builds LR set questions as
+  multiple-choice with NAME answers (`_mcq`). `startLrSet` hands the set to the shared engine as
+  `config.diSet`, and the engine's set mapping in `_beginBuild` copied question/answer/category/subtype/
+  chart/aiContext — but not `options`. `_renderSetQuestion` then computed `isMCQ === false` and rendered the
+  numeric branch: an input that is `readonly` with `inputmode="none"`, fillable only by the digit-only
+  numpad, for an answer like "Rohan". The Submit guard refused the empty box, so there was no way forward
+  and no way to finish. DI sets were never affected — `js/di-set-engine.js` emits no `options` and its
+  answers are numeric. The generator's own suite passed throughout, because it tests the generator's output
+  and nothing tested the mapping that consumes it.
+
+  **2. Back during a duel was swallowed by the practice branch.** `begin()` calls `_enterDrillSession()`
+  unconditionally, so `_drillSessionActive` is true during a duel too. The popstate handler tested that flag
+  BEFORE `DuelManager.handleBackNav()`, so a duel Back showed the practice exit dialog and left the duel
+  engine orphaned — still holding its timers, still writing blank answers for the remaining questions.
+
+  **3. An account switch could overwrite the incoming user's history with zeros.** `resetSyncState()` purges
+  `qr_progress`, but `AppState.getProgress()` never returns null — it returns a zeroed `DEFAULT_PROGRESS`
+  clone. `loadProgress()` then took its day-rollover branch and called `saveProgress()` → `syncStats()` →
+  `queueUpdate('stats', …)`. `_flushPending()` runs at the tail of `loadFromFirestore`, i.e. after the
+  incoming user's real stats were hydrated and after `_loadedUserId` was already set to them, so the
+  cross-user guard could not catch it. Any render touching progress in that window — `Router.onShow('practice')`
+  → `_renderDailyQuota` is enough — wiped totals, streaks, `categoryStats`, `dailyHistory` and the mistake
+  archive on the server. Invisible locally until the next cold hydration.
+
+- **Decision:**
+  1. Carry `options` through the set mapping. One field; the existing MCQ branch already handles everything
+     downstream. DI sets get `null` and keep the numeric branch.
+  2. Test `DuelManager.handleBackNav()` BEFORE the practice drill-session branch. A duel is the more specific
+     state, so it gets first refusal. Ordering is the entire fix — no flag plumbing, no chrome change.
+  3. Add `_purgedAwaitingHydration`, raised by `resetSyncState()` and cleared at every hydration-complete
+     site, and refuse `stats` writes while it is up. Deliberately scoped to `stats` so ADR-054 (a genuine
+     first-session write, where no purge happened) still buffers and still lands.
+  4. Route the set-path numpad's ↵ through the same guarded `submit()` closure the Submit button and physical
+     Enter already used. It previously called `checkAnswer` directly with no empty check, so one stray tap on
+     a blank box graded the question wrong, burned a daily-allowance question and archived a mistake the user
+     never answered — on the only input surface a phone user has, since the box is readonly.
+
+- **Verified by execution.** `scripts/practice-browser.check.js` drives the real launcher and asserts a
+  Reasoning Set renders tappable MCQ options with real values and no readonly input. Reverting the one-line
+  mapping fix makes it fail with *"no readonly digit-only input is rendered for a name answer"* — i.e. the
+  harness reproduces the exact user-facing failure. Every guard in
+  `scripts/practice-session-integrity.check.js` was proven load-bearing by deleting it and watching the named
+  assertion fail (4 mutations, 4 caught). 64 suites green.
+
+- **Consequence:** a shipped mode becomes usable again, a paid feature stops silently losing matches, and an
+  ongoing silent data-loss path is closed. Not fixed here, and still open: the results/review card runs with
+  `_drillSessionActive === false`, so it remains unprotected against Back, `showView`, and the post-upgrade
+  repaint in `js/paywall.js`. That needs a shared "engine owns the screen" predicate and is the next change.
+
 ## ADR-151 — A background repaint may not outrank the screen the user is standing on; a set is spent when it STARTS (v279) (2026-08-13)
 
 - **Context:** A free user opened a DI or Reasoning set, landed on the pre-session "Begin Challenge"

@@ -60,6 +60,17 @@ function makeNode(id) {
     get: function () { return _html; },
     set: function (v) { _html = String(v); node._children = {}; }
   });
+  /* The engine escapes strings with the classic `d.textContent = s; return d.innerHTML;` trick, so a node MUST
+     reflect textContent into innerHTML — otherwise _escHtml silently returns '' and every escaped label (MCQ
+     option values, stat labels) vanishes from the rendered HTML, which looks like a product bug but is not. */
+  var _text = '';
+  Object.defineProperty(node, 'textContent', {
+    get: function () { return _text; },
+    set: function (v) {
+      _text = String(v == null ? '' : v);
+      _html = _text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  });
   return node;
 }
 
@@ -238,6 +249,43 @@ sandbox.hasPremiumAccess = function () { return true; };
 sandbox.getDailyQuestionLimit = function () { return Infinity; };
 sandbox._renderDailyQuota({ todayAttempted: 5, diSetsToday: 1, lrSetsToday: 1 });
 ok(card.style.display === 'none' && card.innerHTML === '', 'premium users never see the allowance card');
+
+/* ── ADR-152: a Reasoning Set must actually be ANSWERABLE ──
+   LR sets are MCQ with NAME answers. Before the fix the engine's set mapping dropped `options`, so isMCQ went
+   false and the question rendered as a readonly digit-only numeric box — impossible to answer, impossible to
+   finish. This drives the real launcher and asserts the rendered question is a real MCQ. */
+localStore['quant_reflex_progress'] = JSON.stringify({ todayAttempted: 0, diSetsToday: 0, lrSetsToday: 0, lastActiveDate: new Date().toDateString() });
+sandbox.invalidateProgressCache();
+sandbox.hasPremiumAccess = function () { return false; };
+sandbox.getDailyQuestionLimit = function () { return 20; };
+sandbox.LRSetEngine = {
+  generateSet: function (cat) {
+    return {
+      category: cat, chart: null, context: 'Five friends sit in a row.',
+      questions: [
+        { question: 'Who sits at the far left?', answer: 'Rohan', options: ['Rohan', 'Priya', 'Amit', 'Neha'], subtype: 'easy:set_seat' },
+        { question: 'Who sits in the middle?', answer: 'Amit', options: ['Rohan', 'Priya', 'Amit', 'Neha'], subtype: 'medium:set_seat' },
+        { question: 'Who sits at the far right?', answer: 'Neha', options: ['Rohan', 'Priya', 'Amit', 'Neha'], subtype: 'hard:set_seat' }
+      ]
+    };
+  }
+};
+getEl('drillContainer').innerHTML = '';
+sandbox.__paywall = undefined;
+sandbox.startLrSet('lr-seating');
+ok(!!sandbox._activeDrillEngine, 'an LR set launches');
+ok(sandbox.getSetsStartedToday('lr') === 0, 'opening the LR set costs nothing until Begin');
+var lrContainer = getEl('drillContainer');
+try { lrContainer._q('#startBtn').click(); } catch (_e) { /* full render needs a real DOM; assertions below cover what matters */ }
+ok(sandbox.getSetsStartedToday('lr') === 1, 'pressing Begin spends exactly one Reasoning set');
+/* The set shell renders once into the container; each question is swapped into the #diSetQHost child. */
+var lrHtml = lrContainer._q('#diSetQHost').innerHTML;
+ok(/mcqOptions/.test(lrHtml),
+  'ADR-152: the LR-set question renders as an MCQ (options survived the engine mapping)');
+ok(/data-opt="Rohan"/.test(lrHtml),
+  'ADR-152: the real option VALUES are rendered as tappable answers');
+ok(!/readonly/.test(lrHtml),
+  'ADR-152: no readonly digit-only input is rendered for a name answer — the set is answerable');
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

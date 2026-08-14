@@ -32,6 +32,10 @@ var FirestoreSync = (function () {
   var _pendingUpdates = {};
   var _memoryCache = null; /* In-memory cache of the user document */
   var _dataLoaded = false; /* Whether initial load has completed */
+  /* ADR-152: true between resetSyncState() purging local state and the NEXT user's hydration finishing. During that
+     window a progress read materialises zeroed defaults (store.getProgress never returns null), and persisting them
+     would land in the incoming user's document. See the guard in queueUpdate. */
+  var _purgedAwaitingHydration = false;
   var _drillActive = false; /* Whether a drill is in progress (defers syncing) */
   var _loadedUserId = null; /* UID whose data is currently loaded — detects user switches */
   var _loadRetryCount = 0;  /* transient load-failure retries (S1-ENT4: don't latch a paying user to free) */
@@ -375,6 +379,7 @@ var FirestoreSync = (function () {
 
     _memoryCache = null;
     _dataLoaded = false;
+    _purgedAwaitingHydration = true;   /* ADR-152: block stats writes until the next user is hydrated */
     _pendingUpdates = {};
     _drillActive = false;
     _loadedUserId = null;
@@ -513,6 +518,7 @@ var FirestoreSync = (function () {
         _memoryCache = data;
         _enforcePremiumExpiry(_memoryCache, docRef);
         _dataLoaded = true;
+        _purgedAwaitingHydration = false;   /* ADR-152: hydration done — stats writes are safe again */
         _loadedUserId = currentUserId;
         /* Write to canonical AppState keys — single source of truth for localStorage */
         if (data.settings) {
@@ -596,7 +602,8 @@ var FirestoreSync = (function () {
         return;
       }
       _loadRetryCount = 0;
-      _dataLoaded = true; /* retries exhausted — proceed so the app isn't wedged; server remains authoritative */
+      _dataLoaded = true;
+        _purgedAwaitingHydration = false;   /* ADR-152: hydration done — stats writes are safe again */ /* retries exhausted — proceed so the app isn't wedged; server remains authoritative */
       if (callback) callback(false);
     });
   }
@@ -662,6 +669,7 @@ var FirestoreSync = (function () {
 
     _memoryCache = fallbackDefaults;
     _dataLoaded = true;
+        _purgedAwaitingHydration = false;   /* ADR-152: hydration done — stats writes are safe again */
 
     /* Write clean defaults to canonical AppState keys — single source of truth */
     if (typeof AppState !== 'undefined') {
@@ -953,6 +961,23 @@ var FirestoreSync = (function () {
        mistaken caller fails loudly in development instead of half-working. */
     if (_isEntitlementField(field)) {
       try { console.error('[FirestoreSync] refused client write to server-owned entitlement field: ' + field); } catch (_) {}
+      return;
+    }
+
+    /* ADR-152 choke point — DO NOT LET THE PURGE GAP OVERWRITE THE NEXT USER'S HISTORY.
+       resetSyncState() wipes qr_progress, but AppState.getProgress() (js/state/store.js) never returns null — it
+       hands back a zeroed DEFAULT_PROGRESS clone. loadProgress() then sees lastActiveDate !== today, takes its
+       day-rollover branch and CALLS saveProgress() → syncStats() → here. So any render touching progress between
+       the purge and the incoming user's hydration (Router.onShow('practice') → _renderDailyQuota is enough) queued
+       a full all-zero stats blob. _flushPending() runs at the TAIL of loadFromFirestore, i.e. AFTER the incoming
+       user's real stats were hydrated and after _loadedUserId was set to THEM — so the cross-user guard in
+       _flushUpdates could not catch it, and user B's server document was overwritten with zeros for
+       totalAttempted, streaks, categoryStats, dailyHistory and the whole mistakes archive. Locally invisible until
+       the next cold hydration, which is what made it so dangerous.
+       Scoped deliberately: only while a purge is awaiting hydration, and only for user-data fields. It does NOT
+       weaken ADR-054 (a genuine first-session write, where no purge happened, still buffers and still lands). */
+    if (_purgedAwaitingHydration && field === 'stats') {
+      try { console.warn('[FirestoreSync] dropped a stats write queued during the account-switch purge gap'); } catch (_) {}
       return;
     }
 

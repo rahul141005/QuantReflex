@@ -185,5 +185,49 @@ ok(r5 === SET5, 'premium is never clamped');
 var r6 = clampWith(Infinity, 999)(SET5, false);
 ok(r6 === SET5, 'an infinite limit is never clamped even if the premium flag is not passed');
 
+/* ─────────────── ADR-152 · release blockers ─────────────── */
+
+var ROUTER = fs.readFileSync(path.join(ROOT, 'js/router.js'), 'utf8');
+
+/* B1 — the set mapping must carry `options`, or every LR set is unanswerable (readonly digit box for a name). */
+var beginBuild = fnBody(ENGINE, '_beginBuild');
+ok(beginBuild !== null && /options:\s*sq\.options/.test(beginBuild),
+  'drill-engine: the diSet mapping carries `options` through to the engine (ADR-152 — LR sets)');
+ok(/isMCQ = !!\(q\.options && q\.options\.length\)/.test(ENGINE),
+  'drill-engine: isMCQ is still derived from q.options (the field the mapping must supply)');
+
+/* B2 — the set numpad must reuse the guarded submit closure, never call checkAnswer bare. */
+var setQ = fnBody(ENGINE, '_renderSetQuestion');
+ok(setQ !== null && /showCustomNumpad\(ui\.answerInputEl, function \(\) \{ submit\(\); \}/.test(setQ),
+  'drill-engine: the set-path numpad routes through the guarded submit() closure');
+ok(setQ !== null && !/showCustomNumpad\([^)]*checkAnswer\(/.test(setQ),
+  'drill-engine: the set-path numpad never calls checkAnswer directly (empty ↵ cannot grade a blank answer)');
+ok(setQ !== null && /if \(!input\.value\.trim\(\)\) return;/.test(setQ),
+  'drill-engine: the set-path submit closure still carries the empty-value guard');
+
+/* B3 — the duel Back handler must be consulted BEFORE the practice drill-session branch. */
+var popstate = stripComments(ROUTER);
+var duelIdx = popstate.indexOf('DuelManager.handleBackNav()');
+var practiceIdx = popstate.indexOf('showExitSessionDialog');
+ok(duelIdx !== -1 && practiceIdx !== -1 && duelIdx < practiceIdx,
+  'router: DuelManager.handleBackNav() is tested BEFORE the practice exit dialog (ADR-152 — duel Back)');
+ok((popstate.match(/DuelManager\.handleBackNav\(\)/g) || []).length === 1,
+  'router: the duel Back branch exists exactly once (no duplicate left behind by the reorder)');
+
+/* B4 — the account-switch purge gap must not be able to write stats. */
+ok(/var _purgedAwaitingHydration = false;/.test(SYNC),
+  'firestore-sync: _purgedAwaitingHydration is declared');
+ok(/_purgedAwaitingHydration && field === 'stats'/.test(SYNC),
+  'firestore-sync: queueUpdate refuses a stats write during the purge gap (ADR-152 — account-switch data loss)');
+ok(/_dataLoaded = false;\s*\n\s*_purgedAwaitingHydration = true;/.test(SYNC),
+  'firestore-sync: the flag is RAISED when sync state is reset');
+var clears = (SYNC.match(/_purgedAwaitingHydration = false;/g) || []).length;
+var loaded = (SYNC.match(/_dataLoaded = true;/g) || []).length;
+ok(clears === loaded + 1,
+  'firestore-sync: the flag is cleared at every hydration-complete site (' + (clears - 1) + ' clears vs ' + loaded + ' sites)');
+/* The guard must be narrow: it must not swallow a genuine first-session write (ADR-054). */
+ok(/field === 'stats'/.test(SYNC) && !/_purgedAwaitingHydration\)\s*return;/.test(SYNC),
+  'firestore-sync: the purge-gap guard is scoped to `stats`, not a blanket drop (ADR-054 stays intact)');
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

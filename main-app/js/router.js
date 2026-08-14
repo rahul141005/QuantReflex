@@ -215,6 +215,24 @@ var Router = (function () {
       /* Close any open info modals on navigation */
       if (typeof _closeAllInfoModals === 'function') _closeAllInfoModals();
 
+      /* Duel solving/countdown: intercept Back so it can never silently leave an un-submitted duel (audit
+         solving-exit-forfeit-01). The manager shows the Submit & Leave modal (solving) or absorbs it (countdown);
+         re-push the duel state so the browser does not actually navigate.
+         ADR-152 — THIS MUST BE TESTED BEFORE THE PRACTICE BRANCH BELOW. begin() calls _enterDrillSession()
+         unconditionally (js/drill-engine.js), with no isDuel guard, so `_drillSessionActive` is TRUE during a duel
+         too. While the practice branch ran first it swallowed every duel Back: DuelManager.handleBackNav() was
+         unreachable during solving, the user got the practice exit dialog, and the duel engine was left orphaned —
+         still holding its timers and still writing blank answers for the remaining questions, losing the match.
+         Order is the whole fix: a duel is the more specific state, so it gets first refusal. */
+      if (typeof DuelManager !== 'undefined' && typeof DuelManager.handleBackNav === 'function' && DuelManager.handleBackNav()) {
+        try {
+          history.pushState({ view: 'duel' }, '', '#duel');
+        } catch (e) {
+          window.location.hash = '#duel';
+        }
+        return;
+      }
+
       /* If a drill session is active, show exit dialog instead of navigating */
       if (typeof _drillSessionActive !== 'undefined' && _drillSessionActive) {
         /* Push history state back to prevent the browser from actually navigating away */
@@ -241,18 +259,6 @@ var Router = (function () {
             if (typeof _exitDrillSession === 'function') _exitDrillSession();
             showView('practice');
           });
-        }
-        return;
-      }
-
-      /* Duel solving/countdown: intercept Back so it can never silently leave an un-submitted duel (audit
-         solving-exit-forfeit-01). The manager shows the Submit & Leave modal (solving) or absorbs it (countdown);
-         re-push the duel state so the browser does not actually navigate. */
-      if (typeof DuelManager !== 'undefined' && typeof DuelManager.handleBackNav === 'function' && DuelManager.handleBackNav()) {
-        try {
-          history.pushState({ view: 'duel' }, '', '#duel');
-        } catch (e) {
-          window.location.hash = '#duel';
         }
         return;
       }
