@@ -63,7 +63,12 @@ if (!raw) {
 }
 
 /* ── normalise ────────────────────────────────────────────────────────────────────────────────── */
-var hex = String(raw).trim().replace(/[\s:]/g, '').toUpperCase();
+/* Strip the wrappers a real paste actually arrives in: the <ANGLE BRACKETS> from this script's own
+   usage line, surrounding quotes, and any colons/whitespace. Everything else must be hex. */
+var hex = String(raw).trim()
+  .replace(/^[<"']+/, '').replace(/[>"']+$/, '')
+  .replace(/[\s:]/g, '')
+  .toUpperCase();
 if (!/^[0-9A-F]+$/.test(hex)) die('That is not hexadecimal.', 'Got: ' + raw);
 if (hex.length !== 64) {
   die('A SHA-256 fingerprint is 64 hex characters (32 bytes). Got ' + hex.length + '.',
