@@ -15,7 +15,11 @@
  * then re-validated by scripts/assetlinks.check.js.
  *
  * USAGE
- *   node scripts/make-assetlinks.js <SHA256_FINGERPRINT>
+ *   node scripts/make-assetlinks.js <SHA256_FINGERPRINT> [MORE_FINGERPRINTS...]
+ *
+ * Several fingerprints is legitimate and often correct — Google accepts a list, and a build signed by
+ * ANY listed certificate verifies. That is how Play-signed production and a locally-signed internal
+ * build both open as a real TWA. Order carries no meaning; duplicates are dropped.
  *
  * The fingerprint comes from:
  *   Play Console → your app → Setup → App integrity → App signing key certificate → SHA-256
@@ -50,43 +54,58 @@ var pkgMatch = pbSrc.match(/var CANONICAL_PACKAGE_NAME = '([^']+)'/);
 if (!pkgMatch) die('Could not read CANONICAL_PACKAGE_NAME from services/playBillingService.js.');
 var PACKAGE = pkgMatch[1];
 
-var raw = process.argv[2];
-if (!raw) {
+var raws = process.argv.slice(2);
+if (!raws.length) {
   console.error('');
-  console.error('  Usage: node scripts/make-assetlinks.js <SHA256_FINGERPRINT>');
+  console.error('  Usage: node scripts/make-assetlinks.js <SHA256_FINGERPRINT> [MORE_FINGERPRINTS...]');
   console.error('');
   console.error('  Get it from: Play Console → Setup → App integrity → App signing key certificate → SHA-256');
-  console.error('  NOT the upload key certificate — Play re-signs every build, so the upload key');
-  console.error('  fingerprint verifies against nothing and silently degrades the TWA to a browser tab.');
+  console.error('  NOT the upload key certificate — Play re-signs every build, so an upload-key');
+  console.error('  fingerprint alone verifies against nothing and silently degrades the TWA to a browser tab.');
+  console.error('');
+  console.error('  Passing SEVERAL is legitimate and often correct: Google accepts a list, and a build');
+  console.error('  signed by ANY listed certificate verifies. That is how you let Play-signed production');
+  console.error('  and a locally-signed internal build both open as a real TWA.');
   console.error('');
   process.exit(1);
 }
 
-/* ── normalise ────────────────────────────────────────────────────────────────────────────────── */
-/* Strip the wrappers a real paste actually arrives in: the <ANGLE BRACKETS> from this script's own
-   usage line, surrounding quotes, and any colons/whitespace. Everything else must be hex. */
-var hex = String(raw).trim()
-  .replace(/^[<"']+/, '').replace(/[>"']+$/, '')
-  .replace(/[\s:]/g, '')
-  .toUpperCase();
-if (!/^[0-9A-F]+$/.test(hex)) die('That is not hexadecimal.', 'Got: ' + raw);
-if (hex.length !== 64) {
-  die('A SHA-256 fingerprint is 64 hex characters (32 bytes). Got ' + hex.length + '.',
-    hex.length === 40 ? 'A 40-character value is SHA-1. Play needs the SHA-256 row.' : 'Check you copied the whole value.');
-}
-var fingerprint = hex.match(/.{2}/g).join(':');
+/* ── normalise + validate one value ───────────────────────────────────────────────────────────── */
+function toFingerprint(raw) {
+  /* Strip the wrappers a real paste actually arrives in: the <ANGLE BRACKETS> from this script's own
+     usage line, surrounding quotes/commas, and any colons/whitespace. Everything else must be hex. */
+  var hex = String(raw).trim()
+    .replace(/^[<"'\[,]+/, '').replace(/[>"'\],]+$/, '')
+    .replace(/[\s:]/g, '')
+    .toUpperCase();
+  if (!/^[0-9A-F]+$/.test(hex)) die('That is not hexadecimal.', 'Got: ' + raw);
+  if (hex.length !== 64) {
+    die('A SHA-256 fingerprint is 64 hex characters (32 bytes). Got ' + hex.length + '.',
+      hex.length === 40 ? 'A 40-character value is SHA-1. Play needs the SHA-256 row.' : 'Check you copied the whole value: ' + raw);
+  }
+  var fp = hex.match(/.{2}/g).join(':');
 
-/* ── refuse the shapes a fabricated fingerprint actually takes ─────────────────────────────────
-   These mirror scripts/assetlinks.check.js so a bad value is rejected here, at the point of entry,
-   with an explanation — rather than three steps later by a check that can only say "invalid". */
-if (/^(00:)+00$/.test(fingerprint)) die('That fingerprint is all zeros — it verifies against nothing.');
-var firstByte = fingerprint.slice(0, 2);
-if (fingerprint.split(':').every(function (b) { return b === firstByte; })) {
-  die('Every byte of that fingerprint is identical — that is a placeholder, not a certificate.');
+  /* Refuse the shapes a fabricated fingerprint actually takes. These mirror
+     scripts/assetlinks.check.js so a bad value is rejected here, at the point of entry, with an
+     explanation — rather than three steps later by a check that can only say "invalid". */
+  if (/^(00:)+00$/.test(fp)) die('That fingerprint is all zeros — it verifies against nothing.');
+  var firstByte = fp.slice(0, 2);
+  if (fp.split(':').every(function (b) { return b === firstByte; })) {
+    die('Every byte of that fingerprint is identical — that is a placeholder, not a certificate.');
+  }
+  if (/^(AA:|BB:|FF:|11:|12:34:56)/.test(fp)) {
+    die('That looks like filler (' + fp.slice(0, 8) + '…), not a real certificate.');
+  }
+  return fp;
 }
-if (/^(AA:|BB:|FF:|11:|12:34:56)/.test(fingerprint)) {
-  die('That looks like filler (' + fingerprint.slice(0, 8) + '…), not a real certificate.');
-}
+
+var fingerprints = [];
+raws.forEach(function (r) {
+  var fp = toFingerprint(r);
+  /* Duplicates are harmless to Google but make the file lie about how many certs are trusted. */
+  if (fingerprints.indexOf(fp) === -1) fingerprints.push(fp);
+  else console.log('  (skipped a duplicate of ' + fp.slice(0, 11) + '…)');
+});
 
 /* ── write ────────────────────────────────────────────────────────────────────────────────────── */
 var statement = [{
@@ -94,7 +113,7 @@ var statement = [{
   target: {
     namespace: 'android_app',
     package_name: PACKAGE,
-    sha256_cert_fingerprints: [fingerprint]
+    sha256_cert_fingerprints: fingerprints
   }
 }];
 
@@ -103,7 +122,8 @@ fs.writeFileSync(OUT, JSON.stringify(statement, null, 2) + '\n');
 
 console.log('\n  ✓ wrote ' + path.relative(APP, OUT));
 console.log('    package_name : ' + PACKAGE + '   (read from services/playBillingService.js)');
-console.log('    fingerprint  : ' + fingerprint);
+console.log('    fingerprints : ' + fingerprints.length + ' certificate' + (fingerprints.length === 1 ? '' : 's') + ' trusted');
+fingerprints.forEach(function (f, i) { console.log('      [' + i + '] ' + f); });
 console.log('');
 console.log('  NEXT, IN ORDER:');
 console.log('    1. node scripts/assetlinks.check.js      (strict re-validation)');
