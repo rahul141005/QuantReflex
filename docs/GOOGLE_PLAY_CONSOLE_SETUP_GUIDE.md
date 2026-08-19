@@ -1,16 +1,29 @@
 # QuantReflex — Google Play Console Setup & Publishing Guide
 
 **Written for you specifically.** Not a generic Play tutorial — every value below is the real value
-this repository expects. Where I say "type this", it is because the code is already looking for
+this repository expects. Where it says "type this", it is because the code is already looking for
 exactly that string.
+
+**Console UI revised 2026-08-19** against screenshots of your own Play Console. Google renamed and
+moved several sections since this guide was first written, and the old paths in it no longer exist.
 
 Every step is labelled:
 
 | Label | Meaning |
 |---|---|
-| **[OPUS/CODE]** | Already done in the repository. Nothing for you to do. |
-| **[ME — PLAY CONSOLE]** | You do this at <https://play.google.com/console>. |
-| **[ME — EXTERNAL]** | You do this somewhere else (Vercel, Firebase, Google Cloud). |
+| **[CODE]** | Already done in the repository. Nothing for you to do. |
+| **[YOU — PLAY CONSOLE]** | You do this at <https://play.google.com/console>. |
+| **[YOU — EXTERNAL]** | You do this somewhere else (Vercel, Firebase, Google Cloud). |
+
+And every navigation path is marked with how sure this document is about it:
+
+| Mark | Meaning |
+|---|---|
+| ✅ | **Seen in your console.** This exact path/label was read off your screenshots. |
+| ⚠️ | **Not seen.** The screenshots did not cover this screen. The path is the best available, but **read your own screen and trust it over this document.** |
+
+That distinction matters. A guide that states a wrong menu path confidently costs more time than one
+that admits it does not know, so nothing below is dressed up as verified when it is not.
 
 **Three values that must never change.** If anything ever disagrees with these, stop and ask.
 
@@ -22,58 +35,127 @@ Every step is labelled:
 
 ---
 
-## STEP 1 — Where you already are
+## WHERE YOU ACTUALLY ARE — verified 2026-08-19
 
-**[OPUS/CODE] + [ME — PLAY CONSOLE, done]**
+Read this before anything else. Several things this guide used to list as "to do" are already done,
+and one thing it assumed was fine is **not**.
 
-- ✅ Google Play developer account created and identity-verified.
-- ✅ The QuantReflex app already exists in Play Console with package `com.quantreflex.app`.
-- ✅ All the server code for Play Billing is written, tested and merged.
+| Checked | Finding | Source |
+|---|---|---|
+| App exists, correct package | ✅ **QuantReflex** · `com.quantreflex.app` | Console screenshot |
+| App availability | ✅ **Published** | *Advanced settings → App availability* |
+| Unpublished changes | ✅ **None** — "You have no unpublished changes" | *Test and release* |
+| Internal testing track | ✅ Live — release **"QuantReflex V2"**, 15 Aug 11:18 | *Test and release* |
+| Closed testing track | ✅ Live — one track, **`alpha`**, release **"QuantReflex V2"**, 15 Aug 11:51 | *Test and release* |
+| Legal pages deployed | ✅ All three return HTTP 200 and serve the real document | Fetched live, titles confirmed |
+| Digital Asset Links | ✅ **Verified by Google on both hosts** — 4 fingerprints, 0 errors | Google's `statements:list` API |
+| **In-app products** | 🔴 **NONE EXIST.** The One-time products table reads "No results". | *Monetise with Play → Products → One-time products* |
+| Play Billing protection | 🟠 **0 of 4 services active** | *Protected with Play* |
+| Play Integrity API | 🟠 **0 of 7 services active** | *Protected with Play* |
+| Play Store protection | ✅ 6 of 7 services active | *Protected with Play* |
+| Automatic protection | ✅ 1 of 1 service active | *Protected with Play* |
+| Overall protection score | ✅ "Good protection" | *Protected with Play* |
 
-**Do NOT create a second app.** Play binds a package name to an app permanently. If you ever see a
-screen offering to "create app", you are in the wrong place — go back to **All apps** and click the
-existing **QuantReflex**.
+### 🔴 The one blocker
+
+**`premium_6m` and `premium_12m` do not exist in Play Console.** The One-time products list is empty.
+
+Until they exist, Play Billing cannot work at all — not "works badly", *cannot start*. The client
+asks Play for both product IDs before it will show any purchase UI, and if either one fails to
+resolve it deliberately shows **no purchase path whatsoever** rather than falling back to Razorpay.
+(That refusal is intentional and must not be "fixed": offering Razorpay for digital goods inside a
+Play app is the one unrecoverable Play-policy violation. See `js/platform.js`.)
+
+So a tester installing today's build sees Premium locked with no way to buy it. **Step 10 is the
+thing to do first.**
 
 ---
 
-## STEP 2 — Deploy the website first (this blocks everything else)
+## THE NAVIGATION MAP — old label → what it is called now
 
-**[ME — EXTERNAL: Vercel]**
+Google restructured the console. If you are following any older instructions (including earlier
+copies of this file), translate through this table first.
 
-This is the single most important prerequisite, and it is currently **not done**. The live site is
-running an older build than this branch.
+| Older label | Current label | Verified? |
+|---|---|---|
+| Monetize / Monetise | **Monetise with Play** | ✅ |
+| Monetise → Products → **In-app products** | Monetise with Play → Products → **One-time products** | ✅ |
+| "Create product" | **Create one-time product** | ✅ |
+| Grow | **Grow users** | ✅ |
+| Quality | **Monitor and improve** | ✅ (the section name; its contents were not opened) |
+| Test and release → **Setup** → App integrity | Test and release → **App integrity** — the "Setup" level is gone | ✅ |
+| Setup → Advanced settings | Test and release → **Advanced settings** | ✅ |
+| *(new)* | **Protected with Play** — a new top-level section | ✅ |
 
-Why it blocks everything: the Android app is a *Trusted Web Activity* — a wrapper around your real
-website. Google verifies the link between the app and the website by fetching a file from your
-domain. If the deployed site does not serve that file correctly, the app silently opens as a browser
-tab with an address bar instead of as an app — and a browser tab showing Razorpay inside a Play app
-is the one Play policy violation that gets an app removed.
+The console itself confirms the products rename: the One-time products page says *"One-time products
+**(formerly in-app products)**"*.
 
-1. Merge this branch into your main branch.
-2. Let Vercel deploy it.
-3. Check it worked — open these three URLs in a browser:
-   - <https://www.quantreflex.app/legal/privacy.html> → must show the **Privacy Policy**, not the app.
-   - <https://www.quantreflex.app/legal/terms.html> → must show the **Terms**.
-   - <https://www.quantreflex.app/legal/delete-account.html> → must show the **deletion page**.
+**Top-level sections visible in your console, in order** ✅:
+Dashboard · Statistics · Publishing overview · Protected with Play · Test and release ·
+Monitor and improve · Grow users · Monetise with Play
 
-If any of those shows the QuantReflex app instead of the document, the deploy has not gone through
-yet. Wait and retry. **Do not continue until all three show the right page.**
+**Sub-navigation under Test and release** ✅:
+Latest releases and bundles · Production · Testing *(expandable)* · Pre-registration ·
+App integrity · Advanced settings
+
+**Sub-navigation under Monetise with Play** ✅:
+Products *(→ App pricing · One-time products · Subscriptions)* · Merchandising and optimisation ·
+Price experiments · Promo codes · Financial reports *(expandable)* · Monetisation setup
+
+⚠️ **"Policy → App content" was not visible** in the screenshots — the left nav may simply have been
+cut off below "Monetise with Play", or the section may have moved. Steps 4–7 need it. Look under
+**Monitor and improve** and **Publishing overview** first, and use the console's own search box if
+neither has it. Do not assume the old *Policy → App content* path still works.
+
+**Deep links.** Your console URLs follow the pattern
+`play.google.com/console/u/0/developers/<DEV_ID>/app/<APP_ID>/<page>` — read `<DEV_ID>` and
+`<APP_ID>` out of your own address bar once and you can jump straight to any page. The page slugs
+seen in your screenshots ✅: `protect-with-play`, `test-and-release`, `advanced-distribution`,
+`monetize`, `one-time-products`.
+
+---
+
+## STEP 1 — Do not create a second app
+
+**[YOU — PLAY CONSOLE]** ✅ already correct.
+
+Play binds a package name to an app permanently. If you ever land on a screen offering to "create
+app", you are in the wrong place — go back to **All apps** and click the existing **QuantReflex**.
+
+---
+
+## STEP 2 — Website deployed ✅ DONE
+
+**[YOU — EXTERNAL: Vercel]** — **this is complete.** Verified 2026-08-19 by fetching each URL:
+
+| URL | Status | Serves |
+|---|---|---|
+| `/legal/privacy.html` | 200 | *Privacy Policy — QuantReflex* |
+| `/legal/terms.html` | 200 | *Terms of Use — QuantReflex* |
+| `/legal/delete-account.html` | 200 | *Delete Your QuantReflex Account* |
+
+All three return the real document rather than the app shell, which is exactly what Play's reviewers
+and the account-deletion policy require.
+
+**Re-check these after every deploy.** A Vercel rewrite change can start swallowing `/legal/*` into
+the SPA, and the failure is silent — the URL still returns 200, it just returns the app.
 
 ---
 
 ## STEP 3 — Store listing
 
-**[ME — PLAY CONSOLE]** → *QuantReflex → Grow → Store presence → Main store listing*
+**[YOU — PLAY CONSOLE]** ⚠️ *Grow users → Store presence → Main store listing* — the section is now
+**Grow users** ✅; its children were not opened.
 
 | Field | What to enter |
 |---|---|
 | **App name** (30 chars) | `QuantReflex` |
 | **Short description** (80 chars) | `Train speed aptitude — Quant, DI and Logical Reasoning for CAT, CET, IBPS, SSC.` |
 | **Full description** (4000 chars) | See the block below — copy it whole. |
-| **App icon** (512×512 PNG) | Use `main-app/icons/icon-512.png` from the repository. |
-| **Feature graphic** (1024×500 PNG) | **You must create this.** It is the banner at the top of your listing. Play will not let you publish without it. Canva has free templates — search "Google Play feature graphic". |
-| **Phone screenshots** | Minimum 2, maximum 8. Take them on a real phone. See below. |
-| **Tablet screenshots** | Optional. Skip unless you want tablet users to find you. |
+| **App icon** (512×512 PNG) | `main-app/icons/icon-512.png` from the repository. |
+| **Feature graphic** (1024×500 PNG) | **You must create this.** Play will not let you publish without it. |
+| **Phone screenshots** | Minimum 2, maximum 8. Take them on a real phone. |
+| **Tablet screenshots** | Optional. Your app is offered for *Phones, Tablets, Chrome OS, Android…* ✅, so tablet shots do help those users find you. |
 
 **Full description — copy this:**
 
@@ -111,36 +193,37 @@ QuantReflex is an independent study aid. It is not affiliated with or endorsed b
 body.
 ```
 
-**Screenshots — how to take them:** open <https://www.quantreflex.app> on your Android phone in
-Chrome → menu → **Add to Home screen** → open it from the home screen (it now runs full-screen with
-no address bar) → take normal screenshots. Good ones to capture: the practice screen mid-question,
-your stats/insights page, the AI Coach answering something, the planner, and the Learn library.
+**Screenshots — how to take them:** you already have builds on the Internal and `alpha` tracks ✅,
+so take them from the **installed app**, not from Chrome. That way the status bar and full-screen
+chrome look exactly like what a user gets. Good ones: the practice screen mid-question, stats /
+insights, the AI Coach answering something, the planner, the Learn library.
 
 ---
 
 ## STEP 4 — App content declarations
 
-**[ME — PLAY CONSOLE]** → *QuantReflex → Policy → App content*
+**[YOU — PLAY CONSOLE]** ⚠️ *App content* — **find this yourself**; see the note in the navigation
+map. It was under *Policy → App content*, and "Policy" was not visible in your screenshots.
 
 Work down the list. Here is what QuantReflex actually is, so you can answer honestly:
 
 | Section | Answer | Why |
 |---|---|---|
-| **Privacy policy** | `https://www.quantreflex.app/legal/privacy.html` | Created in this branch. Must be live first (Step 2). |
+| **Privacy policy** | `https://www.quantreflex.app/legal/privacy.html` | ✅ Live and serving the real document. |
 | **App access** | *All functionality is available without special access* — **unless** you want reviewers to see Premium. If so, choose "All or some functionality is restricted" and give them a test account. See the note below. | |
 | **Ads** | **No**, the app contains no ads | True — there is no ad code anywhere. |
 | **Content ratings** | Fill the questionnaire. Answer **No** to every violence/sexual/drug/gambling question. Category: **Reference, News, or Educational**. | You will get "Rated for 3+" or similar. |
-| **Target audience** | **18 and over** (or 16+). Do **not** tick any age band under 13. | The app is for exam candidates. Ticking a child band triggers Families policy, which is a much heavier review. |
+| **Target audience** | **18 and over** (or 16+). Do **not** tick any age band under 13. | Ticking a child band triggers Families policy, a much heavier review. |
 | **News app** | **No** | |
-| **COVID-19 contact tracing** | **No** | |
 | **Data safety** | See Step 5 — this is the long one. | |
 | **Government apps** | **No** | |
 | **Financial features** | **No** | You sell your own app content. That is not a "financial feature" (that means loans, investments, crypto). |
 | **Health** | **No** | |
-| **Account deletion** | URL: `https://www.quantreflex.app/legal/delete-account.html` and confirm the app also offers in-app deletion. | Both exist now: the page, and Settings → Delete Account. |
+| **Account deletion** | URL: `https://www.quantreflex.app/legal/delete-account.html`, and confirm the app also offers in-app deletion. | ✅ Both exist: the page (verified live), and Settings → Delete Account. |
 
-**About "App access":** reviewers cannot buy Premium to test it. Create a real account on your live
-site, then use Super Admin to grant it Premium, and give the reviewer those credentials. Fill in:
+**About "App access":** reviewers cannot buy Premium to test it — and right now nobody can, because
+the products do not exist (Step 10). Create a real account on your live site, grant it Premium from
+Super Admin, and give the reviewer those credentials:
 - Instructions: `Sign in with the email and password below. This account already has Premium enabled so all features are visible.`
 - Username / password: the account you made.
 
@@ -148,10 +231,10 @@ site, then use Super Admin to grant it Premium, and give the reviewer those cred
 
 ## STEP 5 — Data safety
 
-**[ME — PLAY CONSOLE]** → *Policy → App content → Data safety*
+**[YOU — PLAY CONSOLE]** ⚠️ *App content → Data safety*
 
-This is a long form, and getting it wrong is one of the most common reasons for rejection. Below is
-what QuantReflex genuinely collects, taken from the code. Answer exactly this.
+Getting this wrong is one of the most common rejection reasons. Below is what QuantReflex genuinely
+collects, taken from the code. Answer exactly this.
 
 **Opening questions:**
 - Does your app collect or share any of the required user data types? → **Yes**
@@ -176,103 +259,148 @@ ephemerally* = No, *Required or optional* as shown):
 browsing history, installed apps, device IDs for advertising. QuantReflex collects none of them.
 
 **Note on "Shared":** answer **No** for everything. Google's definition of "shared" means transfer to
-a third party for *their own* use. Your service providers (Firebase, Vercel, OpenAI, Razorpay) process
-data on your behalf, which Google classifies as processing, not sharing.
+a third party for *their own* use. Your service providers (Firebase, Vercel, OpenAI, Razorpay)
+process data on your behalf, which Google classifies as processing, not sharing.
 
 ---
 
 ## STEP 6 — Privacy policy
 
-**[OPUS/CODE]** — written and live at `/legal/privacy.html` once Step 2 is deployed.
+**[CODE]** ✅ live at `/legal/privacy.html`, verified serving the real document.
 
-**[ME]** — read it once before submitting. It is written from what the code actually does, but you
-are the one publishing it. Check specifically that you are happy with: the contact address
-(`quantreflex@gmail.com`), and the paragraph explaining that payment records are kept after account
+**[YOU]** — read it once before submitting. It is written from what the code actually does, but you
+are the one publishing it. Check specifically that you are happy with the contact address
+(`quantreflex@gmail.com`) and the paragraph explaining that payment records are kept after account
 deletion for tax purposes.
 
 ---
 
 ## STEP 7 — Account deletion
 
-**[OPUS/CODE]** — both halves exist:
+**[CODE]** ✅ both halves exist:
 - in-app: **Settings → Delete Account** (asks for your password first),
-- on the web: `https://www.quantreflex.app/legal/delete-account.html`.
+- on the web: `https://www.quantreflex.app/legal/delete-account.html` (verified live).
 
-**[ME — PLAY CONSOLE]** — enter that URL in *Policy → App content → Account deletion*.
+**[YOU — PLAY CONSOLE]** ⚠️ enter that URL in *App content → Account deletion*.
 
 ---
 
-## STEP 8 — Digital Asset Links (the app↔website handshake)
+## STEP 8 — Digital Asset Links ✅ DONE AND VERIFIED
 
 This is the step that decides whether your app opens as an **app** or as a **browser tab**.
+**It is complete.**
 
-### 8a. Get your app's signing fingerprint **[ME — PLAY CONSOLE]**
+`main-app/.well-known/assetlinks.json` is deployed and lists **four** certificates for
+`com.quantreflex.app`. Confirmed 2026-08-19 against Google's own authoritative verifier
+(`digitalassetlinks.googleapis.com/v1/statements:list`, which is what Android actually consults):
 
-You can only do this after you have uploaded a build once (Step 9), so come back here then.
+| Host | Statements | Errors |
+|---|---|---|
+| `https://www.quantreflex.app` | 4 | none |
+| `https://quantreflex.app` | 4 | none |
 
-*QuantReflex → Test and release → Setup → App integrity → App signing* → find
-**"App signing key certificate"** → copy the **SHA-256 certificate fingerprint**.
+Four is correct, not excessive: a build signed by **any** listed certificate verifies, which is how
+Play-signed production, the previous signing key, the post-quantum key and your upload key can all
+open as a real TWA.
 
-It looks like `AB:CD:12:...` — 32 pairs of characters separated by colons.
+### If you ever need to add another fingerprint
+
+**[YOU — PLAY CONSOLE]** ✅ *Test and release → **App integrity*** — note there is **no "Setup"
+level any more**; App integrity sits directly under Test and release.
+
+Find **"App signing key certificate"** → copy the **SHA-256 certificate fingerprint** (32 colon-
+separated pairs).
 
 > ⚠️ **Use the "App signing key certificate", NOT the "Upload key certificate".** They are two
 > different fingerprints on the same page. Google re-signs every build with the app signing key, so
-> the upload key fingerprint verifies against nothing — and when verification fails, Android does not
-> show an error. It silently opens your app as a browser tab. That is the failure mode this whole
-> step exists to prevent.
+> an upload-key fingerprint alone verifies against nothing — and when verification fails, Android
+> shows no error. It silently opens your app as a browser tab.
 
-### 8b. Give me the fingerprint **[ME → then OPUS/CODE]**
+Then regenerate the file with **every** fingerprint you want trusted, in one command — the script
+overwrites, it does not append:
 
-Send me that fingerprint and I will create `main-app/.well-known/assetlinks.json` and deploy it.
+```bash
+cd main-app
+node scripts/make-assetlinks.js <FP1> <FP2> <FP3> <FP4>
+node scripts/assetlinks.check.js      # strict re-validation
+```
 
-I have deliberately **not** created that file with a made-up value. A fabricated fingerprint is a
-well-formed 64-character string that looks completely correct in review and verifies against nothing —
-it would produce exactly the silent browser-tab failure above. `assetlinks.check.js` in the repository
-refuses any placeholder fingerprint for that reason.
+The generator reads the package name out of `services/playBillingService.js` rather than letting you
+retype it, and rejects all-zero, all-identical and filler values. Deploy, then re-run the verifier
+above before trusting it.
 
-### 8c. Verify it **[ME]**
+### If the app opens with an address bar after a *correct* assetlinks.json
 
-After I deploy, open:
-`https://developers.google.com/digital-asset-links/tools/generator`
-Enter hosting site `https://www.quantreflex.app`, package `com.quantreflex.app`, and your
-fingerprint. It must say the link is verified.
+Android caches its verification verdict at **install** time. If a device installed the app while the
+file was wrong, fixing the file does not retroactively fix that install. **Uninstall and reinstall**
+on the device. This is not a code change and no new build is needed.
 
 ---
 
 ## STEP 9 — Build and upload the Android app (AAB)
 
-**[ME — EXTERNAL]**
+**[YOU — EXTERNAL]**
 
-There is no Android project in this repository, and there does not need to be one — the app is
-generated from your website. Use **PWABuilder**, which needs no software installed:
+There is no Android project in this repository and there does not need to be one — the app is
+generated from your website. Use **PWABuilder**:
 
 1. Go to <https://www.pwabuilder.com>.
 2. Enter `https://www.quantreflex.app` and click **Start**.
-3. Click **Package for stores** → **Android**.
+3. **Package for stores** → **Android**.
 4. Open **All settings** and check these exactly:
    - Package ID: `com.quantreflex.app`  ← **must match, character for character**
    - App name: `QuantReflex`
    - Launch URL: `/`
    - Display mode: `standalone`
-   - **Signing key: "Create new"** for your very first build. Download the `.zip` it gives you and
-     **keep the keystore file and its passwords somewhere safe and backed up.** If you lose it you
-     cannot ever update the app under this package name.
+   - **Signing key:** ⚠️ you already have a published app, so you must **re-use your existing upload
+     keystore** — PWABuilder offers an option to supply your own key rather than generate one (the
+     exact label was not verified for this guide; it is the option that is *not* "create new"). A
+     build signed with a freshly generated key is rejected at upload: Play binds an app to its upload
+     key, and re-signs every accepted build with the separate app signing key. If you have lost that
+     keystore, do not guess — Play Console has an upload-key reset request, and that is the only
+     route back.
 5. Download the package. Inside the zip is `app-release-signed.aab` — that is the file Play wants.
 
-**[ME — PLAY CONSOLE]** → *Test and release → Testing → Internal testing → Create new release* →
+**[YOU — PLAY CONSOLE]** ✅ *Test and release → Testing → Internal testing → Create new release* →
 upload the `.aab`.
 
-Version numbers: PWABuilder starts at versionCode 1. Every later upload must use a **higher**
-versionCode than the last — Play rejects a repeat.
+Version numbers: every upload must use a **higher** versionCode than the last. Your current releases
+are both named **"QuantReflex V2"** ✅, so the next build must go above whatever versionCode those
+carry — read it off the release page, do not guess.
+
+### Two build-time notes
+
+**Launch URL and `?src=play`.** The web manifest's `start_url` is `/` and **must stay `/`**. Do not
+put `?src=play` in `manifest.json` — every installed *web* PWA would then latch as a Play build and
+lose its Razorpay option. If you want that marker, set it on the **TWA launch URL** in the
+PWABuilder/bubblewrap Android config only. It is optional either way: `js/platform.js` now also
+recognises and latches an `android-app://com.quantreflex.app` referrer, so a Play build identifies
+itself correctly with or without it.
+
+**Edge-to-edge on Android 15.** Your console's *For your next release* panel shows ✅:
+
+> *"Edge-to-edge may not display for all users — From Android 15, apps targeting SDK 35 will display
+> edge-to-edge by default. Apps targeting SDK 35 should handle…"*
+
+For a TWA the web content is what has to cope, and it already does: `css/style.css` uses
+`env(safe-area-inset-*)` throughout, including the fixed drill chrome that would otherwise sit under
+the status bar (`body.drill-session-active .drill-report-btn` and its neighbours).
+After the next upload, install it on an Android 15 device and confirm nothing important hides behind
+the status or navigation bars.
 
 ---
 
-## STEP 10 — Create the two products
+## STEP 10 — 🔴 Create the two products (DO THIS FIRST)
 
-**[ME — PLAY CONSOLE]** → *QuantReflex → Monetise → Products → In-app products → Create product*
+**[YOU — PLAY CONSOLE]** ✅ *Monetise with Play → Products → **One-time products** → **Create
+one-time product***
+
+**Verified 2026-08-19: this table is empty — "No results".** Neither product exists. This is the one
+thing standing between you and a working purchase.
 
 You need **exactly two**, and the IDs must match the code character for character. The server refuses
-any product ID it does not recognise, so a typo here means purchases fail with "unknown product".
+any product ID it does not recognise (`services/playBillingService.js`), so a typo here means
+purchases fail with "unknown product".
 
 | Product ID (type exactly) | Name | Description | Price |
 |---|---|---|---|
@@ -281,71 +409,119 @@ any product ID it does not recognise, so a typo here means purchases fail with "
 
 Set both to **Active**.
 
-Choose **In-app products**, *not* Subscriptions. QuantReflex Premium is a one-time purchase for a
-fixed period — the code has no renewal logic, and listing it as a subscription would promise
-auto-renewal that does not happen.
+**Both, not one.** If only one resolves, the client shows **no purchase UI at all** rather than a
+half catalogue — deliberately, so a customer can never be sold the plan you happened to configure
+instead of the one they chose (`js/platform.js`, `canUsePlayBilling`).
 
-> You do not need to look for a "consumable" setting — newer Play Console versions do not have one.
+**One-time products, *not* Subscriptions.** QuantReflex Premium is a one-time purchase for a fixed
+period — the code has no renewal logic, and listing it as a subscription would promise auto-renewal
+that does not happen. The console offers **Subscriptions** as a sibling menu item ✅; do not use it.
+
+> You do not need to look for a "consumable" setting — the current console does not have one.
 > Consumability is decided by the app, and the server already consumes each purchase after granting
 > it, which is what lets a customer buy again when their 6 or 12 months run out.
+
+The new console wraps each product in **purchase options and offers** ✅ (the list's last column is
+"Active purchase options and offers"). Create the plain one-time purchase option at the price above.
+You do not need regional pricing or promotional offers for launch — but whatever you create, the
+**Product ID** must remain exactly `premium_6m` / `premium_12m`, because that is the string the
+server matches on.
+
+**After creating both, verify from the app, not from the console:** install from Internal testing,
+open the upgrade sheet, and confirm it shows ₹299 and ₹399. If it shows nothing, one of the two IDs
+does not match.
 
 ---
 
 ## STEP 11 — Connect the server to Google
 
-**[ME — PLAY CONSOLE]** → *Users and permissions → Invite new user*
+**[YOU — PLAY CONSOLE]** ⚠️ *Users and permissions → Invite new user* (account-level, not inside the
+app; not covered by the screenshots)
 
 1. Get your Firebase service-account email: Firebase Console → ⚙️ Project settings → **Service
    accounts** → it looks like `firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com`.
 2. Invite that email as a user on the QuantReflex app.
 3. Give it permissions: **View financial data** and **Manage orders and subscriptions**.
 
-**[ME — EXTERNAL: Google Cloud]** — enable the API the server calls:
-Go to <https://console.cloud.google.com/apis/library/androidpublisher.googleapis.com>, select your
-Firebase project, click **Enable**.
+**[YOU — EXTERNAL: Google Cloud]** — enable the API the server calls. The code requests the scope
+`https://www.googleapis.com/auth/androidpublisher` and calls
+`androidpublisher.googleapis.com/androidpublisher/v3/applications` (`services/playBillingService.js`),
+so this is not optional:
+<https://console.cloud.google.com/apis/library/androidpublisher.googleapis.com> → select your
+Firebase project → **Enable**.
 
-**[ME — EXTERNAL: Firebase Console]** — turn the feature on:
-Firestore Database → create a document at collection `config`, document ID `playBilling`, with one
-field: `enabled` (boolean) = `true`.
+**[YOU — EXTERNAL: Firebase Console]** — turn the feature on:
+Firestore Database → collection `config`, document ID `playBilling`, one boolean field
+`enabled` = `true`.
 
 Until you do that last step the app will not offer Play purchases at all. That is deliberate — it is
 the switch that lets you turn Play Billing off instantly if anything goes wrong, without a deploy.
+The reader (`api/_lib/config-flags.js`) caches for 30 seconds, so allow up to half a minute for a
+change to take effect, and note it **defaults to off**: a missing document means disabled.
 
 ---
 
 ## STEP 12 — Refund notifications (do this, or refunds go unnoticed)
 
-**[ME — EXTERNAL: Vercel]** first — add an environment variable:
+**[YOU — EXTERNAL: Vercel]** first — add an environment variable:
 - Name: `PLAY_RTDN_SECRET`
 - Value: a long random string you invent (30+ characters, letters and numbers).
 - Then redeploy.
 
-> If this variable is not set, the notification endpoint refuses everything. That is intentional: an
-> unset secret is a locked door, not an open one.
+> If this variable is not set, the endpoint refuses everything (`api/payment/play-rtdn.js`). That is
+> intentional: an unset secret is a locked door, not an open one.
 
-**[ME — EXTERNAL: Google Cloud]**
+**[YOU — EXTERNAL: Google Cloud]**
 1. <https://console.cloud.google.com/cloudpubsub/topic/list> → **Create topic** → name it
    `play-rtdn`.
 2. Open the topic → **Create subscription**:
    - Delivery type: **Push**
-   - Endpoint URL:
-     `https://www.quantreflex.app/api/payment/play-rtdn?key=YOUR_SECRET_FROM_ABOVE`
-3. On the topic's **Permissions** tab, grant `google-play-developer-notifications@system.gserviceaccount.com`
-   the role **Pub/Sub Publisher**.
+   - Endpoint URL: `https://www.quantreflex.app/api/payment/play-rtdn?key=YOUR_SECRET_FROM_ABOVE`
+3. On the topic's **Permissions** tab, grant
+   `google-play-developer-notifications@system.gserviceaccount.com` the role **Pub/Sub Publisher**.
 
-**[ME — PLAY CONSOLE]** → *Monetise → Monetisation setup → Real-time developer notifications* →
-paste the topic name:
-`projects/YOUR-PROJECT-ID/topics/play-rtdn` → **Send test notification** → it should succeed.
+**[YOU — PLAY CONSOLE]** ✅ *Monetise with Play → **Monetisation setup*** → Real-time developer
+notifications → paste `projects/YOUR-PROJECT-ID/topics/play-rtdn` → **Send test notification** → it
+must succeed.
 
 Why bother: this is how you find out when Google refunds someone. Without it, a refunded customer
-keeps Premium for up to a day until the backup sweep catches it — and if that sweep is not running,
-forever.
+keeps Premium until the backup sweep catches it.
 
 ---
 
-## STEP 13 — Internal testing (just you)
+## STEP 13 — Protected with Play (new section)
 
-**[ME — PLAY CONSOLE]** → *Test and release → Testing → Internal testing*
+**[YOU — PLAY CONSOLE]** ✅ *Protected with Play*
+
+This section did not exist when this guide was written. Your current state, read off the page:
+
+| Service | State | Action |
+|---|---|---|
+| Automatic protection — *prevent unofficial installs* | ✅ **1 of 1 active** | Nothing. |
+| Play Store protection — *distribute safe apps* | ✅ **6 of 7 active** | Expand it and see what the 7th is; probably worth turning on. |
+| **Play Billing protection** — *protect your business from fraud and abuse* | 🟠 **0 of 4 active** | **Turn this on once Step 10 exists.** |
+| **Play Integrity API** — *detect security threats and risky devices* | 🟠 **0 of 7 active** | Optional. See below. |
+
+Overall score reads **"Good protection"** ✅.
+
+**Play Billing protection** is the one that matters to you, because you are about to start taking
+money. Do Step 10 first — protecting a catalogue that does not exist achieves nothing — then come
+back and enable it.
+
+**Play Integrity API is optional for this app, and enabling it naively can hurt.** Integrity verdicts
+are consumed by *your own* server code, and nothing in this repository requests or checks one. The
+real protection against a forged purchase here is server-side: every purchase token is verified
+against Google's `androidpublisher` API before any entitlement is granted, and the package name is
+pinned. Turning Integrity on without writing code to act on its verdicts adds no security, and
+turning on its stricter device checks can block legitimate users on rooted or unusual devices. Leave
+it until you have a reason.
+
+---
+
+## STEP 14 — Internal testing
+
+**[YOU — PLAY CONSOLE]** ✅ *Test and release → Testing → Internal testing* — already has a release,
+**"QuantReflex V2"** (15 Aug 11:18).
 
 1. **Testers** tab → **Create email list** → add your own Gmail address → Save.
 2. **Releases** tab → your uploaded build → **Review release** → **Start rollout**.
@@ -355,104 +531,118 @@ forever.
 
 | # | Test | What must happen |
 |---|---|---|
-| 1 | Open the app | Full screen. **No address bar.** If you see an address bar, asset links failed — go back to Step 8. |
+| 1 | Open the app | Full screen, **no address bar**. If an address bar appears despite Step 8 being verified, **uninstall and reinstall** — Android caches the verdict from install time. |
 | 2 | Sign in | Works, and your existing progress is there. |
-| 3 | Tap a Premium feature | The upgrade sheet appears showing ₹299 and ₹399. |
-| 4 | Buy the 6-month plan | Google's payment sheet appears (it says "Google Play" and shows ₹299). |
-| 5 | Complete the purchase | Premium unlocks. Check Super Admin — the payment appears with provider `play`. |
+| 3 | Tap a Premium feature | The upgrade sheet appears showing ₹299 and ₹399. **Blocked until Step 10.** |
+| 4 | Buy the 6-month plan | Google's payment sheet appears (says "Google Play", shows ₹299). |
+| 5 | Complete the purchase | Premium unlocks. Super Admin shows the payment with provider `play`. |
 | 6 | Open the website on your laptop, same account | Premium is active there too. |
 | 7 | Ask Google for a refund | Premium is removed within a few minutes (with Step 12 done). |
 
-> **Test purchases are free** for accounts on your internal-testing list, as long as you add your
-> Gmail under *Setup → License testing* in Play Console. Add it there before test 4.
+> **Test purchases are free** for accounts on your internal-testing list, provided your Gmail is
+> added under **License testing** ⚠️ — an *account-level* setting (outside the app), not seen in the
+> screenshots. Add it there before test 4, or you will be charged real money.
 
 **Also test the Super Admin path**, since it is how you will support customers: grant a test account
 Premium from Super Admin, then open the Android app signed in as that account. Premium must be active
-**without any Play purchase**. This works by design — an admin grant is an entitlement in its own
-right, and Play Billing is only the purchase route.
+**without any Play purchase**. That is by design — an admin grant is an entitlement in its own right,
+and Play Billing is only one purchase route.
 
 ---
 
-## STEP 14 — Closed testing (Google requires this)
+## STEP 15 — Closed testing
 
-**[ME — PLAY CONSOLE]** → *Test and release → Testing → Closed testing*
+**[YOU — PLAY CONSOLE]** ✅ *Test and release → Testing → Closed testing* — you already have **one
+track, `alpha`**, carrying **"QuantReflex V2"** (15 Aug 11:51). Reached via **"View all tracks (1)"**.
 
-Since November 2023, a **personal** Google Play developer account must run a closed test before it can
-apply for production access. The requirement as Google currently states it:
-
-- **at least 12 testers** who **opt in**, and
-- they must stay opted in and the test must run **continuously for 14 days**.
+A **personal** Google Play developer account must run a closed test before it can apply for
+production access. As Google has stated the requirement: at least **12 testers** who opt in, running
+**continuously for 14 days**.
 
 > Google has changed these numbers before (it was 20 testers for a while). **Read the exact
-> requirement on your own Play Console screen** — it is shown right there on the closed-testing page —
-> and follow that number, not this document.
+> requirement on your own closed-testing page** and follow that number, not this document.
 
-If your developer account is registered as an **organisation** rather than a person, this step may not
-apply. Your Play Console will say.
+If your developer account is registered as an **organisation** rather than a person, this may not
+apply. Your console will say.
 
 **How to do it:**
-1. Create a closed testing track and an email list with your 12+ testers' Gmail addresses. Real
-   people — friends, classmates, coaching students. They must each actually opt in and install.
-2. Promote your tested build to the closed track.
-3. Send them the opt-in link. Ask them to install it and genuinely use the app now and then over the
-   two weeks — Google looks at whether the testing was real.
+1. Add an email list with your 12+ testers' Gmail addresses to the `alpha` track. Real people —
+   friends, classmates, coaching students. They must each actually opt in and install.
+2. Promote your tested build to the track.
+3. Send them the opt-in link. Ask them to genuinely use the app over the two weeks — Google looks at
+   whether the testing was real.
 4. Do not remove testers during the 14 days; the clock resets.
+
+⚠️ Because the `alpha` track already has a 15 Aug release, check whether your 14-day clock has
+already started — the page shows the current status.
 
 ---
 
-## STEP 15 — Apply for production access
+## STEP 16 — Apply for production access
 
-**[ME — PLAY CONSOLE]** → *Test and release → Production → Apply for production access*
+**[YOU — PLAY CONSOLE]** ✅ *Test and release → Production → Apply for production access*
 
 After the 14 days, a form appears asking about your app, who tested it, and what you learned. Answer
-in plain sentences — mention the tester feedback you actually got and any changes you made. Google
+in plain sentences — mention the tester feedback you actually got and the changes you made. Google
 reviews it manually; it typically takes a few days.
 
 ---
 
-## STEP 16 — Production release
+## STEP 17 — Production release
 
-**[ME — PLAY CONSOLE]** once production access is granted:
-*Test and release → Production → Create new release* → promote your tested build → **Start rollout to
-production**.
+**[YOU — PLAY CONSOLE]** ✅ *Test and release → Production → Create new release* → promote your
+tested build → **Start rollout to production**.
 
 Start with a **staged rollout of 20%** rather than 100%. If something is wrong you can halt it. Raise
 it over a few days.
 
+**App availability** ✅ is already **Published** (*Test and release → Advanced settings → App
+availability*). That tab is also where you would **Unpublish** in an emergency — the button is on
+that page. The other tabs there ✅ are Form factors · Managed Google Play · Play as you download ·
+Operator targeting · App Actions · App indexing, and more behind the ▸ arrow. You do not need any of
+them for launch.
+
 ---
 
-## STEP 17 — After launch
+## STEP 18 — After launch
 
-**[ME — PLAY CONSOLE]**, check weekly at first:
+**[YOU — PLAY CONSOLE]**, check weekly at first:
 
 | Where | What you are looking for |
 |---|---|
-| *Quality → Android vitals → Crashes and ANRs* | Crash rate should be near zero. A TWA rarely crashes; a spike means the website broke. |
-| *Monetise → Financial reports* | Purchases arriving. Cross-check against Super Admin's revenue figure. |
-| *Grow → Ratings and reviews* | Reply to reviews. It measurably helps ranking. |
-| *Policy → App content* | Any policy warning — deal with it immediately, they have deadlines. |
+| ⚠️ *Monitor and improve* → Android vitals → Crashes and ANRs *(section name ✅; children not opened)* | Crash rate near zero. A TWA rarely crashes; a spike means the website broke. |
+| ✅ *Monetise with Play → Financial reports* | Purchases arriving. Cross-check against Super Admin's revenue figure. |
+| ⚠️ *Grow users* → Ratings and reviews *(section ✅)* | Reply to reviews. It measurably helps ranking. |
+| ⚠️ *App content* | Any policy warning — deal with it immediately, they have deadlines. |
+| ✅ *Protected with Play* | The service counters. A number dropping means something got switched off. |
+| ✅ *Publishing overview* | "You have no unpublished changes" — anything else means a change is stuck awaiting review. |
 | Super Admin → payments | Any payment stuck at `pending`, or any row in `paymentOrphans`. |
 
-**Whenever you change the website, the app changes too** — it wraps the live site. You only need a new
-AAB upload if you change the package, the icon, the launch URL, or the app name.
+**Whenever you change the website, the app changes too** — it wraps the live site. You only need a
+new AAB upload if you change the package, the icon, the launch URL, or the app name.
 
 ---
 
 # THE CHECKLIST
 
+Ticked items were **verified on 2026-08-19**, either in your console screenshots or by fetching the
+live site.
+
 ### Developer account
 - [x] Verification complete
-- [ ] Contact information verified
-- [ ] Payment profile configured *(Monetise → Payments profile — required before you can be paid)*
+- [ ] Contact information verified ⚠️
+- [ ] Payment profile configured ⚠️ *(required before you can be paid)*
 
-### Website (blocks everything)
-- [ ] This branch merged and deployed
-- [ ] `/legal/privacy.html` loads the policy, not the app
-- [ ] `/legal/terms.html` loads
-- [ ] `/legal/delete-account.html` loads
+### Website
+- [x] Deployed
+- [x] `/legal/privacy.html` serves *Privacy Policy — QuantReflex*
+- [x] `/legal/terms.html` serves *Terms of Use — QuantReflex*
+- [x] `/legal/delete-account.html` serves *Delete Your QuantReflex Account*
 
 ### QuantReflex app
 - [x] Package `com.quantreflex.app`
+- [x] App availability: **Published**
+- [x] No unpublished changes
 - [ ] Store listing (name, descriptions, icon, feature graphic, 2+ screenshots)
 - [ ] Privacy policy URL entered
 - [ ] Data safety form completed
@@ -461,28 +651,29 @@ AAB upload if you change the package, the icon, the launch URL, or the app name.
 - [ ] Account deletion URL entered
 - [ ] Content rating questionnaire completed
 
-### Billing
-- [ ] Product `premium_6m` created at ₹299, Active
-- [ ] Product `premium_12m` created at ₹399, Active
-- [ ] Firebase service account invited to Play Console with financial + order permissions
+### Billing — 🔴 the blocking group
+- [ ] 🔴 Product `premium_6m` created at ₹299, Active — **confirmed absent**
+- [ ] 🔴 Product `premium_12m` created at ₹399, Active — **confirmed absent**
+- [ ] Firebase service account invited with financial + order permissions
 - [ ] `androidpublisher` API enabled in Google Cloud
 - [ ] Firestore `config/playBilling` → `enabled: true`
 - [ ] `PLAY_RTDN_SECRET` set in Vercel and redeployed
 - [ ] Pub/Sub topic + push subscription created, test notification succeeds
+- [ ] Play Billing protection enabled *(0 of 4 active)*
 - [ ] Purchase verification tested end to end
 - [ ] Entitlement confirmed on web **and** Android for the same account
 
 ### Asset links
-- [ ] First AAB uploaded
-- [ ] SHA-256 **app signing** fingerprint copied from Play Console
-- [ ] Fingerprint sent to me, `assetlinks.json` deployed
-- [ ] Verified with Google's Statement List tester
-- [ ] App opens with **no address bar**
+- [x] AAB uploaded (Internal + `alpha`, "QuantReflex V2", 15 Aug)
+- [x] `assetlinks.json` deployed with 4 fingerprints
+- [x] Verified by Google on `www.quantreflex.app` — 4 statements, 0 errors
+- [x] Verified by Google on `quantreflex.app` — 4 statements, 0 errors
+- [ ] App confirmed to open with **no address bar** on a fresh install
 
 ### Release
-- [ ] AAB generated
-- [ ] Internal testing done, all 7 tests pass
-- [ ] Closed testing track live
+- [x] Internal testing track live
+- [x] Closed testing track `alpha` live
+- [ ] Internal testing: all 7 tests pass *(3–7 blocked on products)*
 - [ ] Required number of testers opted in *(check your own console for the number)*
 - [ ] 14 continuous days elapsed
 - [ ] Production access applied for and granted
@@ -497,26 +688,28 @@ AAB upload if you change the package, the icon, the launch URL, or the app name.
 
 ---
 
-# WHAT I SHOULD DO NEXT
+# WHAT TO DO NEXT
 
-In this order. Do not skip ahead — each step needs the one before it.
+The order changed, because Steps 2 and 8 are now done and one new blocker appeared.
 
-1. **Merge this branch and deploy it.** Then check the three `/legal/` URLs load. *(Step 2)*
-2. **Write the store listing** and create the feature graphic. Take 2–5 screenshots on your phone. *(Step 3)*
-3. **Fill in App content and Data safety** using the tables above. *(Steps 4–7)*
-4. **Create the two products** — `premium_6m` at ₹299, `premium_12m` at ₹399. *(Step 10)*
-5. **Connect the server**: invite the Firebase service account, enable `androidpublisher`, and set
-   `config/playBilling` → `enabled: true` in Firestore. *(Step 11)*
-6. **Set `PLAY_RTDN_SECRET` in Vercel**, create the Pub/Sub topic and subscription, and point Play at
-   it. *(Step 12)*
-7. **Build the AAB with PWABuilder** and upload it to Internal testing. **Back up the keystore.** *(Step 9)*
-8. **Copy the SHA-256 app signing fingerprint and send it to me.** I will add `assetlinks.json`. *(Step 8)*
-9. **Install from Internal testing and run the 7 tests.** The address-bar check is the important one. *(Step 13)*
-10. **Start closed testing.** Recruit your testers, check your console for the exact number required. *(Step 14)*
-11. **Wait out the 14 days**, then apply for production access. *(Step 15)*
-12. **Roll out to production at 20%**, then raise it. *(Step 16)*
+1. 🔴 **Create the two one-time products.** *Monetise with Play → Products → One-time products →
+   Create one-time product.* `premium_6m` at ₹299 and `premium_12m` at ₹399, both **Active**.
+   Nothing about purchasing can be tested until both exist. *(Step 10)*
+2. **Connect the server**: invite the Firebase service account, enable `androidpublisher`, set
+   `config/playBilling` → `enabled: true`. *(Step 11)*
+3. **Set `PLAY_RTDN_SECRET` in Vercel**, create the Pub/Sub topic and subscription, point Play at it,
+   send the test notification. *(Step 12)*
+4. **Enable Play Billing protection** now that there is a catalogue to protect. *(Step 13)*
+5. **Add your Gmail to License testing**, then install from Internal testing and run all 7 tests —
+   especially the address-bar check on a **fresh** install. *(Step 14)*
+6. **Finish the store listing**: feature graphic, screenshots from the installed app, descriptions.
+   *(Step 3)*
+7. **Fill in App content and Data safety.** *(Steps 4–7)*
+8. **Check the `alpha` track's 14-day clock**, recruit the required testers, run the closed test.
+   *(Step 15)*
+9. **Apply for production access**, then roll out at 20%. *(Steps 16–17)*
 
-**Steps 1–7 you can do today.** Step 8 needs step 7 first. Everything from step 10 onward is mostly
+Steps 1–4 are the ones that actually unblock things. Everything after step 5 is paperwork and
 waiting.
 
 ---
@@ -525,13 +718,16 @@ waiting.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| App shows an address bar | Asset links not verified | Step 8. Check you used the **app signing** fingerprint, not the upload key. |
-| "Unknown product" on purchase | Product ID typo | The IDs must be exactly `premium_6m` and `premium_12m`. |
-| No Play purchase option in the app | `config/playBilling` not enabled, or service account not connected | Step 11. |
-| "Item already owned" | The purchase was not consumed | The server does this automatically. If it persists, tell me — check `payments` for a row with `consumed: false`. |
-| Purchase succeeds, Premium does not unlock | Verification failed | Check Vercel logs for `PLAY_VERIFY`. The purchase is recorded either way and the hourly sweep will complete it. |
+| **No purchase option at all in the app** | One or both products missing — **this is your current state** | Step 10. Both must exist and be Active; the client refuses a half catalogue on purpose. |
+| App shows an address bar | Verification failed, **or** the device cached a failed verdict from install time | Asset links are verified server-side. **Uninstall and reinstall.** If it persists, re-check Step 8. |
+| "Unknown product" on purchase | Product ID typo | Must be exactly `premium_6m` and `premium_12m`. |
+| Razorpay appears inside the Play app | The build is not identifying itself as Play | Should not happen: `js/platform.js` latches an `android-app://com.quantreflex.app` referrer for the tab's life. If you ever see it, **stop and report it** — it is a policy violation, not a cosmetic bug. |
+| Play purchase option missing on a correct build | `config/playBilling` not enabled, or service account not connected | Step 11. Remember the 30-second cache and that a missing document means **off**. |
+| "Item already owned" | The purchase was not consumed | The server does this automatically. If it persists, check `payments` for a row with `consumed: false`. |
+| Purchase succeeds, Premium does not unlock | Verification failed | Check Vercel logs for `PLAY_VERIFY`. The purchase is recorded either way and the hourly sweep completes it. |
 | Refund does not remove Premium | RTDN not configured | Step 12. The backup sweep still catches it within a day. |
-| Premium works on web but not Android | Different account, or entitlement not refreshed | Confirm the same email. Then use **Restore Purchase** on the upgrade screen. |
+| Premium works on web but not Android | Different account, or entitlement not refreshed | Confirm the same email, then use **Restore Purchase** on the upgrade screen. |
+| A menu path in this guide does not exist | Google moved it again | Use the console's search box. Then update this file's navigation map so the next person does not lose the same hour. |
 
 ---
 
