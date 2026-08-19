@@ -9,11 +9,31 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.184 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.186 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.16 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.186 (2026-08-19)** — **The TWA referrer must name OUR package, and must survive a reload
+> (ADR-156).** `js/platform.js` tested `/^android-app:\/\//` — any Android app — so every visitor who
+> tapped a quantreflex.app link inside WhatsApp or Gmail was classified a Play build and left with no way
+> to pay, the same failure ADR-154 removed from the Digital Goods signal. And because the referrer is set
+> on the launch document only while this app performs full-page reloads, the signal vanished inside the
+> real Play build, where `js/payments/gateway.js` answers a false verdict by offering Razorpay — the one
+> unrecoverable Play-policy violation. The referrer now matches `com.quantreflex.app` exactly and latches
+> for the tab's life. Two suites had encoded the bug: every referrer fixture named a FOREIGN package.
+> Payment Version → 2.17.
+
+> **2.185 (2026-08-19)** — **A guard that exists, but not on the path that needed it (ADR-155).** Seven
+> defects filed together because the correct behaviour already existed somewhere and simply was not wired
+> to the path that mattered: the exit dialog never froze the session it was asking about (so a countdown
+> auto-submitted a blank answer, or ran `finish()`, underneath it); force-exiting while it was open leaked
+> QROverlay's scroll lock permanently; "Continue learning" never released `_activeDrillEngine`, pinning
+> ADR-153's stand-down ON for the rest of the session; the mistake archive evicted the NEWEST record at the
+> cap because hydration leaves the array newest-first; a Review Mistakes deck gave one slot per attempt
+> rather than per question; the grader's tolerance was relative, so a ₹8,800 answer accepted ±8.8; and the
+> free-cap panel cached an entitlement that can change underneath it. 20 mutations, 20 killed.
 
 > **2.184 (2026-08-13)** — **A background repaint may not outrank the screen the user is on (ADR-151).**
 > `FirestoreSync`'s own debounced write echoed back through the ADR-072 listener as a remote change

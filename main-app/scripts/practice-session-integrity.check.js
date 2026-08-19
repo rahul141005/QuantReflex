@@ -351,6 +351,24 @@ var _clamp = fnBody(PRACTICE_C, '_clampSetToDailyAllowance');
 ok(_clamp !== null && /_questionsLeftToday/.test(_clamp),
   'the set clamp was rebased onto the same helper (one arithmetic, not two)');
 
+/* ── 7. The quota panel is a snapshot; entitlement is live ──────────────────────────────────────────────
+   The free-cap card is painted once and then sits on screen indefinitely, but premium can arrive underneath
+   it without going through its button — ADR-118 propagates a purchase made on another device into an open
+   session, and a Super Admin grant does the same. Tapping "Upgrade to continue" then opened a paywall for
+   something the user already owned, and their only way off the card was "See results", which ENDS a session
+   they had just become entitled to finish. */
+var _qr = ENGINE_C.slice(ENGINE_C.indexOf("querySelector('#quotaUpgradeBtn')"),
+                         ENGINE_C.indexOf("querySelector('#quotaResultsBtn')"));
+ok(_qr.length > 0 && /hasPremiumAccess/.test(_qr),
+  '** the quota panel re-derives entitlement when Upgrade is TAPPED, not when it was painted (ADR-155)');
+ok(/_alreadyPremium\)\s*\{[\s\S]{0,200}?_resumePausedSession\(\);/.test(_qr),
+  '** an already-premium user resumes the session instead of being shown a paywall they do not need');
+ok(/_alreadyPremium\)\s*\{[\s\S]{0,200}?__qrResumeAfterUpgrade = null/.test(_qr),
+  'that path leaves no armed resume hook behind for a later, unrelated upgrade to fire');
+ok(/function _resumePausedSession\(\)/.test(ENGINE_C) &&
+   (ENGINE_C.match(/_resumePausedSession\(\)/g) || []).length >= 3,
+  'both resume paths share ONE body, so the timed-test clock restore cannot drift between them');
+
 /* Behavioural: the eviction rule, run for real against a DESCENDING array (the post-hydration shape). */
 (function () {
   var CAP = 3;

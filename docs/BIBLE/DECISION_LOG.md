@@ -8,6 +8,96 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-156 — The TWA referrer must name OUR package, and must survive a reload (v284) (2026-08-19)
+
+- **Context:** `js/platform.js` answers the one question that decides which payment path a build may
+  offer. Its `_referrerSignal()` tested `/^android-app:\/\//` — ANY Android app — and did not latch.
+  Both halves of the module's deliberate asymmetry leaked through that single signal.
+- **The false positive (revenue).** Chrome sets an `android-app://<package>` referrer whenever a link
+  is opened from an app that supplies one. Every visitor who tapped a quantreflex.app link inside
+  WhatsApp, Gmail or Instagram arrived as `android-app://com.whatsapp`, was classified a Play build,
+  and — the Play adapter being deliberately not ready — was shown no purchase path at all. This is
+  the same failure ADR-154 removed from the Digital Goods signal, still live through this one. Link
+  sharing is how this audience arrives, so it was not an edge case.
+- **The false negative (Play policy).** The referrer is set on the LAUNCH document only, and this app
+  performs full-page navigations (`js/settings.js` reloads on several settings changes and does
+  `location.href = pathname` on another). `manifest.json` `start_url` is `/`, carrying no `?src=play`
+  for the other marker to latch, so after any reload inside the real Play build
+  `isPlayDistribution()` flipped to false — and `js/payments/gateway.js:77` answers a false verdict by
+  selecting Razorpay. Charging for digital goods through Razorpay inside a Play app is the one
+  unrecoverable Play-policy violation in this program.
+- **Decision:** the referrer must match `android-app://com.quantreflex.app` exactly (no other app can
+  put that there, and a lookalike prefix like `com.quantreflex.appliance` is rejected), and a match
+  latches into the same `sessionStorage` key `?src=play` uses. Session scope is retained deliberately:
+  the latch must still die with the tab so it can never leak into ordinary browsing of this origin.
+- **Consequence:** `js/platform.js` becomes a second home for the package literal, which
+  `assetlinks.check.js` previously forbade outright. The exemption is paid for in the same file: the
+  literal is asserted equal to `CANONICAL_PACKAGE_NAME` and to the package `assetlinks.json` binds, so
+  a copy that cannot drift addresses no second Google application.
+- **Two suites had encoded the bug.** Every referrer fixture in `platform.check.js` used a FOREIGN
+  package (`com.example.qr`, `x`), as did one in `report.check.js`. A green run was evidence *of* the
+  defect. Fixtures now name the real package, with the four false-positive cases and the reload case
+  as named regression guards.
+- **Build note:** `start_url` stays `/`. Putting `?src=play` there would make every installed *web*
+  PWA latch as a Play build and lose Razorpay. That marker belongs in the TWA launch URL set in the
+  PWABuilder/bubblewrap Android config. With this ADR the build is correct either way.
+
+---
+
+## ADR-155 — A guard that exists, but not on the path that needed it (v283) (2026-08-19)
+
+Seven defects found in the pre-PWABuilder pass. They are filed together because they share one shape:
+in every case the correct behaviour already existed somewhere in the codebase and simply was not
+wired to the path where it mattered.
+
+- **The exit dialog never froze the session it was asking about.** "End Session?" takes time to
+  answer. Meanwhile a Reflex Drill's per-question countdown reached zero and auto-submitted a BLANK
+  answer — graded wrong and filed in the mistake archive as a knowledge failure — and a Timed Test's
+  global countdown ran `finish()`, painting the results card underneath the dialog before the user had
+  answered it. The freeze is exactly the one ADR-099 already applies to the in-drill report sheet;
+  it is hoisted into `session-manager.js` so all three call sites (drill-engine's two exit buttons,
+  `router.js`'s Back handler) share it and cannot drift. Duels are excluded — they are server-timed.
+- **Force-exiting while that dialog was open leaked the scroll lock permanently.**
+  `_exitDrillSession()` set `display:none` and stripped `body.modal-open` by hand, never decrementing
+  QROverlay's ref-count, so the next overlay to close could not clear the lock and the app stayed
+  unscrollable until reload. Reachable through the defect above. It now closes through the handle.
+- **"Continue learning" never released `_activeDrillEngine`.** Every other exit routes through
+  `Router.onShow('practice')`, which nulls it; that one routes to Learn. Since ADR-153 the reference
+  is the load-bearing leg of `_engineOwnsScreen()`, so a torn-down engine left there pinned "the engine
+  owns the screen" ON and every background repaint app-wide stood down for the rest of the session —
+  including the one that applies premium chrome after an upgrade.
+- **The mistake archive evicted the NEWEST mistake at the cap.** `p.mistakes.shift()` assumes
+  insertion order, but hydration replaces the array with the archive's canonical ordering, which is
+  DESCENDING by `ts` (`mistake-archive.js` `_dedupeSortCap`). Every mistake past CAP=100 destroyed the
+  most recent one — the record the student most wanted — and the loss propagated to the server on the
+  next sync. Eviction is now by minimum `ts`, which is correct under any ordering.
+- **A Review Mistakes deck gave one slot per ATTEMPT, not per question.** `buildRecord` stamps `ts`
+  into the record id, so re-attempts are separate rows by design; a question missed three times took
+  three of the ten slots. Collapsed to one record per `qkey`, keeping the most recent attempt.
+- **The grader's tolerance was RELATIVE** — `max(0.01, 0.1% of |expected|)` — so it grew without limit
+  with the answer. On a DI revenue question worth ₹8,800 it accepted anything within ±8.8: a student
+  who computed 8,795 was told they were right, kept a wrong method, and the attempt never reached the
+  mistake archive. The bigger the number, the more wrong you were allowed to be. Tolerance is now
+  absolute and keyed on the shape of the key: a whole number accepts a strict rounds-to (±0.5,
+  exclusive, so 0.5 never rounds down to 0), a decimal keeps the stated ±0.01 rounding allowance.
+  `drill-grading.check.js`'s lockstep mirror was updated with it and now also bans the relative shape
+  from returning.
+- **The free-cap panel was a snapshot of a live fact.** It is painted once and then sits on screen
+  indefinitely, but premium can arrive underneath it without going through its button (ADR-118
+  propagates a purchase made on another device; a Super Admin grant does the same). Tapping "Upgrade
+  to continue" then opened a paywall for something the user already owned, and their only way off the
+  card was "See results" — which ENDS a session they had just become entitled to finish. Entitlement
+  is now re-derived at click time, and both resume paths share one body.
+- **Disproved while verifying, and deliberately left alone.** The numpad does NOT render above the
+  pause overlay (the overlay is `--z-sticky: 200`, the numpad `--z-session-numpad: 99`, and
+  `numpad.js:238` already guards the keyboard path that bypasses z-order). Starting a set does NOT buy
+  a free daily streak: the streak keys on `lastPracticeDate`, written only by `recordAnswer`, not on
+  the `lastActiveDate` that `recordSetStarted` touches.
+- **Verification:** every new guard was proven load-bearing by deleting it and confirming a named
+  assertion fails — 20 mutations, 20 killed.
+
+---
+
 ## ADR-154 — The Digital Goods API is not evidence of Play distribution (v282) (2026-08-14)
 
 - **Context:** the owner reported that the paywall offered **Start Premium** on a desktop browser but

@@ -6,6 +6,71 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-19 — The TWA referrer was both too loose and too short-lived (ADR-156, v284)
+
+`js/platform.js` decides which payment path a build may offer, and its one asymmetry was leaking in BOTH
+directions through a single signal.
+
+**False positive (revenue).** `_referrerSignal()` tested `/^android-app:\/\//` — ANY Android app. Chrome
+sets that referrer whenever a link is opened from an app that supplies one, so every visitor arriving from
+WhatsApp, Gmail or Instagram was classified a Play build and — the Play adapter being deliberately not
+ready — shown no purchase path at all. Identical in kind to the Digital Goods false positive ADR-154 fixed.
+
+**False negative (Play policy).** The referrer is set on the launch document only, and `js/settings.js`
+reloads on several settings changes and does `location.href = pathname` on another. `manifest.json`
+`start_url` is `/`, carrying no `?src=play` to latch, so inside the real Play build the verdict flipped to
+false and `js/payments/gateway.js:77` selected Razorpay.
+
+**Fix.** Match `android-app://com.quantreflex.app` exactly (a lookalike prefix is rejected) and latch into
+the same `sessionStorage` key `?src=play` uses — session scope retained so it dies with the tab.
+
+- `main-app/js/platform.js` — `TWA_PACKAGE`, scoped + latched `_referrerSignal()`
+- `main-app/scripts/platform.check.js` — fixtures renamed off `com.example.qr`; four false-positive cases
+  and the reload case added as named guards; sessionStorage-only assertion
+- `main-app/scripts/report.check.js` — same stale fixture
+- `main-app/scripts/assetlinks.check.js` — `js/platform.js` allowed as a second package home, paid for by
+  an equality assertion against `CANONICAL_PACKAGE_NAME` and `assetlinks.json`
+- Docs: DECISION_LOG (ADR-156), VERSIONS 2.186, Payment Version 2.17
+
+**Build note:** `start_url` stays `/`; `?src=play` belongs in the TWA launch URL in the PWABuilder config,
+not in the web manifest, or every installed web PWA would lose Razorpay.
+
+---
+
+## 2026-08-19 — A guard that exists, but not on the path that needed it (ADR-155, v283)
+
+Seven defects from the pre-PWABuilder pass, filed together because they share one shape.
+
+1. **The exit dialog never froze the session it was asking about.** A Reflex Drill's per-question
+   countdown auto-submitted a BLANK answer under the dialog — graded wrong, filed as a knowledge mistake —
+   and a Timed Test's global countdown ran `finish()` underneath it. The freeze is the one ADR-099 already
+   applies to the report sheet, hoisted into `session-manager.js` so all three call sites share it.
+2. **Force-exiting with that dialog open leaked the scroll lock permanently.** `_exitDrillSession()`
+   stripped `body.modal-open` by hand without decrementing QROverlay's ref-count.
+3. **"Continue learning" never released `_activeDrillEngine`**, pinning ADR-153's `_engineOwnsScreen()` ON
+   and standing down every background repaint app-wide for the rest of the session.
+4. **The mistake archive evicted the NEWEST record at the cap** — `shift()` assumes insertion order, but
+   hydration leaves the array DESCENDING by `ts`.
+5. **A Review Mistakes deck gave one slot per attempt, not per question.**
+6. **The grader's tolerance was relative** — `max(0.01, 0.1%·|expected|)` — so a ₹8,800 answer accepted
+   ±8.8. Now absolute: whole keys take a strict rounds-to (±0.5 exclusive), decimals keep ±0.01.
+7. **The free-cap panel cached an entitlement that can change underneath it**, leaving an already-premium
+   user on a dead card whose only exit ended the session.
+
+- `main-app/js/session-manager.js`, `js/drill-engine.js`, `js/progress.js`, `js/questions.js`,
+  `js/controllers/practice-modes.js`
+- `main-app/scripts/practice-session-integrity.check.js` (+30 assertions),
+  `scripts/drill-grading.check.js` (mirror updated; relative shape now banned)
+- Docs: DECISION_LOG (ADR-155), VERSIONS 2.185
+
+**Disproved and left alone:** the numpad does not render above the pause overlay (200 vs 99, and the
+keyboard path is guarded); starting a set does not buy a free daily streak (`lastPracticeDate` vs
+`lastActiveDate`).
+
+Every new guard proven load-bearing by deletion: 20 mutations, 20 killed. Full suite green.
+
+---
+
 ## 2026-08-13 — Two bugs on the "Begin Challenge" screen: the app walked away, and the set was already spent (ADR-151, v279)
 
 Reported as three symptoms — the pre-session screen bouncing back to Practice after ~2–3 seconds, the

@@ -1075,20 +1075,38 @@ function createDrillEngine(container, opts) {
         '<p class="quota-reached-reset">' + QRI18n.t('drill.quotaReset') + '</p>' +
       '</div>';
 
+    /* The body both resume paths share: continue THIS session at the blocked index. Resumes a timed test from
+       the FROZEN remaining rather than a fresh clock — time spent upgrading isn't charged against the exam. The
+       per-question countdown, if any, is restarted by renderQuestion() for the new question. */
+    function _resumePausedSession() {
+      if (_isFinished) return;                    /* user ended the session in the meantime — nothing to resume */
+      renderQuestion();
+      if (timeLimit && !overallTimer && _globalRemaining != null && _globalRemaining > 0) {
+        _globalTick();
+        overallTimer = setInterval(_globalTick, 1000);
+      }
+    }
+
     var _up = container.querySelector('#quotaUpgradeBtn');
     if (_up) _up.addEventListener('click', function () {
+      /* ADR-155 — THE PANEL IS A SNAPSHOT; ENTITLEMENT IS LIVE. This card is painted once and then sits on
+         screen indefinitely, but premium can arrive underneath it without going through this button: ADR-118
+         propagates a purchase completed on another device into an open session, and a Super Admin grant does
+         the same. When that happened the user was left on a dead end — tapping "Upgrade to continue" opened a
+         paywall for something they already owned, and their only way off the card was "See results", which
+         ENDS a session they were now entitled to finish. Re-derive at click time, which is the rule everywhere
+         else in this app: entitlement is never cached across an interaction. */
+      var _alreadyPremium = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
+      if (_alreadyPremium) {
+        window.__qrResumeAfterUpgrade = null;     /* nothing to wait for — don't leave a hook armed */
+        _resumePausedSession();
+        return;
+      }
       /* One-shot seamless-resume hook (ADR-107): paywall.js payment-success invokes this INSTEAD of its default
          view re-render, so the paused session survives and renderQuestion() continues at the blocked index. */
       window.__qrResumeAfterUpgrade = function () {
         window.__qrResumeAfterUpgrade = null;
-        if (_isFinished) return;                 /* user ended the session in the meantime — nothing to resume */
-        renderQuestion();                         /* continue the SAME session at the blocked index */
-        /* Resume a timed test from the FROZEN remaining (not a fresh clock) — payment time isn't charged against
-           the exam. The per-question countdown, if any, is restarted by renderQuestion for the new question. */
-        if (timeLimit && !overallTimer && _globalRemaining != null && _globalRemaining > 0) {
-          _globalTick();
-          overallTimer = setInterval(_globalTick, 1000);
-        }
+        _resumePausedSession();
       };
       if (typeof showPaywall === 'function') showPaywall('daily_limit');
     });
