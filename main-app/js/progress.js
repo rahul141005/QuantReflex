@@ -172,7 +172,22 @@ function recordAnswer(correct, category, questionData, responseTime, meta) {
        source, session type, timestamp). Backward-compatible: the record is a superset of the v1 shape. */
     if (questionData && typeof QRMistakeArchive !== 'undefined') {
       if (!p.mistakes) p.mistakes = [];
-      if (p.mistakes.length >= QRMistakeArchive.CAP) p.mistakes.shift();
+      /* ADR-155 — EVICT BY TIMESTAMP, NOT BY ARRAY POSITION.
+         This used to be `p.mistakes.shift()`, which assumes the array is in ascending insertion order so that
+         index 0 is the oldest. It is not. On every cold boot for a signed-in user, hydration replaces the array
+         with the archive's canonical ordering — QRMistakeArchive.mergeMistakes -> _dedupeSortCap sorts
+         DESCENDING by ts (js/mistake-archive.js), newest first. From that moment index 0 was the user's MOST
+         RECENT mistake, and each new mistake past CAP=100 silently destroyed it. The one record a student most
+         wants to review is the one the cap deleted, and it was gone from the server too on the next sync.
+         Scanning for the minimum ts is correct under ascending, descending or unsorted order alike. */
+      if (p.mistakes.length >= QRMistakeArchive.CAP) {
+        var _oldestIdx = 0, _oldestTs = Number(p.mistakes[0] && p.mistakes[0].ts) || 0;
+        for (var _mi = 1; _mi < p.mistakes.length; _mi++) {
+          var _ts = Number(p.mistakes[_mi] && p.mistakes[_mi].ts) || 0;
+          if (_ts < _oldestTs) { _oldestTs = _ts; _oldestIdx = _mi; }
+        }
+        p.mistakes.splice(_oldestIdx, 1);
+      }
       p.mistakes.push(QRMistakeArchive.buildRecord(questionData, {
         category: questionData.category || category,
         ts: Date.now(),

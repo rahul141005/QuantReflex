@@ -128,8 +128,9 @@ function grade(raw, expected) {
   if (nr !== '' && !isNaN(nr) && !isNaN(ne)) {
     var a = parseFloat(nr), b = parseFloat(ne);
     if (a === b) return true;
-    var tol = Math.abs(b) > 0 ? Math.max(0.01, Math.abs(b) * 0.001) : 0.01;
-    return Math.abs(a - b) <= tol;
+    var whole = Math.abs(b - Math.round(b)) < 1e-9;
+    var tol = whole ? 0.5 : 0.01;
+    return whole ? (Math.abs(a - b) < tol) : (Math.abs(a - b) <= tol);
   }
   return false;
 }
@@ -141,9 +142,21 @@ ok('* whitespace does not change the verdict', grade(' 42 ', '42') === true);
 ok('* "57.0" equals "57" (numeric equivalence, not string equality)', grade('57.0', '57') === true);
 ok('* a 2-dp rounding of a long decimal is accepted', grade('3.33', '3.3333333') === true);
 ok('** tolerance does NOT swallow a genuinely different number', grade('3.5', '3.3333333') === false);
+/* ADR-155 — the defect this replaced: tolerance used to be max(0.01, 0.1% of |expected|), so it GREW with the
+   answer. On the ₹-scale integers DI questions actually produce that credited answers that were plainly wrong. */
+ok('** a large WHOLE answer does not buy a large margin of error (the 0.1% relative-tolerance bug)',
+  grade('8795', '8800') === false && grade('11990', '12000') === false);
+ok('** ...and the margin does not keep growing with the answer', grade('999000', '1000000') === false);
+ok('* a whole-number key still credits an exact value the key rounded (8799.6 -> 8800)',
+  grade('8799.6', '8800') === true && grade('8800.4', '8800') === true);
+ok('** ...but only to the nearest whole number, not beyond', grade('8798', '8800') === false);
+ok('* a DECIMAL key still accepts a 2-dp approximation', grade('3.33', '3.3333333') === true);
+ok('** ...and still rejects a 3rd-dp-and-worse miss', grade('3.36', '3.3333333') === false);
 ok('** off-by-one grades wrong (the classic indexing bug would surface here)', grade('43', '42') === false);
 ok('a negative answer grades correctly', grade('-8', '-8') === true && grade('8', '-8') === false);
 ok('zero is handled (tolerance floor, no divide-by-zero)', grade('0', '0') === true && grade('0.5', '0') === false);
+ok('** the whole-number allowance is a strict rounds-to (0.5 rounds to 1, never down to 0)',
+  grade('0.5', '0') === false && grade('0.49', '0') === true);
 ok('a non-numeric answer compares exactly', grade('North', 'North') === true && grade('South', 'North') === false);
 
 /* ---------- the GUARDS, asserted against the shipped source ----------
@@ -167,10 +180,17 @@ ok('* an empty free-entry submission is ignored rather than graded wrong',
 ok('** the engine still normalises through the shared registry (not a private copy)',
   /QRAnswerFormat\.normalize/.test(src));
 ok('** the mirror tolerance is byte-for-byte the engine\'s',
-  /Math\.max\(0\.01, Math\.abs\(expNum\) \* 0\.001\)/.test(src),
+  /var _expIsWhole = Math\.abs\(expNum - Math\.round\(expNum\)\) < 1e-9;\s*\n\s*var tolerance = _expIsWhole \? 0\.5 : 0\.01;/.test(src) &&
+  /_expIsWhole \? \(Math\.abs\(rawNum - expNum\) < tolerance\) : \(Math\.abs\(rawNum - expNum\) <= tolerance\)/.test(src),
   'engine tolerance changed - update the mirror in this file');
+/* ADR-155 REGRESSION GUARD: the tolerance must never go back to being RELATIVE to the answer's size. A relative
+   term is invisible on the small numbers a test naturally reaches for and only misgrades on the large ones real
+   DI questions produce, so it can be reintroduced without a single assertion above noticing. Ban the shape. */
+ok('** the engine tolerance is ABSOLUTE - never scaled by the size of the answer',
+  !/Math\.abs\(expNum\)\s*\*/.test(src),
+  'a relative tolerance term is back: a bigger answer must not buy a bigger margin of error');
 ok('** the engine equality chain is still exact -> numeric -> tolerance',
-  /if \(normalizedRaw === normalizedExpected\)[\s\S]{0,400}?rawNum === expNum[\s\S]{0,600}?Math\.abs\(rawNum - expNum\) <= tolerance/.test(src));
+  /if \(normalizedRaw === normalizedExpected\)[\s\S]{0,400}?rawNum === expNum[\s\S]{0,2000}?Math\.abs\(rawNum - expNum\) < tolerance/.test(src));
 ok('* the engine still treats an empty submission as not-numeric (never graded correct)',
   /normalizedRaw !== '' && !isNaN\(normalizedRaw\)/.test(src));
 

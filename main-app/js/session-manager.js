@@ -20,6 +20,8 @@ var _practiceActionLocked = false;
 var _drillSessionActive = false;
 /* Prevents multiple exit dialogs from stacking */
 var _exitDialogShowing = false;
+/* ADR-155: the live QROverlay handle for the exit dialog, so a force-exit can close it properly (see below). */
+var _exitDialogHandle = null;
 
 /**
  * Enter drill session mode:
@@ -49,7 +51,16 @@ function _exitDrillSession() {
   document.body.classList.remove('drill-session-active');
   document.documentElement.classList.remove('drill-session-active');
   hideCustomNumpad();
-  /* Clean up exit dialog state in case it was open when session was force-exited */
+  /* Clean up exit dialog state in case it was open when session was force-exited.
+     ADR-155: close it THROUGH its QROverlay handle. The old code set display:none and removed body.modal-open
+     directly, which never decremented QROverlay's per-class ref-count (js/ui/overlay.js _unlock). The counter
+     stayed one too high, so the next overlay to close left `modal-open` on the body and the whole app became
+     unscrollable until reload. Guarded + idempotent: handle.close() is a no-op on an already-closed overlay, and
+     the direct teardown below still runs as the fallback for the no-controller path. */
+  if (_exitDialogHandle) {
+    var _h = _exitDialogHandle; _exitDialogHandle = null;
+    try { if (typeof _h.close === 'function') _h.close(); } catch (_) {}
+  }
   var exitModal = document.getElementById('exitSessionModal');
   if (exitModal) exitModal.style.display = 'none';
   _exitDialogShowing = false;
@@ -83,6 +94,30 @@ function _tryPracticeAction() {
 function showExitSessionDialog(onConfirm, customOptions) {
   if (_exitDialogShowing) return;
   _exitDialogShowing = true;
+
+  /* ADR-155 — THE DIALOG MUST FREEZE THE SESSION IT IS ASKING ABOUT.
+     "End Session?" is a question, and a question takes time to answer. While it was up the drill's clocks kept
+     running underneath it: on a Reflex Drill the per-question countdown reached zero and auto-submitted a BLANK
+     answer, grading the live question wrong and filing it in the mistake archive as a knowledge failure; on a
+     Timed Test the global countdown reached zero and ran finish() — painting the results card UNDERNEATH the
+     dialog, after which confirming exit tore the session down a second time. Deliberating over a confirmation
+     prompt must never cost the user the question they were on.
+     This is the same freeze ADR-099 already applies to the in-drill report sheet, hoisted to the ONE place all
+     three exit-dialog call sites share (drill-engine's two exit buttons and router.js's Back handler) so the
+     behaviour cannot drift between them. Silent = no pause overlay; the dialog is already on top and owns focus.
+     Only a session that is actually ticking is frozen, so an untimed Quick Drill is unaffected. */
+  var _frozenEngine = null;
+  try {
+    if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine &&
+        typeof _activeDrillEngine.pauseForOverlay === 'function' && _activeDrillEngine.pauseForOverlay()) {
+      _frozenEngine = _activeDrillEngine;
+    }
+  } catch (_) { /* a guard must never block the exit dialog itself */ }
+  function _thawIfDismissed() {
+    if (!_frozenEngine) return;
+    var e = _frozenEngine; _frozenEngine = null;
+    try { if (typeof e.resumeFromOverlay === 'function') e.resumeFromOverlay(); } catch (_) {}
+  }
 
   var modal = document.getElementById('exitSessionModal');
   if (!modal) {
@@ -132,14 +167,22 @@ function showExitSessionDialog(onConfirm, customOptions) {
     closingClass: null,
     closeMs: 0,
     initialFocus: cancelBtn,   // land on the safe "Keep Going" choice, not the destructive one
-    onClose: function () { _exitDialogShowing = false; }   // fires for cancel / backdrop / Escape / confirm
+    onClose: function () { _exitDialogShowing = false; _exitDialogHandle = null; _thawIfDismissed(); }   // cancel / backdrop / Escape / confirm
   }) : null;
+
+  /* ADR-155 — remembered so _exitDrillSession() can close this dialog THROUGH the shared controller rather than
+     reaching past it. Reaching past it (display:none + a raw classList.remove) left QROverlay's ref-counted
+     body.modal-open counter permanently one too high, so the NEXT overlay to close could not clear the scroll
+     lock — the page stayed unscrollable for the rest of the session. Reachable via the very bug above: a global
+     timer expiring under this dialog ran finish() -> _exitDrillSession() while the dialog was still open. */
+  _exitDialogHandle = handle;
 
   function closeDialog() {
     if (handle) { handle.close(); return; }
     modal.style.display = 'none';
     _exitDialogShowing = false;
     document.body.classList.remove('modal-open');
+    _thawIfDismissed();   /* the no-controller fallback has no onClose to ride on */
   }
 
   cancelBtn.onclick = function () {
@@ -148,6 +191,7 @@ function showExitSessionDialog(onConfirm, customOptions) {
   };
 
   confirmBtn.onclick = function () {
+    _frozenEngine = null;   /* confirmed: performExit() tears the engine down — never resume its clocks */
     closeDialog();
     onConfirm();
   };

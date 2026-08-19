@@ -260,6 +260,15 @@ function startSessionReview(wrongQuestions) {
   var drillContainer = document.getElementById('drillContainer');
   if (!drillContainer) return;
 
+  /* ADR-155 — the ADR-151 "don't promise questions the allowance can't cover" rule applies HERE too.
+     Review-these-N-now is offered straight off the results card, at the exact moment a free user is most likely
+     to be near the 20/day cap: they just spent a whole session getting there. With 2 questions left, a 6-wrong
+     session offered "Review these 6 now" and then stopped them dead after 2. The engine's gate is still the
+     enforcement point — this only makes the number on the button the truth. */
+  var _srPremium = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
+  var _srLeft = _questionsLeftToday(_srPremium);
+  if (isFinite(_srLeft) && wrongQuestions.length > _srLeft) wrongQuestions = wrongQuestions.slice(0, _srLeft);
+
   var config = {
     count: wrongQuestions.length,
     timeLimitSec: null, perQuestionSec: null, category: null,
@@ -298,15 +307,27 @@ function _freeSetLimit() {
    start screen promised 5 and then stopped them two questions in. Trim the deck to what they can actually
    finish so the promise on the start screen is the truth. Premium (limit === Infinity) is never trimmed.
    Returns a shallow copy — the generator's object is left alone. */
-function _clampSetToDailyAllowance(set, isPremium) {
-  if (isPremium || !set || !Array.isArray(set.questions)) return set;
-  if (typeof getDailyQuestionLimit !== 'function' || typeof loadProgress !== 'function') return set;
+/* How many more questions this user can actually finish today, or Infinity when the cap does not apply.
+   ADR-155 pulled this out of _clampSetToDailyAllowance so the SAME arithmetic backs every deck the app sizes,
+   not just DI/Reasoning sets. Returns Infinity for premium, and for any state where the cap can't be evaluated —
+   failing OPEN here is correct, because the engine's own per-question gate
+   (QuotaPolicy.shouldStopForDailyQuota -> _renderQuotaReached) is the enforcement point. This function only
+   decides what number to PROMISE on the start screen. */
+function _questionsLeftToday(isPremium) {
+  if (isPremium) return Infinity;
+  if (typeof getDailyQuestionLimit !== 'function' || typeof loadProgress !== 'function') return Infinity;
   var limit = getDailyQuestionLimit();
-  if (!isFinite(limit)) return set;
+  if (!isFinite(limit)) return Infinity;
   var used = parseInt((loadProgress() || {}).todayAttempted) || 0;
   /* >= 1 is guaranteed by the hasReachedDailyLimit() gate the callers run first; Math.max is belt-and-braces
      so a future caller can never produce an empty deck (which the engine would treat as a generation failure). */
-  var remaining = Math.max(1, limit - used);
+  return Math.max(1, limit - used);
+}
+
+function _clampSetToDailyAllowance(set, isPremium) {
+  if (isPremium || !set || !Array.isArray(set.questions)) return set;
+  var remaining = _questionsLeftToday(isPremium);
+  if (!isFinite(remaining)) return set;
   if (set.questions.length <= remaining) return set;
   var trimmed = {};
   for (var k in set) { if (Object.prototype.hasOwnProperty.call(set, k)) trimmed[k] = set[k]; }

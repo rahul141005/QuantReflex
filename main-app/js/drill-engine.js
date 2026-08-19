@@ -744,9 +744,25 @@ function createDrillEngine(container, opts) {
       if (rawNum === expNum) {
         correct = true;
       } else {
-        /* Tolerance: allow rounding differences up to 0.01 for decimal answers */
-        var tolerance = Math.abs(expNum) > 0 ? Math.max(0.01, Math.abs(expNum) * 0.001) : 0.01;
-        if (Math.abs(rawNum - expNum) <= tolerance) {
+        /* ADR-155 — TOLERANCE IS FOR ROUNDING, NOT FOR BEING CLOSE.
+           This used to be `max(0.01, |expected| * 0.001)`. That RELATIVE term overtakes the 0.01 floor for any
+           answer above 10 and scales without limit: on a DI revenue question worth ₹8,800 it accepted anything
+           within ±8.8, so a student who computed 8,795 was told they were right, kept a wrong method, and the
+           attempt was never filed in the mistake archive. The larger the number, the more wrong you were allowed
+           to be — the opposite of what an exam-prep grader must do.
+           The stated intent (the old comment right here) was only ever "allow rounding differences", so that is
+           what this now implements, keyed on the SHAPE of the expected answer:
+             · expected is a whole number  -> ±0.5, i.e. the submission ROUNDS TO it. This still credits the user
+               who carries an exact 8799.6 through and the key stores 8800, while 8795 now grades wrong.
+             · expected has decimals       -> ±0.01, so a 1–2-dp approximation of 3.3333333 is still accepted.
+           Both cases are absolute, so accuracy no longer degrades as answers get bigger.
+           LOCKSTEP: scripts/drill-grading.check.js mirrors this rule and asserts it byte-for-byte. */
+        var _expIsWhole = Math.abs(expNum - Math.round(expNum)) < 1e-9;
+        var tolerance = _expIsWhole ? 0.5 : 0.01;
+        /* The whole-number branch is STRICT (< half a unit) because it is a genuine "rounds to" test, and 0.5
+           rounds to 1, not to 0 — without that, an expected answer of 0 would credit a submitted 0.5. The
+           decimal branch stays inclusive: ±0.01 is a stated rounding allowance, not a rounding rule. */
+        if (_expIsWhole ? (Math.abs(rawNum - expNum) < tolerance) : (Math.abs(rawNum - expNum) <= tolerance)) {
           correct = true;
         }
       }
@@ -1196,6 +1212,14 @@ function createDrillEngine(container, opts) {
   function _continueLearning(topic) {
     try { cleanup(); } catch (_) {}
     try { _exitDrillSession(); } catch (_) {}
+    /* ADR-155 — RELEASE THE GLOBAL ENGINE REFERENCE. Every other way out of a session goes through
+       Router.onShow('practice') (or the bottom-nav handler), both of which null `_activeDrillEngine`. This one
+       routes to LEARN, so nothing ever nulled it. Since ADR-153 that reference is the load-bearing leg of
+       _engineOwnsScreen(), the predicate background repaints consult before touching the screen — so a torn-down
+       engine left here pinned "the engine owns the screen" ON for the rest of the session, and from that moment
+       firestore-sync.js and paywall.js silently skipped EVERY repaint app-wide. A user who finished a drill,
+       tapped "Continue learning", then upgraded would see no premium chrome until a full reload. */
+    try { if (typeof _activeDrillEngine !== 'undefined') _activeDrillEngine = null; } catch (_) {}
     try { if (typeof FirestoreSync !== 'undefined' && FirestoreSync.endDrillBatch) FirestoreSync.endDrillBatch(); } catch (_) {}
     try {
       if (typeof Router !== 'undefined' && Router.showView) {
@@ -1922,6 +1946,17 @@ function createDrillEngine(container, opts) {
 
   /* ---- public API ---- */
   return {
+    /* ADR-155 — freeze/thaw for a BLOCKING overlay that the engine does not own (today: the "End Session?"
+       dialog, raised from three different places including router.js's Back handler). Returns true only if a
+       freeze actually happened, so the caller knows whether it owes a thaw. Mirrors the ADR-099 report-sheet
+       freeze exactly; duels are excluded because they are server-timed and must never pause. */
+    pauseForOverlay: function () {
+      if (isDuel || _paused || _isFinished) return false;
+      if (!(perQTimer || overallTimer || _autoAdvanceTimer)) return false;   /* nothing ticking = nothing to lose */
+      pauseSession(true);
+      return _paused;
+    },
+    resumeFromOverlay: function () { try { resumeSession(); } catch (_) {} },
     start: function() {
       /* Duels and explicit relaunches (e.g. "Review these N now" from a results card) skip the
          pre-session start screen — the user already committed by tapping a specific action. */

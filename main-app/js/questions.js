@@ -1140,6 +1140,25 @@ function generateMistakeReviewQuestions(n) {
   mistakes = mistakes.filter(_reviewable);
   if (mistakes.length === 0) return [];
 
+  /* ADR-155 — ONE SLOT PER QUESTION, NOT ONE PER ATTEMPT.
+     The archive deliberately keeps every attempt at a question as its own record: buildRecord stamps
+     `id: stableId(question, selected, ts)` (ts included, so a re-attempt is a NEW row) and groups them under a
+     shared `qkey` for progression tracking (js/mistake-archive.js). That is right for the archive and wrong for
+     a review DECK — a question missed three times took three of the ten slots, so the user paid for a premium
+     mode and got the same question over and over instead of the ten weakest. Collapse to one record per qkey,
+     keeping the most recent attempt (the freshest capture of how they actually got it wrong). Records with no
+     qkey (legacy v1 rows) keep their own identity and are never merged together. */
+  var _byKey = Object.create(null), _deduped = [];
+  for (var _di = 0; _di < mistakes.length; _di++) {
+    var _m = mistakes[_di];
+    var _k = _m && _m.qkey;
+    if (!_k) { _deduped.push(_m); continue; }
+    var _prev = _byKey[_k];
+    if (_prev === undefined) { _byKey[_k] = _deduped.length; _deduped.push(_m); }
+    else if ((Number(_m.ts) || 0) > (Number(_deduped[_prev].ts) || 0)) { _deduped[_prev] = _m; }
+  }
+  mistakes = _deduped;
+
   /* Shuffle and take up to n */
   var shuffled = mistakes.slice();
   for (var i = shuffled.length - 1; i > 0; i--) {

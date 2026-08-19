@@ -260,5 +260,112 @@ var i18nDrill = fnBody(I18NT, '_drillActive');
 ok(i18nDrill !== null && /_engineOwnsScreen/.test(i18nDrill),
   'i18n-transition: _drillActive defers to the shared predicate rather than the body class alone');
 
+/* ════════════════════════════════════════════════════════════════════════════════════════════════════════
+   ADR-155 — four defects that all share one shape: a guard that exists, but not on the path that needed it.
+   Each block below pins the WIRING, because none of these is visible from a pure function.
+   ════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+var SESSION_MGR = stripComments(fs.readFileSync(path.join(ROOT, 'js/session-manager.js'), 'utf8'));
+var PROGRESS = stripComments(fs.readFileSync(path.join(ROOT, 'js/progress.js'), 'utf8'));
+var QUESTIONS = stripComments(fs.readFileSync(path.join(ROOT, 'js/questions.js'), 'utf8'));
+var ENGINE_C = stripComments(ENGINE);
+var PRACTICE_C = stripComments(PRACTICE_SRC);
+
+/* ── 1. The exit dialog must FREEZE the session it is asking about ──────────────────────────────────────
+   "End Session?" takes time to answer. While it was up, a Reflex Drill's per-question countdown reached zero
+   and auto-submitted a BLANK answer (graded wrong, filed as a knowledge mistake), and a Timed Test's global
+   countdown ran finish() UNDERNEATH the dialog. The freeze lives in session-manager so all three call sites
+   (drill-engine's two exit buttons + router.js's Back handler) get it without drifting. */
+ok(/_activeDrillEngine\.pauseForOverlay\(\)/.test(SESSION_MGR),
+  'exit dialog: freezes the live session before asking (ADR-155)');
+ok(/function _thawIfDismissed\(\)[\s\S]{0,300}?resumeFromOverlay/.test(SESSION_MGR),
+  'exit dialog: a dismissal (cancel / backdrop / Escape) thaws the session again');
+ok(/_frozenEngine = null;\s*\n?\s*closeDialog\(\);\s*\n?\s*onConfirm\(\);/.test(SESSION_MGR),
+  '** exit dialog: CONFIRM does not thaw - performExit() tears the engine down, its clocks must stay dead');
+ok(/onClose: function \(\) \{[^}]*_thawIfDismissed\(\)/.test(SESSION_MGR),
+  'exit dialog: the thaw rides the shared overlay lifecycle, not just the button handlers');
+
+/* fnBody() matches `function name(`; this one is an object property, so slice it out by hand. */
+var _pfoAt = ENGINE_C.indexOf('pauseForOverlay: function');
+var _pfo = _pfoAt === -1 ? null : ENGINE_C.slice(_pfoAt, ENGINE_C.indexOf('resumeFromOverlay', _pfoAt));
+ok(_pfo !== null && /isDuel \|\| _paused \|\| _isFinished/.test(_pfo),
+  '** pauseForOverlay refuses to pause a DUEL (server-timed) or an already-paused/finished session');
+ok(_pfo !== null && /perQTimer \|\| overallTimer \|\| _autoAdvanceTimer/.test(_pfo),
+  'pauseForOverlay only freezes when something is actually ticking (untimed Quick Drill is untouched)');
+ok(_pfo !== null && /pauseSession\(true\)/.test(_pfo),
+  '** the freeze is SILENT - no pause overlay competes with the dialog already on screen');
+ok(/resumeFromOverlay: function/.test(ENGINE_C),
+  'the engine exposes the matching thaw');
+
+/* ── 2. Force-exit must close the dialog THROUGH its overlay handle ─────────────────────────────────────
+   _exitDrillSession() used to set display:none and strip body.modal-open by hand. QROverlay ref-counts that
+   class (js/ui/overlay.js _lock/_unlock), so the count stayed one too high and the NEXT overlay to close
+   could not clear the scroll lock - the whole app became unscrollable until reload. Reachable through
+   defect 1: a global timer expiring under the dialog ran finish() -> _exitDrillSession() with it still open. */
+var _exitFn = fnBody(SESSION_MGR, '_exitDrillSession');
+ok(_exitFn !== null && /_exitDialogHandle/.test(_exitFn) && /\.close\(\)/.test(_exitFn),
+  '** _exitDrillSession closes the exit dialog through its QROverlay handle (ref-count stays balanced)');
+ok(/_exitDialogHandle = null;[\s\S]{0,80}_thawIfDismissed/.test(SESSION_MGR),
+  'the handle is released on a normal close so no stale reference survives the session');
+
+/* ── 3. "Continue learning" must release the global engine reference ────────────────────────────────────
+   Every other exit routes through Router.onShow('practice') or the bottom-nav handler, both of which null
+   _activeDrillEngine. This one routes to LEARN. Since ADR-153 that reference is the load-bearing leg of
+   _engineOwnsScreen(), so a torn-down engine left here pinned "the engine owns the screen" ON and every
+   background repaint app-wide (firestore-sync + paywall) silently stood down for the rest of the session. */
+var _cl = fnBody(ENGINE_C, '_continueLearning');
+ok(_cl !== null && /_activeDrillEngine = null/.test(_cl),
+  '** _continueLearning releases _activeDrillEngine (otherwise ADR-153 stands every repaint down forever)');
+
+/* ── 4. Mistake-archive eviction is by TIMESTAMP, never by array position ───────────────────────────────
+   Hydration replaces p.mistakes with the archive's canonical ordering, and that ordering is DESCENDING by ts
+   (mistake-archive.js _dedupeSortCap). shift() therefore deleted the user's most RECENT mistake every time
+   the CAP was hit - the one record they most wanted to review, gone from the server on the next sync too. */
+ok(!/if \(p\.mistakes\.length >= QRMistakeArchive\.CAP\) p\.mistakes\.shift\(\);/.test(PROGRESS),
+  '** the archive no longer evicts by array position (p.mistakes is NOT in insertion order after hydration)');
+ok(/p\.mistakes\.length >= QRMistakeArchive\.CAP[\s\S]{0,600}?p\.mistakes\.splice\(_oldestIdx, 1\)/.test(PROGRESS),
+  '** ...it scans for the minimum ts and evicts THAT record');
+ok(/_dedupeSortCap[\s\S]{0,300}?return \(y\.ts \|\| 0\) - \(x\.ts \|\| 0\);/
+    .test(stripComments(fs.readFileSync(path.join(ROOT, 'js/mistake-archive.js'), 'utf8'))),
+  '** the premise still holds: the archive really does hand back a NEWEST-FIRST array');
+
+/* ── 5. A review deck gets one slot per QUESTION, not one per ATTEMPT ───────────────────────────────────
+   buildRecord stamps `id: stableId(question, selected, ts)`, so every re-attempt is a new archive row. Right
+   for the archive, wrong for a deck: a question missed three times took three of the ten slots. */
+ok(/_byKey\[_k\][\s\S]{0,400}?mistakes = _deduped;/.test(QUESTIONS),
+  '** getMistakeQuestions collapses the archive to one record per qkey before shuffling');
+ok(/if \(!_k\) \{ _deduped\.push\(_m\); continue; \}/.test(QUESTIONS),
+  'legacy rows with no qkey keep their own identity (never merged into one bucket)');
+
+/* ── 6. The ADR-151 deck clamp now covers session review too ────────────────────────────────────────────
+   "Review these N now" is offered off the results card - exactly when a free user is most likely to be near
+   the 20/day cap, having just spent a session getting there. It promised N and stopped them after 2. */
+ok(/function _questionsLeftToday/.test(PRACTICE_C),
+  'the remaining-allowance arithmetic is factored out so every sized deck shares it');
+var _sr = fnBody(PRACTICE_C, 'startSessionReview');
+ok(_sr !== null && /_questionsLeftToday/.test(_sr) && /wrongQuestions\.slice\(0, _srLeft\)/.test(_sr),
+  '** startSessionReview clamps its deck to what the user can actually finish today (ADR-155)');
+ok(_sr !== null && /hasReachedDailyLimit/.test(_sr),
+  'the hard gate is still there - the clamp is about the PROMISE, not about enforcement');
+var _clamp = fnBody(PRACTICE_C, '_clampSetToDailyAllowance');
+ok(_clamp !== null && /_questionsLeftToday/.test(_clamp),
+  'the set clamp was rebased onto the same helper (one arithmetic, not two)');
+
+/* Behavioural: the eviction rule, run for real against a DESCENDING array (the post-hydration shape). */
+(function () {
+  var CAP = 3;
+  var arr = [{ id: 'c', ts: 300 }, { id: 'b', ts: 200 }, { id: 'a', ts: 100 }];   // newest-first, as hydrated
+  var oldestIdx = 0, oldestTs = Number(arr[0] && arr[0].ts) || 0;
+  for (var i = 1; i < arr.length; i++) {
+    var ts = Number(arr[i] && arr[i].ts) || 0;
+    if (ts < oldestTs) { oldestTs = ts; oldestIdx = i; }
+  }
+  if (arr.length >= CAP) arr.splice(oldestIdx, 1);
+  arr.push({ id: 'd', ts: 400 });
+  var ids = arr.map(function (r) { return r.id; }).sort().join(',');
+  ok(ids === 'b,c,d', '** eviction on a newest-first array drops the OLDEST (got: ' + ids + ')');
+  ok(ids.indexOf('c') !== -1, '** ...and specifically does NOT drop the newest record at index 0');
+})();
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
