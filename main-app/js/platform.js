@@ -108,7 +108,22 @@
    */
   function isPlayDistribution() {
     if (_playDist === null) {
-      _playDist = _referrerSignal() || _srcSignal() || _dgaPresent();
+      /* ADR-154 — DGA PRESENCE IS NOT EVIDENCE OF PLAY DISTRIBUTION, AND USING IT COST REAL REVENUE.
+         `getDigitalGoodsService` is exposed by Chrome on Android in ORDINARY BROWSER TABS, not only
+         inside a TWA. So every Android web visitor tripped this signal, was classified as a Play
+         build, and — because the Play adapter is deliberately not ready — was shown "Purchasing isn't
+         available in this version of the app yet" with no way to pay. Desktop Chrome does not expose
+         the API, which is why the same page offered "Start Premium" there and nowhere else. On an
+         Indian exam-prep audience that is most of the traffic.
+         The two remaining signals are DELIBERATE MARKERS a browser cannot fake into existence: an
+         `android-app://` referrer, and the `?src=play` start_url parameter the TWA manifest carries
+         (latched into sessionStorage for the tab's life). A real TWA raises BOTH, independently — the
+         DGA check was only ever the redundant third, and it is the only one that produces false
+         positives. It is kept below for canUsePlayBilling(), where "is the API even present" is the
+         right question; it just no longer decides WHICH STORE the user belongs to.
+         ADR-144's fail-safe direction is unchanged: if either real marker is present we still answer
+         Play, which resolves to no purchase path rather than to Razorpay inside a Play app. */
+      _playDist = _referrerSignal() || _srcSignal();
     }
     return _playDist;
   }

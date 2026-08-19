@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-154 — The Digital Goods API is not evidence of Play distribution (v282) (2026-08-14)
+
+- **Context:** the owner reported that the paywall offered **Start Premium** on a desktop browser but
+  said *"Purchasing isn't available in this version of the app yet"* on a phone — **on the website, not
+  the TWA**. Same page, same account, opposite behaviour.
+
+  `isPlayDistribution()` was `_referrerSignal() || _srcSignal() || _dgaPresent()`, and `_dgaPresent()`
+  is only `typeof window.getDigitalGoodsService === 'function'`. **Chrome on Android exposes that API
+  in ordinary browser tabs**, not just inside a TWA. So on mobile web the referrer and `?src=play`
+  signals were both absent, the DGA signal fired, the user was classified as a Play build, the facade
+  selected the Play provider, and `QRPaymentsPlay.isReady()` is deliberately hard-false — which
+  resolves to **no purchase path at all**. Desktop Chrome does not expose the API, so it fell through
+  to Razorpay and worked. Every Android web visitor was silently unable to pay. For an Indian
+  exam-prep audience that is most of the traffic.
+
+  **Two separate suites asserted the broken behaviour**, which is exactly why it shipped and survived
+  every prior audit: `scripts/platform.check.js` demanded *"the Digital Goods API alone ⇒ Play
+  distribution"*, and `scripts/payment-facade.check.js` ran the DGA case through its "Play signal →
+  provider is play → canPurchase() is FALSE" loop. A green suite was evidence of the defect, not
+  against it.
+
+- **Decision:** `isPlayDistribution()` now reads `_referrerSignal() || _srcSignal()`. Those two are
+  **deliberate markers a browser cannot conjure**: an `android-app://` referrer, and the `?src=play`
+  start_url parameter the TWA manifest carries (latched into sessionStorage for the tab's life). A real
+  TWA raises both, independently. `_dgaPresent()` is retained inside `canUsePlayBilling()`, where
+  "is the API present" is the right question — it simply no longer decides which store a user belongs
+  to. Presence of an API is a capability, not a distribution channel.
+
+  ADR-144's fail-safe direction is unchanged: if either real marker is present we still answer Play,
+  which resolves to no purchase path rather than to Razorpay inside a Play app.
+
+- **Verified:** executed against the real module across five surfaces — desktop Chrome, an Android
+  browser tab with the DGA, an installed Android PWA with the DGA, a TWA by referrer, and a TWA by
+  `?src=play`. All five now resolve correctly. Both suites were rewritten to assert the corrected rule
+  and both were proven load-bearing by restoring the old expression: 3 named failures in
+  platform.check, 2 in payment-facade. 64 suites green.
+
+- **Consequence:** Android web users can pay again. The TWA path is untouched — it still has two
+  independent markers and still shows no purchase UI until the Play adapter is deliberately enabled.
+
 ## ADR-153 — One predicate for "the engine owns the screen" (v281) (2026-08-14)
 
 - **Context:** ADR-151 closed the *automatic* repaint that threw users off the pre-session screen, but the

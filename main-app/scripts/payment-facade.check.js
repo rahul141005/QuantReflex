@@ -207,13 +207,26 @@ ok('installed PWA → provider razorpay', pwa.P.providerId() === 'razorpay');
 ok('★ an installed PWA can still purchase (WS1 must not have broken the web path)', pwa.P.canPurchase() === true);
 
 /* — Play / TWA → never Razorpay — */
-[['referrer', TWA], ['?src=play', { search: '?src=play' }],
- ['Digital Goods API', { dga: function () { return Promise.resolve({}); } }]].forEach(function (row) {
+/* ADR-154: the Digital Goods API was REMOVED from this list. Chrome on Android exposes
+   getDigitalGoodsService in ordinary browser tabs, so treating it as a Play marker classified every
+   Android web visitor as a Play build and left them with NO purchase path at all — verified in
+   production. Only the two deliberate markers below are evidence of distribution. The DGA case is
+   asserted immediately after this loop, with the opposite expectation. */
+[['referrer', TWA], ['?src=play', { search: '?src=play' }]].forEach(function (row) {
   var b = boot(row[1]);
   ok('★ Play signal (' + row[0] + ') → provider is NOT razorpay', b.P.providerId() !== 'razorpay');
   ok('★ Play signal (' + row[0] + ') → provider is play', b.P.providerId() === 'play');
   ok('★ Play signal (' + row[0] + ') → canPurchase() is FALSE', b.P.canPurchase() === false);
 });
+
+/* ADR-154 — an Android BROWSER tab exposing the Digital Goods API is a WEB user and must be able to
+   pay. This is the regression guard for the defect that shipped: it presented as "the same page
+   offers Start Premium on desktop but says purchasing isn't available on mobile". */
+var dgaTab = boot({ dga: function () { return Promise.resolve({}); } });
+ok('★★ DGA-only (Android browser tab) → provider is razorpay, NOT play',
+  dgaTab.P.providerId() === 'razorpay');
+ok('★★ DGA-only (Android browser tab) → the user CAN purchase',
+  dgaTab.P.canPurchase() === true);
 
 /* — the load-bearing assertion: Play mode cannot reach Razorpay even if asked — */
 var twa = boot(TWA);

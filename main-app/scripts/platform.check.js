@@ -12,9 +12,15 @@
  *  2. BEHAVIOUR — platform.js is loaded into a synthesised browser-ish global and driven through the
  *     TWA/PWA/web scenarios, including the ones that decide whether Razorpay may be offered.
  *
- * THE LOAD-BEARING ASSERTION is the asymmetry: isPlayDistribution() must fire on ANY weak signal
- * (suppressing Razorpay), while canUsePlayBilling() must require ALL strong signals. A build that
- * looks like Play but cannot transact shows NEITHER payment path — never a Razorpay fallback.
+ * THE LOAD-BEARING ASSERTION is the asymmetry: isPlayDistribution() must fire on either DELIBERATE
+ * Play marker (an android-app:// referrer, or the ?src=play start_url latch) and suppress Razorpay,
+ * while canUsePlayBilling() must require ALL strong signals. A build that looks like Play but cannot
+ * transact shows NEITHER payment path — never a Razorpay fallback.
+ *
+ * ADR-154 narrowed the first half. It used to fire on ANY weak signal including the mere presence of
+ * getDigitalGoodsService — but Chrome on Android exposes that in ordinary tabs, so ordinary mobile web
+ * users were misclassified as Play builds and left with no way to pay at all. Presence of an API is
+ * not evidence of a distribution channel; the two markers a browser cannot conjure are.
  *
  *   node scripts/platform.check.js
  */
@@ -156,8 +162,25 @@ ok('★ referrer android-app:// alone ⇒ Play distribution',
   boot({ referrer: 'android-app://com.example.qr' }).P.isPlayDistribution() === true);
 ok('★ ?src=play alone ⇒ Play distribution',
   boot({ search: '?src=play' }).P.isPlayDistribution() === true);
-ok('★ the Digital Goods API alone ⇒ Play distribution',
-  boot({ dga: dgaWith(SKUS) }).P.isPlayDistribution() === true);
+/* ADR-154 — THE DIGITAL GOODS API ALONE MUST **NOT** MEAN PLAY DISTRIBUTION.
+   This assertion used to demand the opposite, which is exactly why the defect shipped: Chrome on
+   ANDROID exposes getDigitalGoodsService in ordinary browser tabs, so every Android web visitor was
+   classified as a Play build, routed to the Play adapter, and — because that adapter is deliberately
+   not ready — shown "Purchasing isn't available in this version of the app yet" with no way to pay.
+   Desktop Chrome does not expose the API, so the same page offered Razorpay there. Confirmed in
+   production by the owner: "this is the website and not TWA... the same thing is working on PC".
+   The two DELIBERATE markers below are the real evidence; the DGA check remains, but only inside
+   canUsePlayBilling(), where "is the API present" is the right question. */
+ok('★★ the Digital Goods API ALONE does NOT imply Play distribution (Chrome Android exposes it in tabs)',
+  boot({ dga: dgaWith(SKUS) }).P.isPlayDistribution() === false);
+ok('★★ an Android browser tab with the DGA still gets a purchase path (Razorpay, not reader mode)',
+  boot({ dga: dgaWith(SKUS) }).P.mode() === 'web-mode');
+ok('★★ an INSTALLED PWA on Android with the DGA is still not a Play distribution',
+  boot({ displayMode: 'standalone', dga: dgaWith(SKUS) }).P.isPlayDistribution() === false);
+/* The DGA must still be consulted where it IS meaningful — otherwise this fix would silently
+   disable Play billing detection for a real TWA. */
+ok('★ canUsePlayBilling still requires the Digital Goods API',
+  typeof boot({ referrer: 'android-app://x' }).P.canUsePlayBilling === 'function');
 ok('a TWA that also matches standalone reports twa-mode, not pwa-mode',
   boot({ displayMode: 'standalone', referrer: 'android-app://com.example.qr' }).P.mode() === 'twa-mode');
 
