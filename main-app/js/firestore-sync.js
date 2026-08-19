@@ -440,6 +440,28 @@ var FirestoreSync = (function () {
          no other live refresh path. Fold those server-authoritative fields into the local view here.
          Deliberately EXCLUDES `settings` and `stats`: those are client-owned and merge-sensitive, so
          live-overwriting them could clobber edits this device has queued but not yet flushed. */
+      /* ADR-157 — RECOVER A HYDRATION THAT NEVER LANDED.
+         `loadFromFirestore` retries a failed read a bounded number of times and then gives up, setting
+         _dataLoaded = true with _memoryCache still NULL so the app isn't wedged. getAccessState() resolves a
+         null cache as FREE — which is the correct fail direction — but the guard below then refused to act on
+         exactly that state, so this listener, the ONLY other path that could deliver the entitlement, stood
+         down too. A paying user whose connection hiccuped during startup was therefore latched to free chrome
+         and the 20-question wall for the WHOLE session, with no explanation and no way out but relaunching.
+         The snapshot in hand is the same server document the failed read wanted, from the same authority, so
+         adopting it here completes the hydration rather than working around it. It can never wrongly upgrade
+         anyone: the value is the server's, and _enforcePremiumExpiry still applies the ADR-115/117 expiry rule.
+         Deliberately does NOT push `stats` into AppState — that merge is loadFromFirestore's job (it unions the
+         mistake archive), and this path must not clobber work this device has queued but not yet flushed. */
+      if (!_memoryCache && _dataLoaded && !_purgedAwaitingHydration && _loadedUserId !== uid) {
+        try {
+          _memoryCache = d;
+          _loadedUserId = uid;
+          _enforcePremiumExpiry(_memoryCache, db.collection('users').doc(uid));
+          console.info('[FirestoreSync] adopted the live snapshot after a failed startup hydration (ADR-157)');
+          if (!_holdsTransientUi() && typeof Router !== 'undefined' && Router.refreshCurrentView) Router.refreshCurrentView();
+        } catch (e) { console.warn('[FirestoreSync] snapshot adoption failed:', e && e.message); }
+        return;
+      }
       if (!_memoryCache || _loadedUserId !== uid) return;
       var changed = false;
       for (var i = 0; i < REFRESH_SCALARS.length; i++) {

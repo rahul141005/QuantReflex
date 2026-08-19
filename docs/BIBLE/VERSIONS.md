@@ -9,11 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.186 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.187 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.187 (2026-08-19)** — **A failed startup hydration must be recoverable (ADR-157).**
+> `loadFromFirestore` gives up after bounded retries with `_memoryCache` null — the right fail direction —
+> but the live user-doc listener, the only other path that could deliver the entitlement, refused to act on
+> exactly that state. A paying user whose connection hiccuped at startup was latched to free chrome and the
+> 20-question wall for the whole session, recoverable only by relaunching. The listener now adopts the
+> snapshot it is already holding, still subject to the ADR-115/117 expiry rule and still standing down
+> during the ADR-152 purge gap.
 
 > **2.186 (2026-08-19)** — **The TWA referrer must name OUR package, and must survive a reload
 > (ADR-156).** `js/platform.js` tested `/^android-app:\/\//` — any Android app — so every visitor who

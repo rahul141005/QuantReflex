@@ -8,6 +8,31 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-157 — A failed startup hydration must be recoverable (v285) (2026-08-19)
+
+- **Context:** `loadFromFirestore` retries a failed read a bounded number of times and then gives up,
+  setting `_dataLoaded = true` with `_memoryCache` still **null** so the app isn't wedged.
+  `getAccessState()` resolves a null cache as FREE, which is the correct fail direction.
+- **The defect:** the ADR-072/118 live user-doc listener — the only other path that could deliver the
+  entitlement — opened with `if (!_memoryCache || _loadedUserId !== uid) return;`, so it stood down on
+  exactly the state the failure produced. A paying user whose connection hiccuped during startup was
+  latched to free chrome and the 20-question wall for the **whole session**, with no explanation and no
+  way out but relaunching the app. Nothing self-healed, because the healer had been guarded off.
+- **Decision:** when the cache is null, hydration is done and no purge is in flight, the listener adopts
+  the snapshot it is already holding. That snapshot is the same server document the failed read wanted,
+  from the same authority, so this completes the hydration rather than working around it.
+- **Safety:** it can never wrongly upgrade anyone — the value is the server's, and
+  `_enforcePremiumExpiry` still applies the ADR-115/117 expiry rule. It deliberately does **not** push
+  `stats` into `AppState`: that merge is `loadFromFirestore`'s job (it unions the mistake archive), and
+  this path must not clobber work this device has queued but not yet flushed. It stands down during the
+  ADR-152 account-switch purge gap, and its repaint obeys ADR-151 like every other repaint in the file.
+- **Test-harness note:** `session-integrity.check.js` sliced `_listenForSession` to a fixed 3000 bytes.
+  This ADR's comment pushed real code past that window and four unrelated assertions failed for a reason
+  that had nothing to do with what they test. The slice now ends at the next top-level function.
+- **Verification:** five mutations, five killed.
+
+---
+
 ## ADR-156 — The TWA referrer must name OUR package, and must survive a reload (v284) (2026-08-19)
 
 - **Context:** `js/platform.js` answers the one question that decides which payment path a build may

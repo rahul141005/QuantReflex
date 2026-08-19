@@ -369,6 +369,29 @@ ok(/function _resumePausedSession\(\)/.test(ENGINE_C) &&
    (ENGINE_C.match(/_resumePausedSession\(\)/g) || []).length >= 3,
   'both resume paths share ONE body, so the timed-test clock restore cannot drift between them');
 
+/* ── 8. A failed startup hydration must be recoverable (ADR-157) ────────────────────────────────────────
+   loadFromFirestore retries a failed read a bounded number of times then gives up, setting _dataLoaded with
+   _memoryCache still NULL so the app isn't wedged. getAccessState() resolves a null cache as FREE — the right
+   fail direction — but the ADR-072/118 listener, the only other path that could deliver the entitlement,
+   refused to act on a null cache too. A paying user whose connection hiccuped at startup was latched to free
+   chrome and the 20-question wall for the whole session, recoverable only by relaunching. */
+var SYNC_C = stripComments(SYNC);
+ok(/_dataLoaded = true;[\s\S]{0,200}?retries exhausted/.test(SYNC_C) ||
+   /_MAX_LOAD_RETRIES[\s\S]{0,400}?_dataLoaded = true/.test(SYNC_C),
+  'the premise holds: exhausted retries still set _dataLoaded with a null cache');
+ok(/if \(!_memoryCache && _dataLoaded && !_purgedAwaitingHydration && _loadedUserId !== uid\) \{/.test(SYNC_C),
+  '** the live listener adopts the snapshot when startup hydration never landed (ADR-157)');
+var _adopt = SYNC_C.slice(SYNC_C.indexOf('if (!_memoryCache && _dataLoaded'),
+                          SYNC_C.indexOf('if (!_memoryCache || _loadedUserId !== uid) return;'));
+ok(/_enforcePremiumExpiry\(_memoryCache/.test(_adopt),
+  '** the adopted document still goes through the ADR-115/117 expiry rule (no free premium)');
+ok(!/AppState\.setProgress/.test(_adopt),
+  '** adoption does NOT push stats into AppState - that merge belongs to loadFromFirestore (mistake union)');
+ok(/!_purgedAwaitingHydration/.test(_adopt),
+  '** and it stands down during the ADR-152 account-switch purge gap');
+ok(/_holdsTransientUi\(\)/.test(_adopt),
+  'the recovery repaint obeys ADR-151 like every other repaint in this file');
+
 /* Behavioural: the eviction rule, run for real against a DESCENDING array (the post-hydration shape). */
 (function () {
   var CAP = 3;

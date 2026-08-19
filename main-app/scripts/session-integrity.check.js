@@ -59,7 +59,12 @@ ok(/var uid = _loadedUserId \|\| \(FirebaseApp\.getUserId && FirebaseApp\.getUse
   '2 the durable buffer is keyed on the LOADED user, not on whoever is authenticated now (ADR-129)');
 
 /* ── 3. S2-F2 — the live user-doc listener must not throw away the document ─────────── */
-var listener = sync.slice(sync.indexOf('function _listenForSession'), sync.indexOf('function _listenForSession') + 3000);
+/* Slice to the NEXT top-level function rather than a fixed byte count: this listener carries long
+   explanatory comments (ADR-118, ADR-151, ADR-157) and a fixed window silently truncated past them,
+   which made real assertions fail for a reason that had nothing to do with the code they test. */
+var _lsAt = sync.indexOf('function _listenForSession');
+var _lsEnd = sync.indexOf('\n  function ', _lsAt + 10);
+var listener = sync.slice(_lsAt, _lsEnd > _lsAt ? _lsEnd : _lsAt + 6000);
 ok(/onSnapshot/.test(listener), '3 session listener uses a live onSnapshot on users/{uid}');
 ok(/Session\.onReplaced\(\)/.test(listener), '3 displacement detection preserved');
 ok(/_memoryCache\[k\] = d\[k\]/.test(listener) || /_memoryCache\[sk\] = d\[sk\]/.test(listener),

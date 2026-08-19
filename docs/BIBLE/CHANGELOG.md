@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-19 — A failed startup hydration could not recover (ADR-157, v285)
+
+`loadFromFirestore` retries a failed read a bounded number of times then gives up, setting `_dataLoaded`
+with `_memoryCache` still null so the app isn't wedged. `getAccessState()` resolves a null cache as FREE —
+correct as a fail direction. But `js/firestore-sync.js:445` opened the live listener with
+`if (!_memoryCache || _loadedUserId !== uid) return;`, so the ONLY other path that could deliver the
+entitlement stood down on exactly the state the failure produced. A paying user whose connection hiccuped
+during startup was latched to free chrome and the 20-question wall for the whole session, with no
+explanation and no way out but relaunching.
+
+The listener now adopts the snapshot it is already holding — the same server document the failed read
+wanted, from the same authority. Still subject to `_enforcePremiumExpiry` (ADR-115/117), still standing
+down during the ADR-152 purge gap and behind ADR-151's transient-UI guard, and deliberately NOT pushing
+`stats` into `AppState` (that merge is `loadFromFirestore`'s, and it unions the mistake archive).
+
+- `main-app/js/firestore-sync.js` — snapshot adoption in `_listenForSession`
+- `main-app/scripts/practice-session-integrity.check.js` — six assertions, five mutations, five killed
+- `main-app/scripts/session-integrity.check.js` — the `_listenForSession` slice now ends at the next
+  top-level function instead of a fixed 3000 bytes, which had silently truncated past long comments
+- Docs: DECISION_LOG (ADR-157), VERSIONS 2.187
+
+---
+
 ## 2026-08-19 — The TWA referrer was both too loose and too short-lived (ADR-156, v284)
 
 `js/platform.js` decides which payment path a build may offer, and its one asymmetry was leaking in BOTH
