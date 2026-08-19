@@ -150,8 +150,15 @@ if (found.length === 0) {
          `com.quantreflex.app` is its real, permanent id. What IS forbidden is a SECOND copy. It may
          live in exactly one module, so no deployment can ever address a different Google application
          than the one the ratchet below pins. */
-      if (/['"]com\.(quantreflex|krisveltrix)[a-z0-9_.]*['"]/i.test(src) && rel !== 'services/playBillingService.js') {
-        offenders.push(rel + ' (duplicate package identity — it belongs only in playBillingService.js)');
+      /* ADR-156 adds ONE more legitimate home. js/platform.js must recognise `android-app://<our package>`
+         in document.referrer to tell a real TWA from a link tapped in WhatsApp or Gmail — and it is
+         deliberately dependency-free and loaded before everything else, so it cannot import the server-side
+         playBillingService. The guard's actual concern is DRIFT, not the count of literals, so the exemption
+         is paid for in §4 below: platform.js's literal is asserted EQUAL to the canonical one and to the
+         package assetlinks.json binds. A second copy that cannot drift addresses no second application. */
+      var _PKG_HOMES = ['services/playBillingService.js', 'js/platform.js'];
+      if (/['"]com\.(quantreflex|krisveltrix)[a-z0-9_.]*['"]/i.test(src) && _PKG_HOMES.indexOf(rel) === -1) {
+        offenders.push(rel + ' (duplicate package identity — it belongs only in ' + _PKG_HOMES.join(' / ') + ')');
       }
     });
   }
@@ -172,6 +179,16 @@ if (found.length === 0) {
   ok('★ playBillingService declares exactly one canonical package name', !!m);
   if (!m) return;
   var pkg = m[1];
+
+  /* ADR-156 — the price of platform.js's exemption above: its literal must BE the canonical one. Without
+     this, the browser could match `android-app://com.quantreflex.app` while the server verified purchases
+     against a different application, and the TWA would silently degrade to a Chrome tab with a URL bar. */
+  (function () {
+    var plat = fs.readFileSync(path.join(APP, 'js/platform.js'), 'utf8');
+    var pm = plat.match(/var TWA_PACKAGE = '([^']+)'/);
+    ok('★★ js/platform.js pins the SAME package the server verifies against (no drift)',
+      !!pm && pm[1] === pkg, pm ? (pm[1] + ' vs ' + pkg) : 'TWA_PACKAGE not declared');
+  })();
 
   ok('★★ the canonical package name is the real Play Console application id',
     pkg === 'com.quantreflex.app', pkg);

@@ -89,7 +89,7 @@ ok('the ?src=play latch is session-scoped, so it dies with the tab',
 /** Build a throwaway global that looks enough like a browser, load platform.js into it fresh. */
 function boot(opts) {
   var o = opts || {};
-  var store = {};
+  var store = o.store || {};
   var classes = { html: [], body: [] };
   function elem(bucket) {
     return {
@@ -158,8 +158,60 @@ ok('display-mode:fullscreen also counts as installed (the MIN3 drift, now imposs
 ok('iOS navigator.standalone also counts as installed', boot({ iosStandalone: true }).P.isStandalone() === true);
 
 /* — each weak Play signal ALONE must suppress Razorpay — */
-ok('★ referrer android-app:// alone ⇒ Play distribution',
-  boot({ referrer: 'android-app://com.example.qr' }).P.isPlayDistribution() === true);
+ok('★ referrer android-app://<our package> alone ⇒ Play distribution',
+  boot({ referrer: 'android-app://com.quantreflex.app' }).P.isPlayDistribution() === true);
+
+/* ── ADR-156 — the referrer must be OUR package, and it must survive a reload ──────────────────────────
+   Both halves of this module's asymmetry were leaking through this one signal.
+
+   FALSE POSITIVE: the test used to be /^android-app:\/\// — ANY Android app. Chrome sets that referrer for
+   a link opened from an app that supplies one, so every visitor arriving from WhatsApp / Gmail / Instagram
+   was classified a Play build and left with NO way to pay. That is the same revenue-losing failure ADR-154
+   removed from the Digital Goods signal, still live through this one. Note the fixtures above: they all used
+   a FOREIGN package (com.example.qr, x) and passed — the suite had encoded the defect, so a green run was
+   evidence OF the bug. They now name the real package. */
+['android-app://com.whatsapp',
+ 'android-app://com.google.android.gm',
+ 'android-app://com.instagram.android',
+ 'android-app://com.quantreflex.appliance'   /* a lookalike PREFIX must not slip through either */
+].forEach(function (ref) {
+  ok('★★ a referrer from another Android app is NOT Play distribution (' + ref + ')',
+    boot({ referrer: ref }).P.isPlayDistribution() === false,
+    'that visitor is shown no purchase path at all and cannot pay');
+});
+
+/* FALSE NEGATIVE: the referrer is set on the LAUNCH document only, and this app does full-page navigations
+   (js/settings.js reloads on several settings changes, and does `location.href = pathname` on another). The
+   manifest start_url is `/`, carrying no ?src=play for the other marker to latch — so after any reload the
+   signal vanished INSIDE the real Play build, and js/payments/gateway.js answers a false isPlayDistribution()
+   by offering Razorpay. That is the one unrecoverable Play-policy violation in this program. */
+(function () {
+  var tab = {};   /* one sessionStorage shared by both boots = one browser tab */
+  boot({ referrer: 'android-app://com.quantreflex.app', store: tab }).P.isPlayDistribution();
+  var afterReload = boot({ referrer: '', store: tab });   /* settings.js reload: the referrer is gone */
+  ok('★★ the Play verdict SURVIVES a full-page reload inside the TWA (latched for the tab)',
+    afterReload.P.isPlayDistribution() === true,
+    'a Play build that forgets it is a Play build offers Razorpay — listing-removal territory');
+})();
+
+/* ...but the latch is SESSION scope, so it can never leak into ordinary browsing of this origin later. */
+ok('★★ the latch does not leak into a fresh tab (sessionStorage, never localStorage)',
+  boot({ referrer: '' }).P.isPlayDistribution() === false);
+ok('★★ the latch is stored in sessionStorage only',
+  !/localStorage\s*\.\s*(get|set|remove)Item/.test(R('js/platform.js')),
+  'a cached Play verdict in localStorage would hide Razorpay from a web user forever');
+
+/* The package this module matches must be the one everything else in the program is bound to. */
+(function () {
+  var declared = (R('js/platform.js').match(/var TWA_PACKAGE = '([^']+)'/) || [])[1];
+  var canonical = (R('services/playBillingService.js').match(/var CANONICAL_PACKAGE_NAME = '([^']+)'/) || [])[1];
+  ok('★★ platform.js matches the CANONICAL package name, not a retyped copy',
+    !!declared && declared === canonical, declared + ' vs ' + canonical);
+  var links = JSON.parse(R('.well-known/assetlinks.json'));
+  ok('★★ ...and that is the package the origin is asset-linked to',
+    links.some(function (st) { return st.target && st.target.package_name === declared; }),
+    'the TWA would not verify, and would open as a browser tab with a URL bar');
+})();
 ok('★ ?src=play alone ⇒ Play distribution',
   boot({ search: '?src=play' }).P.isPlayDistribution() === true);
 /* ADR-154 — THE DIGITAL GOODS API ALONE MUST **NOT** MEAN PLAY DISTRIBUTION.
@@ -180,16 +232,16 @@ ok('★★ an INSTALLED PWA on Android with the DGA is still not a Play distribu
 /* The DGA must still be consulted where it IS meaningful — otherwise this fix would silently
    disable Play billing detection for a real TWA. */
 ok('★ canUsePlayBilling still requires the Digital Goods API',
-  typeof boot({ referrer: 'android-app://x' }).P.canUsePlayBilling === 'function');
+  typeof boot({ referrer: 'android-app://com.quantreflex.app' }).P.canUsePlayBilling === 'function');
 ok('a TWA that also matches standalone reports twa-mode, not pwa-mode',
-  boot({ displayMode: 'standalone', referrer: 'android-app://com.example.qr' }).P.mode() === 'twa-mode');
+  boot({ displayMode: 'standalone', referrer: 'android-app://com.quantreflex.app' }).P.mode() === 'twa-mode');
 
 /* the ?src=play latch survives in-session navigation (the query string does not) */
 var latched = boot({ search: '?src=play' });
 ok('?src=play is latched for the session', latched.P.isPlayDistribution() === true && latched.store.qr_src_play === '1');
 
 /* — the container class — */
-var twaCls = boot({ displayMode: 'standalone', referrer: 'android-app://com.example.qr' });
+var twaCls = boot({ displayMode: 'standalone', referrer: 'android-app://com.quantreflex.app' });
 twaCls.P.applyModeClasses();
 ok('a TWA gets twa-mode', twaCls.classes.body.indexOf('twa-mode') !== -1);
 ok('★ …and KEEPS pwa-mode, so every existing installed-app rule still applies',
@@ -203,29 +255,29 @@ ok('the class is applied to documentElement too', webCls.classes.html.indexOf('w
 
 /* — canUsePlayBilling: STRONG evidence, all of it — */
 (async function () {
-  var full = boot({ referrer: 'android-app://com.example.qr', dga: dgaWith(SKUS) });
+  var full = boot({ referrer: 'android-app://com.quantreflex.app', dga: dgaWith(SKUS) });
   var r1 = await full.P.canUsePlayBilling(SKUS);
   ok('a fully-configured Play build can use Play Billing', r1.ok === true, r1.reason);
   ok('…and hands back the resolved service for the provider to reuse', !!r1.service);
 
   /* every way it can fail must fail CLOSED — reader mode, never a Razorpay fallback */
-  var noDga = boot({ referrer: 'android-app://com.example.qr' });
+  var noDga = boot({ referrer: 'android-app://com.quantreflex.app' });
   var r2 = await noDga.P.canUsePlayBilling(SKUS);
   ok('★ Play build with NO Digital Goods API ⇒ cannot bill (reader mode)', r2.ok === false, r2.reason);
   ok('★ …but it is STILL a Play distribution — Razorpay stays suppressed',
     noDga.P.isPlayDistribution() === true);
 
-  var halfCatalogue = boot({ referrer: 'android-app://x', dga: dgaWith(['premium_6m']) });
+  var halfCatalogue = boot({ referrer: 'android-app://com.quantreflex.app', dga: dgaWith(['premium_6m']) });
   var r3 = await halfCatalogue.P.canUsePlayBilling(SKUS);
   ok('★ a HALF-configured Play Console (one SKU live) ⇒ cannot bill — all or nothing',
     r3.ok === false && /sku_missing:premium_12m/.test(r3.reason), r3.reason);
   ok('★ …and that build still suppresses Razorpay', halfCatalogue.P.isPlayDistribution() === true);
 
-  var noSvc = boot({ referrer: 'android-app://x', dga: dgaWith(SKUS, { rejectService: true }) });
+  var noSvc = boot({ referrer: 'android-app://com.quantreflex.app', dga: dgaWith(SKUS, { rejectService: true }) });
   var r4 = await noSvc.P.canUsePlayBilling(SKUS);
   ok('an unreachable billing service fails closed', r4.ok === false && /^error:/.test(r4.reason), r4.reason);
 
-  var badDetails = boot({ referrer: 'android-app://x', dga: dgaWith(SKUS, { rejectDetails: true }) });
+  var badDetails = boot({ referrer: 'android-app://com.quantreflex.app', dga: dgaWith(SKUS, { rejectDetails: true }) });
   var r5 = await badDetails.P.canUsePlayBilling(SKUS);
   ok('a getDetails failure fails closed', r5.ok === false, r5.reason);
 
@@ -240,7 +292,7 @@ ok('the class is applied to documentElement too', webCls.classes.html.indexOf('w
   ok('the billing service URL is Play\'s', full.P.PLAY_BILLING_SERVICE_URL === 'https://play.google.com/billing');
 
   /* memoised per boot: the payment path must not change under the user mid-checkout */
-  var stable = boot({ referrer: 'android-app://x' });
+  var stable = boot({ referrer: 'android-app://com.quantreflex.app' });
   var first = stable.P.isPlayDistribution();
   stable.P.isPlayDistribution();
   ok('the verdict is memoised per boot (it cannot flip mid-session)',

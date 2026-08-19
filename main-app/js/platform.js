@@ -57,12 +57,51 @@
 
   /* ── Play-distribution evidence (each weak on its own; OR-ed) ─────────────────────────────────── */
 
-  /* 1. The TWA launch referrer. Chrome sets `android-app://<package>` on the document that the
-        Android app launched. Absent after in-app navigation, which is exactly why it is only one of
-        three signals rather than the test. */
+  /* The Android application id this origin is asset-linked to. Kept in sync with the canonical definition in
+     services/playBillingService.js (CANONICAL_PACKAGE_NAME) and with .well-known/assetlinks.json by
+     scripts/platform.check.js — this module stays dependency-free by design, so it cannot import it. */
+  var TWA_PACKAGE = 'com.quantreflex.app';
+
+  /* The shared per-tab latch. SESSION scope, deliberately not the storage-registry: registry keys are
+     user-scoped and purged on logout, whereas this describes the CONTAINER, which does not change when the
+     user signs out. Both Play markers below latch through it, so whichever one the build actually raises
+     survives the full-page navigations this app performs. */
+  var _SRC_KEY = 'qr_src_play';
+
+  /* 1. The TWA launch referrer. Chrome sets `android-app://<package>` on the document that the Android app
+        launched.
+
+        ADR-156 — IT MUST BE **OUR** PACKAGE, AND IT MUST BE LATCHED. Neither was true, and each omission
+        produced one of the two failures this module exists to prevent:
+
+        (a) FALSE POSITIVE — the old test was `/^android-app:\/\//`, i.e. ANY Android app. Chrome sets that
+            referrer whenever a link is opened from an app that supplies one, so every visitor who tapped a
+            quantreflex.app link inside WhatsApp, Gmail or Instagram arrived as `android-app://com.whatsapp`,
+            was classified a Play build, and — the Play adapter being deliberately not ready — was shown "no
+            purchase path" with no way to pay. That is exactly the revenue-losing failure ADR-154 removed from
+            the Digital Goods signal, still live through this one. Link-sharing is how this audience arrives,
+            so it was not an edge case. Matching our own package closes it completely: no other app can put
+            `android-app://com.quantreflex.app` in the referrer.
+
+        (b) FALSE NEGATIVE — the referrer is set on the LAUNCH document only, and this app performs full-page
+            navigations (js/settings.js reloads on several settings changes; `location.href = pathname` on
+            another). After any of them the signal vanished. With manifest start_url `/` — carrying no
+            `?src=play` for _srcSignal() to latch — isPlayDistribution() then flipped to false INSIDE the real
+            Play build, and js/payments/gateway.js:77 answers that by offering Razorpay. Charging for digital
+            goods through Razorpay inside a Play app is the one unrecoverable Play-policy violation in this
+            program. Latching into the same sessionStorage key `?src=play` uses fixes it: SESSION scope, so it
+            still dies with the tab and can never leak into ordinary browsing of this origin.
+
+        The two markers stay independent — a real TWA raises this one, and raises `?src=play` too when the
+        build sets that launch URL — so either alone is sufficient and neither can be forged by a web page. */
   function _referrerSignal() {
     return _safe(function () {
-      return /^android-app:\/\//i.test(String(doc && doc.referrer || ''));
+      var ref = String(doc && doc.referrer || '');
+      if (new RegExp('^android-app://' + TWA_PACKAGE.replace(/\./g, '\\.') + '(?:/|$)', 'i').test(ref)) {
+        _safe(function () { root.sessionStorage.setItem(_SRC_KEY, '1'); });
+        return true;
+      }
+      return _safe(function () { return root.sessionStorage.getItem(_SRC_KEY) === '1'; }, false);
     }, false);
   }
 
@@ -72,7 +111,6 @@
         (Deliberately not routed through the storage-registry: registry keys are user-scoped and
         purged on logout, whereas this describes the CONTAINER, which does not change when the user
         signs out.) */
-  var _SRC_KEY = 'qr_src_play';
   function _srcSignal() {
     return _safe(function () {
       var q = String(root.location && root.location.search || '');

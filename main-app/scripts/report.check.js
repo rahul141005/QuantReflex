@@ -398,7 +398,7 @@ ok('typed-answer report round-trips a fraction answer', S.validateCreatePayload(
       return sb.ReportContext.collect('settings').device.standalone;
     })() === null);
   ok('RC reports the platform container so a Play-build report is triageable as one (ADR-142)',
-    load({ matchMedia: mq({}), document: { referrer: 'android-app://com.example.qr' } })
+    load({ matchMedia: mq({}), document: { referrer: 'android-app://com.quantreflex.app' } })
       .collect('settings').device.platformMode === 'twa-mode');
 
   ok('RC reducedMotion follows the media query',
