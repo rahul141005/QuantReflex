@@ -144,6 +144,24 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
     config.count = _dpLeft;
   }
 
+  /* ADR-170 — REVIEW MISTAKES IS BOUNDED BY THE ARCHIVE, NOT ONLY BY THE ALLOWANCE.
+     ADR-151/155/167 established that the start screen must not promise questions the session cannot
+     deliver, but every one of those clamps measured the DAILY ALLOWANCE. Review Mistakes has a second,
+     independent ceiling: the number of distinct reviewable records in the archive. `count: 10` was
+     taken verbatim, so a premium user with four reviewable mistakes read "10 Questions" and answered
+     four — measured in a browser, promised 10 / delivered 4.
+     `countReviewableMistakes()` applies the SAME filter and qkey dedupe the deck builder uses, so the
+     number on the screen and the deck behind it cannot disagree.
+     The floor of 1 matters: an empty archive must keep today's behaviour (the engine's own
+     empty-deck path) rather than becoming a zero-count config, which the engine reads as a generation
+     failure — so this can only ever make an over-promise honest, never create a new failure mode. */
+  if (modeKey === 'review' && typeof countReviewableMistakes === 'function') {
+    var _revMax = countReviewableMistakes();
+    if (typeof config.count === 'number' && _revMax > 0 && config.count > _revMax) {
+      config.count = Math.max(1, _revMax);
+    }
+  }
+
   if (category) {
     config.category = category;
     config.mode = '🎯 ' + (categoryLabel || category);

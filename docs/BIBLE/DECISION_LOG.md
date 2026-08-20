@@ -8,6 +8,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-170 — Review Mistakes had a second ceiling nobody measured (v285) (2026-08-21)
+
+**Context.** A pre-build regression pass over the whole Practice tab, driving the real app in a browser
+with the entitlement predicate stubbed at its true source (`FirestoreSync.getAccessState`) rather than
+at `window.hasPremiumAccess` — which does not work, because `js/paywall.js` is an IIFE and
+`hasPremiumAccess` is module-scoped, so `canAccess`/`requirePremium` never see an overwritten global.
+An earlier harness made that mistake and reported Mixed Aptitude and Review Mistakes as paywalled for a
+subscriber; they are not. Driving the real predicate, **all 8 modes × both tiers behave correctly** and
+`quotaΔ === promised === totalΔ` everywhere — except one row.
+
+**The defect.** `startDrillFromPractice` declares `review: { count: 10 }`. ADR-151/155/167 established
+that the start screen must not promise questions the session cannot deliver, but every one of those
+clamps measured the **daily allowance**. Review Mistakes has a second, entirely independent ceiling:
+how many distinct reviewable records the archive actually holds. Measured in a browser — start screen
+**"10 Questions"**, deck of **4**. This is the finding an earlier audit catalogued as QGS-7 and never
+fixed; it survived to this pass.
+
+**Decision.**
+
+- Extract the pool rule — the `isReviewable` filter plus the ADR-155 qkey dedupe — out of
+  `generateMistakeReviewQuestions` into `reviewableMistakePool()`, and add
+  `countReviewableMistakes()` beside it. The clamp and the deck builder now share **one** definition;
+  duplicating the rule at the call site would have created a second source of truth for it.
+- `js/controllers/practice-modes.js` clamps `review`'s count to that number, **after** the ADR-167
+  allowance clamp, with a floor of 1 and a `> 0` guard so an empty archive keeps today's behaviour
+  (the engine's own empty-deck path) instead of becoming a zero-count config, which the engine reads
+  as a generation failure. The change can only make an over-promise honest; it cannot create a new
+  failure mode.
+
+**Verification.** The invariant is asserted BEHAVIOURALLY in `scripts/deck-quality.check.js`, running
+the real generator against a fixture that exercises every rule that decides the pool — three attempts at
+one question collapsing to one slot, a set-context item excluded, a legacy row with no qkey keeping its
+own identity, and the empty archive. Both mutants kill it: removing the qkey dedupe reports 5 instead
+of 3, removing the reviewable filter reports 4. The existing ADR-167 assertion nearby is a source regex
+(`/_questionsLeftToday\(_dpPremium\)/`) and would not have caught this; the new one is not.
+
+Confirmed in the running app across archive sizes 0, 1, 3, 7 and 25: `countReviewableMistakes()`
+equals `generateMistakeReviewQuestions(1000).length` at every size, and a 10-question request against a
+25-record archive still yields 10.
+
+**Not changed.** The archive itself, the ADR-155 dedupe rule, the ADR-167 allowance clamp, and every
+other mode's count. `questions.js` gains three names on its Node export purely so the check can execute
+the real code rather than re-implement it.
+
+---
+
 ## ADR-169 — The account purge ate the Play marker, and one blip latched reader mode for good (v285) (2026-08-20)
 
 **Context.** A pre-build audit of the Play routing path, re-derived from the current source rather than

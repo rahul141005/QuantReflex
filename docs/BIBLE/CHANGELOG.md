@@ -6,7 +6,61 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
-## 2026-08-20 — The deck clamp finally covers every mode (ADR-167, v295)
+## 2026-08-21 — Review Mistakes had a second ceiling nobody measured (ADR-170, v285)
+
+`startDrillFromPractice`'s `review: { count: 10 }` was clamped only against the daily allowance
+(ADR-151/155/167). The archive is a second, independent ceiling — measured in a browser, the start
+screen promised **10 Questions** and the deck held **4**. The pool rule (the `isReviewable` filter plus
+the ADR-155 qkey dedupe) is extracted from `generateMistakeReviewQuestions` into
+`reviewableMistakePool()`, with `countReviewableMistakes()` beside it, so the clamp and the deck builder
+share one definition. `js/controllers/practice-modes.js:146` clamps `review` to that count, after the
+allowance clamp, floored at 1 so an empty archive keeps today's behaviour.
+
+- Code: `main-app/js/questions.js`, `main-app/js/controllers/practice-modes.js`
+- Tests: `main-app/scripts/deck-quality.check.js` — behavioural, runs the real generator; both mutants
+  (drop the dedupe, drop the filter) kill it. Verified in the app at archive sizes 0/1/3/7/25.
+- Docs: DECISION_LOG ADR-170. No version-track bump — ships in the unreleased v285.
+
+---
+
+## 2026-08-20 — The account purge ate the Play marker, and one blip latched reader mode (ADR-169, v285)
+
+`qr_src_play` was unregistered in the storage registry, whose default for a `qr_`-prefixed key is
+**purge on account change** — so signing out inside the Play build deleted the Play verdict and the
+gateway selected Razorpay. Registered as `INSTALLATION_SCOPED` (it describes the container, not the
+account); it is still written to sessionStorage only. Separately, `play-provider.prepare()` memoised
+the first `false` for the life of the document, so one missing ID token left a Play user in reader mode
+until they force-quit; only unchangeable answers are memoised now.
+
+- Code: `main-app/js/state/storage-registry.js`, `main-app/js/state/store.js`,
+  `main-app/js/platform.js`, `main-app/js/payments/play-provider.js`
+- Tests: `platform.check.js` (real classifier + real purge), `payment-facade.check.js` (readiness
+  recovers when the server flag flips; a stable "no" is still final), `account-isolation.check.js`
+  (reviewed survivor set)
+- Env: `.env.example` now documents every variable the code reads — `PLAY_RTDN_SECRET`, `CRON_SECRET`,
+  `NOTIFY_INTERNAL_SECRET`, `PLAY_SERVICE_ACCOUNT`, `PLAY_PACKAGE_NAME`
+- Docs: DECISION_LOG ADR-169; Play Console guide (RTDN push URL corrected to the apex, `CRON_SECRET`
+  step added, no force-quit needed after flipping `config/playBilling`)
+
+---
+
+## 2026-08-20 — A Play build that forgets it is a Play build, and eleven version numbers that never existed (ADR-168, v285)
+
+Production was serving `v283` while the repository claimed `v284`; a TWA loads the live origin, so the
+installed app ran the pre-ADR-156 detector and fell to Razorpay after any full-page navigation.
+`isPlayDistribution()` no longer short-circuits, so both markers latch regardless of which answers
+first. ADR-156…167 carried heading versions `v284`–`v295` when exactly one `APP_VERSION` bump had
+landed; all twelve now read **v285**, and `APP_VERSION` moves `v284 → v285` in lockstep with
+`index.html`.
+
+- Code: `main-app/js/platform.js`, `main-app/service-worker.js`, `main-app/index.html`
+- Tests: `platform.check.js` (outcome-level; the comment states plainly that it does not discriminate
+  the short-circuit), `update.check.js` lockstep
+- Docs: DECISION_LOG ADR-168; Play Console guide STEP 2 (deploy before you build)
+
+---
+
+## 2026-08-20 — The deck clamp finally covers every mode (ADR-167, v285)
 
 ADR-151 established "don't advertise questions the allowance can't cover" and implemented it for
 DI/Reasoning sets; ADR-155 extended it to session review. The six modes in `startDrillFromPractice` still
@@ -34,7 +88,7 @@ Three mutations, three killed. Full suite green.
 
 ---
 
-## 2026-08-20 — The same grading bug, still live on the server, deciding who wins (ADR-166, v294)
+## 2026-08-20 — The same grading bug, still live on the server, deciding who wins (ADR-166, v285)
 
 ADR-155 replaced the client's relative grading tolerance with an absolute rule. The server copy was
 missed. `api/duel.js` `_isCorrect` is the AUTHORITATIVE grader for duels — it decides who wins — and it
@@ -58,7 +112,7 @@ Two mutations, two killed. Full suite green.
 
 ---
 
-## 2026-08-20 — A deck that repeated itself, and a subject that only ever showed five topics (ADR-165, v293)
+## 2026-08-20 — A deck that repeated itself, and a subject that only ever showed five topics (ADR-165, v285)
 
 Two defects in `js/questions.js`, both invisible from inside the app because the symptom looks like
 normal variety.
@@ -92,7 +146,7 @@ Three mutations, three killed. Full suite green.
 
 ---
 
-## 2026-08-20 — A Reasoning question with two correct answers graded one of them wrong (ADR-164, v292)
+## 2026-08-20 — A Reasoning question with two correct answers graded one of them wrong (ADR-164, v285)
 
 *"Who among the following is an immediate neighbour of X?"* — the generator picks X from
 `_ri(1, N - 2)`, so X is never at an end and always has TWO neighbours. Both answer the question as
@@ -120,7 +174,7 @@ One mutation, 16 assertions killed. Full suite green.
 
 ---
 
-## 2026-08-20 — A leaked scroll lock left no question answerable anywhere (ADR-163, v291)
+## 2026-08-20 — A leaked scroll lock left no question answerable anywhere (ADR-163, v285)
 
 `QROverlay` ref-counts `body.modal-open`, adding it on open and removing it only at count zero. Two
 callers reached past that ref-count and leaked it permanently.
@@ -160,7 +214,7 @@ other five verdicts came back `refuted:false` at high confidence.
 
 ---
 
-## 2026-08-20 — Refusing a destructive no-op, and a P1 that did not survive testing (ADR-162, v290)
+## 2026-08-20 — Refusing a destructive no-op, and a P1 that did not survive testing (ADR-162, v285)
 
 An audit agent reported a P1: `applyUpdate()` purges every cache and then navigates with no
 `navigator.onLine` check, so an offline user tapping the always-visible "Update App" button loses the
@@ -189,7 +243,7 @@ next reader that every reported severity was correct, and this one was not.
 
 ---
 
-## 2026-08-20 — Opening the privacy policy replaced the offline app (ADR-161, v289)
+## 2026-08-20 — Opening the privacy policy replaced the offline app (ADR-161, v285)
 
 The service worker's navigation branch cached every successful in-scope navigation under the canonical key
 `./index.html`. The canonical-key part is right — network-recovery-03 established that keying on the full
@@ -223,7 +277,7 @@ Four mutations, four killed. Full suite green.
 
 ---
 
-## 2026-08-20 — The account-switch guard covered one purge path out of two (ADR-160, v288)
+## 2026-08-20 — The account-switch guard covered one purge path out of two (ADR-160, v285)
 
 ADR-152 added `_purgedAwaitingHydration` to stop a purge's zeroed `DEFAULT_PROGRESS` reaching the INCOMING
 user's server document. The guard was right; its wiring was incomplete.
@@ -253,7 +307,7 @@ does not change behaviour proves nothing.
 
 ---
 
-## 2026-08-20 — A forward-set device clock could permanently revoke a paid subscription (ADR-159, v287)
+## 2026-08-20 — A forward-set device clock could permanently revoke a paid subscription (ADR-159, v285)
 
 `entitlement-core.js` `clockSafeNow()` anchors on `max(planUpdatedAt, updatedAt, createdAt)` and returns
 that anchor whenever `now` is more than `CLOCK_SKEW_TOLERANCE_MS` behind it — the right defence against a
@@ -283,7 +337,7 @@ its write call. Mutation caught both; the green run did not. Six mutations, six 
 
 ---
 
-## 2026-08-20 — Answers could be graded through the pause screen (ADR-158, v286)
+## 2026-08-20 — Answers could be graded through the pause screen (ADR-158, v285)
 
 **This corrects a disproof recorded in ADR-155.** That pass concluded the numpad does not render above
 the pause overlay, comparing `--z-sticky: 200` against `--z-session-numpad: 99`. The two numbers are not
@@ -342,7 +396,7 @@ down during the ADR-152 purge gap and behind ADR-151's transient-UI guard, and d
 
 ---
 
-## 2026-08-19 — The TWA referrer was both too loose and too short-lived (ADR-156, v284)
+## 2026-08-19 — The TWA referrer was both too loose and too short-lived (ADR-156, v285)
 
 `js/platform.js` decides which payment path a build may offer, and its one asymmetry was leaking in BOTH
 directions through a single signal.

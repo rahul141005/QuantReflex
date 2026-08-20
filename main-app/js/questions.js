@@ -1157,7 +1157,14 @@ function generateMultiTopic(n, topicKeys, difficulty) {
  * @param {number} n - max number of questions
  * @returns {Array<{ question: string, answer: number|string, category: string }>}
  */
-function generateMistakeReviewQuestions(n) {
+/* ADR-170 — ONE definition of "which mistakes can actually be reviewed", used by BOTH the deck
+   builder and the count the start screen promises. The filter + qkey dedupe below used to live only
+   inside generateMistakeReviewQuestions, so nothing outside it could answer "how many are there?" —
+   and js/controllers/practice-modes.js therefore advertised a hardcoded `count: 10` for Review
+   Mistakes no matter how few reviewable records existed. Measured in a browser: start screen "10
+   Questions", deck of 4. Duplicating the rule at the call site would have created a second source of
+   truth for it; extracting it keeps one. */
+function reviewableMistakePool() {
   var mistakes = getMistakes();
   /* F-M8: the archive stores the FULL rendered question incl. machine chart/figure/optionFigure specs, so DI single
      charts and LR-visual items are now reviewable too — the drill re-renders them from the stored spec (drill-engine
@@ -1167,9 +1174,6 @@ function generateMistakeReviewQuestions(n) {
   var _reviewable = (typeof QRMistakeArchive !== 'undefined')
     ? function (m) { return QRMistakeArchive.isReviewable(m); }
     : function (m) { var c = String(m && m.category); if (c.indexOf('di-') === 0) return false; if (c.indexOf('lr-') === 0) return !!(m.options && m.options.length); return true; };
-  var _toQ = (typeof QRMistakeArchive !== 'undefined')
-    ? function (m) { return QRMistakeArchive.toReviewQuestion(m); }
-    : function (m) { return { question: m.question, answer: m.answer, category: m.category, options: m.options || undefined, explanation: m.explanation || undefined, subtype: m.subtype || undefined }; };
   mistakes = mistakes.filter(_reviewable);
   if (mistakes.length === 0) return [];
 
@@ -1192,6 +1196,18 @@ function generateMistakeReviewQuestions(n) {
   }
   mistakes = _deduped;
 
+  return mistakes;
+}
+
+/** How many DISTINCT questions a Review Mistakes deck can actually contain right now. */
+function countReviewableMistakes() { return reviewableMistakePool().length; }
+
+function generateMistakeReviewQuestions(n) {
+  var mistakes = reviewableMistakePool();
+  if (mistakes.length === 0) return [];
+  var _toQ = (typeof QRMistakeArchive !== 'undefined')
+    ? function (m) { return QRMistakeArchive.toReviewQuestion(m); }
+    : function (m) { return { question: m.question, answer: m.answer, category: m.category, options: m.options || undefined, explanation: m.explanation || undefined, subtype: m.subtype || undefined }; };
   /* Shuffle and take up to n */
   var shuffled = mistakes.slice();
   for (var i = shuffled.length - 1; i > 0; i--) {
@@ -1212,6 +1228,12 @@ if (typeof module !== 'undefined' && module.exports) {
     generateQuestions: generateQuestions,
     generateMultiTopic: generateMultiTopic,
     categoryGenerators: categoryGenerators,
-    resetRecentQuestions: resetRecentQuestions
+    resetRecentQuestions: resetRecentQuestions,
+    /* ADR-170: exported so scripts/deck-quality.check.js can assert BEHAVIOURALLY that the number the
+       Review Mistakes start screen promises is the number the deck can actually deliver. Both read the
+       browser global `getMistakes`, which the check supplies on `global`. */
+    reviewableMistakePool: reviewableMistakePool,
+    countReviewableMistakes: countReviewableMistakes,
+    generateMistakeReviewQuestions: generateMistakeReviewQuestions
   };
 }

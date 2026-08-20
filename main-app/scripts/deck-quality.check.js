@@ -107,5 +107,52 @@ function poolOf(cat, diff, draws) {
     'reached ' + n + ' of ' + pool.length);
 })();
 
+/* ── 4. Review Mistakes: the promise and the deck must be the same number (ADR-170) ─────────────────
+   js/controllers/practice-modes.js advertised a hardcoded `count: 10` for Review Mistakes, clamped only
+   against the DAILY ALLOWANCE. The archive is a second, independent ceiling, so a premium user with four
+   reviewable records read "10 Questions" and answered four — measured in a browser, promised 10 /
+   delivered 4. The clamp now calls countReviewableMistakes(), which shares the deck builder's own filter
+   and qkey dedupe. This asserts the two can never disagree, by RUNNING both.
+
+   The archive fixture below exercises every rule that decides the pool: three attempts at one question
+   collapse to one slot (qkey dedupe), a set-context item is excluded as unreviewable, and a legacy row
+   with no qkey keeps its own identity. */
+(function () {
+  var ARCHIVE = [
+    { qkey: 'k1', ts: 3, question: 'a?', answer: '1', category: 'addition' },
+    { qkey: 'k1', ts: 1, question: 'a?', answer: '1', category: 'addition' },   /* same question, older attempt */
+    { qkey: 'k1', ts: 2, question: 'a?', answer: '1', category: 'addition' },   /* and another */
+    { qkey: 'k2', ts: 4, question: 'b?', answer: '2', category: 'percentages' },
+    { ts: 5, question: 'legacy?', answer: '3', category: 'ratios' },            /* no qkey — own identity */
+    { qkey: 'k3', ts: 6, question: 'seating?', answer: 'Ann', category: 'lr-seating' }  /* set context: excluded */
+  ];
+  global.getMistakes = function () { return ARCHIVE.slice(); };
+  /* No QRMistakeArchive global here, so the generator's documented fallback predicate runs: an `lr-`
+     category with no options is not reviewable. That is the same exclusion the real module makes. */
+
+  var n = Q.countReviewableMistakes();
+  ok(n === 3, '** the reviewable pool collapses repeat attempts and drops set-context items',
+    'expected 3 (k1 once, k2, the legacy row), got ' + n);
+
+  var big = Q.generateMistakeReviewQuestions(10) || [];
+  ok(big.length === n,
+    '** asking for MORE than the archive holds yields exactly the pool — the start screen must promise this number, not 10',
+    'countReviewableMistakes()=' + n + ' but a 10-question request produced ' + big.length);
+
+  var small = Q.generateMistakeReviewQuestions(2) || [];
+  ok(small.length === 2, '** asking for fewer than the pool still yields exactly that many',
+    'got ' + small.length);
+
+  var qs = {};
+  for (var i = 0; i < big.length; i++) { qs[big[i].question] = (qs[big[i].question] || 0) + 1; }
+  ok(Object.keys(qs).length === big.length,
+    '** and no question appears twice in one review deck (ADR-155 dedupe survives the ADR-170 extraction)');
+
+  global.getMistakes = function () { return []; };
+  ok(Q.countReviewableMistakes() === 0 && (Q.generateMistakeReviewQuestions(10) || []).length === 0,
+    '** an empty archive reports 0 and builds nothing — the launcher floor keeps today\'s behaviour');
+  delete global.getMistakes;
+})();
+
 console.log('\ndeck-quality.check: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);
