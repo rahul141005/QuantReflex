@@ -8,6 +8,115 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-169 — The account purge ate the Play marker, and one blip latched reader mode for good (v285) (2026-08-20)
+
+**Context.** A pre-build audit of the Play routing path, re-derived from the current source rather than
+from the previous audits' conclusions. Two defects were found, both reproduced in a browser, and both
+capable of putting a Play-store install onto Razorpay or onto no purchase path at all.
+
+---
+
+### 1. `qr_src_play` was classified as user-scoped, so signing out deleted the Play verdict  (P0)
+
+`js/state/storage-registry.js` is prefix-driven with a **fail-safe default**: anything under `qr_` or
+`quant_` is `'user'` unless it is explicitly listed as a survivor, and `AppState.clearAll()` sweeps
+**both** localStorage and sessionStorage (`js/state/store.js`) on logout, on account switch, and on the
+cold-boot uid-change purge.
+
+`js/platform.js` never registered its latch, and its own comment asserted that not registering it was
+what kept it safe — *"deliberately not the storage-registry: registry keys are user-scoped and purged
+on logout"*. That reads the registry exactly backwards. Not registering a key is what gets it purged.
+
+Measured with the real classifier and the real purge:
+
+```
+classify('qr_src_play')                  -> 'user'
+purgeUserScoped(sessionStorage) removed  -> ['qr_src_play']
+```
+
+End-to-end, with the real `platform.js`, `storage-registry.js` and `gateway.js` in a browser:
+
+| step | url | latch | isPlayDistribution | provider |
+|---|---|---|---|---|
+| TWA launch `/?src=play` | `/?src=play` | `1` | true | play |
+| a settings change (`location.href = location.pathname`) | `/` | `1` | true | play |
+| sign out → purge | `/` | **null** | true (memoised) | play |
+| the reload `js/session.js` performs right after sign-out | `/` | null | **false** | **RAZORPAY** |
+
+Razorpay inside a Play app is the one unrecoverable Play-policy violation in this program, and it took
+two ordinary actions to get there.
+
+**Decision.** Register `qr_src_play` in `INSTALLATION_SCOPED`. It describes the **container** — a
+Play-store TWA — and signing out does not move the app to a different store. This changes nothing
+about *where* it is stored: `platform.js` still writes sessionStorage only, so it still dies with the
+tab and still cannot leak into ordinary browsing of this origin. It only exempts it from the account
+purge. The mirrored `FALLBACK_SURVIVORS` list in `js/state/store.js` and the reviewed survivor set in
+`scripts/account-isolation.check.js` are updated in the same commit, because a survivor is a
+deliberate act in this codebase and all three are ratcheted against each other.
+
+`scripts/platform.check.js` gains an assertion that runs the **real** classifier and the **real**
+purge. It fails when the key is un-registered — unlike ADR-168's assertions, which pin an outcome two
+independent mechanisms already satisfy.
+
+---
+
+### 2. `prepare()` treated every "no" as permanent  (P1)
+
+`js/payments/play-provider.js` set `_prepared = true` on **every** completion, so the first `false`
+was final for the lifetime of the document. Reproduced against a fully working Play environment
+(Digital Goods resolving both SKUs, server reporting `enabled:true`) with the ID token momentarily
+unavailable:
+
+```
+prepare #1 (no token) : false
+prepare #2 (token OK) : false      ← latched
+prepare #3 (token OK) : false
+```
+
+One network blip, or a paywall opened a moment before auth settled, and a Play user sat in reader mode
+until they force-quit the app. It is the same shape as a paying user latched to free by a hiccuped
+startup hydration, which this codebase already treats as a defect (ADR-157).
+
+**Decision.** Memoise only answers that cannot change while this document is alive:
+
+- `ready === true` — final, and the only answer that enables a purchase.
+- `not_play_distribution`, `no_digital_goods_api`, `no_skus_requested` — final: the Play verdict is
+  memoised per boot, the DGA constructor does not appear later, and the SKU list is a constant.
+- everything else — an unreachable billing backend, a product an operator may publish, a server flag
+  an operator may switch on, an absent ID token — is *not yet*, and is re-probed the next time the UI
+  asks. `js/paywall.js` already calls `prepareProvider()` on every open and injects the CTA when
+  readiness turns true, so this is what makes "switch `config/playBilling` on and re-open the sheet"
+  work without a relaunch.
+
+Re-probing cannot make anything unsafe: it can only turn a CTA **on**, `purchase()` re-checks
+`isReady()` itself, and the server verifies every purchase token regardless.
+
+---
+
+### 3. Five environment variables the code reads were undocumented  (P1)
+
+`.env.example` documented five variables; the code reads eleven. Missing were `PLAY_RTDN_SECRET`
+(required — without it every Real-Time Developer Notification is refused with a 500, so refunds are
+never processed), `CRON_SECRET` (required by **both** cron jobs declared in `vercel.json`, including
+the `play-reconcile` sweep that acknowledges and consumes orphaned Play purchases — Google auto-refunds
+an unacknowledged purchase after three days), `NOTIFY_INTERNAL_SECRET`, and the two optional overrides
+`PLAY_SERVICE_ACCOUNT` and `PLAY_PACKAGE_NAME`. All are now documented as names with explanations and
+empty placeholders — no invented values.
+
+---
+
+**Verified correct and deliberately left alone.** The server speaks the **one-time product** API
+throughout (`purchases/products/…`, `:acknowledge`, `:consume`; `subscriptionNotification` explicitly
+ignored) — the architecture is not silently changed to subscriptions. `super-admin-app/api/_lib/metrics.js`
+keeps the retired ₹349/₹499 map on purpose: it is a legacy fallback for pre-`amount` payment docs and
+is guarded so a reserved row can never reach it. Entitlement stays provider-neutral — all five
+`entitlement-core.js` mirrors are byte-identical and premium is `plan === 'premium' && planExpiry in
+the future`, with no reference to a provider anywhere in the decision. `config/playBilling` has no
+Super Admin toggle (`system.js` allowlists only `maintenance`/`aiKillSwitch`/`paymentKillSwitch`);
+that is recorded in the guide rather than fixed, because adding a control is a feature, not a defect.
+
+---
+
 ## ADR-168 — A Play build that forgets it is a Play build, and eleven version numbers that never existed (v285) (2026-08-20)
 
 **Context.** The owner installed QuantReflex from the Play Console internal-testing track and reported

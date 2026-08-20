@@ -538,6 +538,20 @@ the switch that lets you turn Play Billing off instantly if anything goes wrong,
 The reader (`api/_lib/config-flags.js`) caches for 30 seconds, so allow up to half a minute for a
 change to take effect, and note it **defaults to off**: a missing document means disabled.
 
+Two practical notes verified against the current code:
+
+- **There is no Super Admin control for this flag.** `super-admin-app/api/admin/system.js` exposes
+  `config-get`/`config-set` for exactly three keys — `maintenance`, `aiKillSwitch`,
+  `paymentKillSwitch` — and `playBilling` is not among them. The Firebase Console is the only place
+  to switch it. (`config/playBilling` also has no Firestore rule, so the default deny applies and no
+  client can read or write it. The server uses the Admin SDK, which bypasses rules.)
+- **You do not need to reinstall or force-quit the app after switching it on.** Once the flag is on,
+  re-open the Premium sheet and the purchase button appears: `js/payments/play-provider.js` re-probes
+  a server "not yet" rather than memoising it (ADR-169), and `js/paywall.js` injects the CTA when
+  readiness turns true. Before ADR-169 the first "no" was final for the life of the page, so the app
+  had to be force-quit — if you tested earlier and saw a stubborn "Purchasing isn't available", that
+  was this.
+
 ---
 
 ## STEP 12 — Refund notifications (do this, or refunds go unnoticed)
@@ -555,7 +569,10 @@ change to take effect, and note it **defaults to off**: a missing document means
    `play-rtdn`.
 2. Open the topic → **Create subscription**:
    - Delivery type: **Push**
-   - Endpoint URL: `https://www.quantreflex.app/api/payment/play-rtdn?key=YOUR_SECRET_FROM_ABOVE`
+   - Endpoint URL: `https://quantreflex.app/api/payment/play-rtdn?key=YOUR_SECRET_FROM_ABOVE`
+     (apex, **no `www`** — an earlier version of this guide said `www`. Both origins currently
+     serve the API so either works today, but Pub/Sub push does **not** follow redirects, so if
+     you ever make one origin canonical this URL must already point at the surviving one.)
 3. On the topic's **Permissions** tab, grant
    `google-play-developer-notifications@system.gserviceaccount.com` the role **Pub/Sub Publisher**.
 
@@ -565,6 +582,28 @@ must succeed.
 
 Why bother: this is how you find out when Google refunds someone. Without it, a refunded customer
 keeps Premium until the backup sweep catches it.
+
+### The backup sweep needs one more variable — `CRON_SECRET`
+
+`vercel.json` declares two daily cron jobs, and the payment one is the safety net that finishes any
+Play purchase whose verification was interrupted (it grants, acknowledges and consumes orphaned
+purchases — `api/payment.js` `_playReconcile`, scheduled `0 3 * * *`):
+
+```
+/api/payment?action=play-reconcile   03:00 UTC daily
+/api/duel?action=cron-sweep          02:00 UTC daily
+```
+
+Both authenticate on `Authorization: Bearer <CRON_SECRET>`, and both return **500 for every run**
+while the variable is unset — so the safety net is simply not running.
+
+**[YOU — EXTERNAL: Vercel]** Settings → Environment Variables → add `CRON_SECRET` = another long
+random string, then redeploy. Vercel attaches the header to its own cron calls automatically once the
+variable exists; there is nothing to configure on the schedule itself.
+
+Why this matters more than it sounds: without it, a purchase whose `verify-play` call hit a Google
+outage stays unacknowledged, and Google **auto-refunds an unacknowledged purchase after three days**.
+The customer pays, loses Premium, and gets refunded days later with no explanation.
 
 ---
 

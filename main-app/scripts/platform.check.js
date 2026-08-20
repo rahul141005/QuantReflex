@@ -221,6 +221,38 @@ ok('★ referrer android-app://<our package> alone ⇒ Play distribution',
     afterReload.P.isPlayDistribution() === true);
 })();
 
+/* ADR-169 — THE ACCOUNT PURGE MUST NOT BE ABLE TO TAKE THE LATCH.
+   js/state/store.js clearAll() sweeps BOTH storage areas through QRStorage.purgeUserScoped(), and the
+   registry's default for an unregistered `qr_`-prefixed key is 'user' — i.e. purge. The Play latch was
+   unregistered, so signing out inside the Play build deleted it; the reload that follows a sign-out
+   (js/session.js) then found no marker and js/payments/gateway.js selected Razorpay.
+   This assertion runs the REAL classifier and the REAL purge, so it fails if the key is ever
+   un-registered again — a source-shape test would not. */
+(function () {
+  var Reg = require(path.join(__dirname, '..', 'js/state/storage-registry.js'));
+  ok('★★★ the Play latch is NOT classified as user-scoped (it describes the container, not the account)',
+    Reg.classify('qr_src_play') === 'installation',
+    'classify() said "' + Reg.classify('qr_src_play') + '" — anything but a survivor category means ' +
+    'a sign-out inside the Play build drops the Play verdict and the gateway falls to Razorpay');
+
+  var area = (function () {
+    var m = { qr_src_play: '1', qr_progress: 'x', qr_google_redirect: '1', foreign: 'keep' };
+    return {
+      get length() { return Object.keys(m).length; },
+      key: function (i) { return Object.keys(m)[i]; },
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+      setItem: function (k, v) { m[k] = String(v); },
+      removeItem: function (k) { delete m[k]; }
+    };
+  })();
+  var removed = Reg.purgeUserScoped(area);
+  ok('★★★ …so an account-change purge leaves it in place',
+    area.getItem('qr_src_play') === '1',
+    'purge removed ' + JSON.stringify(removed));
+  ok('…while still purging genuinely user-scoped keys around it',
+    area.getItem('qr_progress') === null && area.getItem('foreign') === 'keep');
+})();
+
 /* ...but the latch is SESSION scope, so it can never leak into ordinary browsing of this origin later. */
 ok('★★ the latch does not leak into a fresh tab (sessionStorage, never localStorage)',
   boot({ referrer: '' }).P.isPlayDistribution() === false);

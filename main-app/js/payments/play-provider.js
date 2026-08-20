@@ -57,8 +57,29 @@
   /* The memoised verdict. `null` = never established; the facade reads `isReady()` which treats
      anything other than an explicit true as false. */
   var _ready = false;
-  var _prepared = false;      /* prepare() has completed at least once */
+  var _prepared = false;      /* prepare() has reached a FINAL answer — see _FINAL_FALSE below */
   var _preparing = null;      /* in-flight promise, so a double-tap cannot start two probes */
+
+  /* ADR-169 — WHICH "no" IS PERMANENT, AND WHICH IS JUST "not yet".
+     `_prepared` used to be set on EVERY completion, so the first `false` was final for the lifetime of
+     the page. Measured in a browser against a fully working Play environment: with the ID token
+     momentarily unavailable, prepare() answered false and then kept answering false forever, even
+     after the token worked — so one network blip, or opening the paywall a moment before auth settled,
+     left a Play user in reader mode until they force-quit the app. That is the same failure shape as a
+     paying user being latched to free by a hiccuped startup hydration, which this codebase already
+     treats as a defect.
+     The memoisation itself is still right — the payment path must not change under the user
+     mid-checkout — but only for answers that CANNOT change while this document is alive:
+       · ready === true                          → final, and the only answer that enables a purchase
+       · not_play_distribution / no_digital_goods_api / no_skus_requested
+                                                 → final: isPlayDistribution() is memoised per boot,
+                                                   the DGA constructor does not appear later, and the
+                                                   SKU list is a constant.
+     Everything else — an unreachable billing backend, a missing product an operator may publish, a
+     server flag an operator may switch on, an absent ID token — is a "not yet" and is re-probed the
+     next time the UI asks. Re-probing cannot make anything unsafe: it can only turn a CTA ON, the
+     purchase path re-checks isReady() itself, and the server verifies every token regardless. */
+  var _FINAL_FALSE = { not_play_distribution: 1, no_digital_goods_api: 1, no_skus_requested: 1 };
 
   function _R() { return root.QRPayments ? root.QRPayments.RESULT : {}; }
   function _t(key) { return (typeof root.QRI18n !== 'undefined') ? root.QRI18n.t(key) : key; }
@@ -110,8 +131,9 @@
       .then(function () { return plat.canUsePlayBilling(SKUS); })
       .then(function (verdict) {
         if (!verdict || verdict.ok !== true) {
-          console.info('[PaymentFlow] PLAY_NOT_USABLE | ' + ((verdict && verdict.reason) || 'unknown'));
-          return false;
+          var reason = (verdict && verdict.reason) || 'unknown';
+          console.info('[PaymentFlow] PLAY_NOT_USABLE | ' + reason);
+          return { ready: false, final: !!_FINAL_FALSE[reason] };
         }
         /* The Digital Goods `service` handle is deliberately NOT retained: the purchase runs through
            PaymentRequest, which needs only the SKU. Holding a stale handle would invite someone to use
@@ -119,17 +141,20 @@
            Only now ask the server. Ordered this way so a web/PWA user never issues this call at all. */
         return _serverEnabled().then(function (enabled) {
           if (!enabled) console.info('[PaymentFlow] PLAY_SERVER_DISABLED | reader mode');
-          return enabled;
+          /* An operator can switch `config/playBilling` on, and an ID token can start working, without
+             this document reloading — so a server "no" is never final. */
+          return { ready: enabled === true, final: enabled === true };
         });
       })
       .catch(function (err) {
-        /* Fails CLOSED. An error establishing readiness is not permission to offer a purchase. */
+        /* Fails CLOSED. An error establishing readiness is not permission to offer a purchase — but it
+           is also not evidence that Play billing is permanently unusable, so it stays re-probeable. */
         console.warn('[PaymentFlow] PLAY_PREPARE_FAILED | ' + ((err && err.message) || err));
-        return false;
+        return { ready: false, final: false };
       })
       .then(function (v) {
-        _ready = (v === true);
-        _prepared = true;
+        _ready = !!(v && v.ready === true);
+        _prepared = !!(v && v.final === true);
         _preparing = null;
         return _ready;
       });

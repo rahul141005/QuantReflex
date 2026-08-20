@@ -272,7 +272,7 @@ var AppState = (function () {
      in lockstep, so this list cannot silently drift from the real model. */
   var FALLBACK_SURVIVORS = [
     'qr_session_id', 'qr_session_uid', 'qr_session_replaced', 'qr_last_uid',
-    'qr_i18n_preview', 'qr_appUpdating', 'qr_pending_writes'
+    'qr_i18n_preview', 'qr_appUpdating', 'qr_src_play', 'qr_pending_writes'
   ];
   var FALLBACK_SURVIVOR_PREFIXES = ['qr_update_', 'qr_pending_writes_'];
 

@@ -51,7 +51,21 @@
 
   var INSTALLATION_SCOPED = [
     'qr_i18n_preview',      /* emergency/dev locale override, read once at boot (i18n.js). */
-    'qr_appUpdating'        /* update-manager one-shot "we just applied an update" flag. */
+    'qr_appUpdating',       /* update-manager one-shot "we just applied an update" flag. */
+    /* ADR-169 — the Play-distribution latch (js/platform.js `_SRC_KEY`). It describes the CONTAINER
+       this document is running in — a Play-store TWA — which does not change when the user signs out,
+       so it must survive an account boundary. It was not registered here, and platform.js reasoned
+       that NOT registering it was what kept it safe. That reasoning is backwards: this registry is
+       prefix-driven with a fail-safe default, so an unregistered `qr_`-prefixed key is classified
+       'user' and PURGED. Measured — purgeUserScoped(sessionStorage) returned exactly ['qr_src_play'].
+       Consequence: launch the TWA at /?src=play, change a setting that reloads to location.pathname
+       (dropping the query), then sign out — the purge removes the latch, js/session.js reloads, no
+       marker remains, isPlayDistribution() answers false and js/payments/gateway.js selects RAZORPAY
+       inside the Play app. That is the one unrecoverable Play-policy violation in this program.
+       Registering it changes nothing about WHERE it is stored: platform.js still writes sessionStorage
+       only, so it still dies with the tab and still cannot leak into ordinary browsing of this origin.
+       It only stops the account purge from taking it. */
+    'qr_src_play'
   ];
 
   var INSTALLATION_PREFIXES = [

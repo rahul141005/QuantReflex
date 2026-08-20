@@ -62,10 +62,20 @@
      scripts/platform.check.js — this module stays dependency-free by design, so it cannot import it. */
   var TWA_PACKAGE = 'com.quantreflex.app';
 
-  /* The shared per-tab latch. SESSION scope, deliberately not the storage-registry: registry keys are
-     user-scoped and purged on logout, whereas this describes the CONTAINER, which does not change when the
-     user signs out. Both Play markers below latch through it, so whichever one the build actually raises
-     survives the full-page navigations this app performs. */
+  /* The shared per-tab latch. SESSION scope, so it dies with the tab and can never leak into ordinary
+     browsing of this origin. Both Play markers below latch through it, so whichever one the build
+     actually raises survives the full-page navigations this app performs.
+
+     ADR-169 — IT IS REGISTERED IN js/state/storage-registry.js AS 'installation', AND MUST STAY THERE.
+     This comment used to say the opposite: that the key was "deliberately not the storage-registry,
+     [because] registry keys are user-scoped and purged on logout". That reasoning was backwards. The
+     registry is PREFIX-DRIVEN with a fail-safe default — an unregistered `qr_`-prefixed key classifies
+     as 'user' and is purged on every account change, from sessionStorage as well as localStorage
+     (js/state/store.js clearAll). Not registering the key was therefore the thing that got it deleted.
+     Measured before the fix: purgeUserScoped(sessionStorage) returned exactly ['qr_src_play'], and the
+     sequence launch /?src=play → a settings reload that drops the query → sign out → js/session.js
+     reload ended on provider RAZORPAY inside the Play build. Registering it does not change where it
+     is stored; it only exempts it from the account purge. */
   var _SRC_KEY = 'qr_src_play';
 
   /* 1. The TWA launch referrer. Chrome sets `android-app://<package>` on the document that the Android app
@@ -108,9 +118,8 @@
   /* 2. An explicit build marker. The TWA's start_url carries `?src=play`, and because that survives
         only until the first navigation it is latched into sessionStorage — SESSION scope, not local:
         it must die with the tab so it can never leak into ordinary browsing of this origin later.
-        (Deliberately not routed through the storage-registry: registry keys are user-scoped and
-        purged on logout, whereas this describes the CONTAINER, which does not change when the user
-        signs out.) */
+        (Registered as 'installation' in the storage-registry so the account purge cannot take it —
+        see the _SRC_KEY note above, and ADR-169.) */
   function _srcSignal() {
     return _safe(function () {
       var q = String(root.location && root.location.search || '');

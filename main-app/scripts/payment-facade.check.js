@@ -369,6 +369,45 @@ ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVID
       noCatalogue.b.fetches.length === 0, noCatalogue.b.fetches.join(','));
     ok('★ the server probe is the play-config action, not a purchase',
       both.b.fetches.length === 1 && both.b.fetches[0].indexOf('action=play-config') !== -1, both.b.fetches.join(','));
+
+    /* ADR-169 — A "NO" THAT CAN CHANGE MUST NOT BE MEMOISED AS FINAL.
+       prepare() used to mark itself settled on every completion, so the FIRST false answer was final
+       for the life of the page. Reproduced in a browser: with a fully working Play environment and the
+       ID token momentarily unavailable, prepare() answered false and kept answering false after the
+       token started working — one blip, or a paywall opened a moment before auth settled, and the user
+       could not buy until they force-quit the app.
+       Two assertions, in opposite directions, because the fix is only correct if BOTH hold. */
+    return Promise.resolve().then(function () {
+      /* (a) an operator switching config/playBilling on mid-session must become purchasable. */
+      var b = bootPlay({ catalogue: true, serverEnabled: false });
+      return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); })
+        .then(function (first) {
+          /* the server flag flips ON, with no page reload */
+          b.sb.fetch = function (url) {
+            b.fetches.push(url);
+            return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ enabled: true }); } });
+          };
+          return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); })
+            .then(function (second) {
+              ok('★★★ a server "not yet" is re-probed, so flipping config/playBilling on works without a relaunch',
+                first === false && second === true && b.sb.QRPayments.canPurchase() === true,
+                'first=' + first + ' second=' + second);
+            });
+        });
+    }).then(function () {
+      /* (b) a STABLE no — no Digital Goods API in this document — stays memoised and must not
+             re-probe, or every paywall open would repeat work whose answer cannot change. */
+      var b = bootPlay({ catalogue: false, serverEnabled: true });
+      return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); })
+        .then(function (first) {
+          return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); })
+            .then(function (second) {
+              ok('★★ …but "this document has no Digital Goods API" is FINAL and is not re-probed',
+                first === false && second === false && b.fetches.length === 0,
+                'fetches=' + b.fetches.length);
+            });
+        });
+    });
   });
 })();
 

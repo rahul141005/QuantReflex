@@ -205,7 +205,15 @@ ok(unclassified.length === 0,
 var survivors = found.filter(function (k) { return QRStorage.classify(k) !== 'user'; }).sort();
 var EXPECTED_SURVIVORS = [
   'qr_appUpdating', 'qr_i18n_preview', 'qr_last_uid', 'qr_pending_writes',
-  'qr_session_id', 'qr_session_replaced', 'qr_session_uid', 'qr_update_'
+  'qr_session_id', 'qr_session_replaced', 'qr_session_uid',
+  /* ADR-169. Reviewed and admitted deliberately. It describes the CONTAINER (a Play-store TWA), not
+     the account, and signing out does not move the app to a different store. Before it was admitted,
+     purgeUserScoped(sessionStorage) returned ['qr_src_play'] and a sign-out inside the Play build
+     dropped the Play verdict — which js/payments/gateway.js answers by selecting Razorpay.
+     It stays sessionStorage-only (platform.js never writes localStorage), so admitting it here cannot
+     let it outlive the tab or reach an ordinary browsing session on this origin. */
+  'qr_src_play',
+  'qr_update_'
 ].filter(function (k) { return found.indexOf(k) !== -1; });
 ok(JSON.stringify(survivors) === JSON.stringify(EXPECTED_SURVIVORS),
   '3 the set of keys that SURVIVE an account change is exactly the reviewed list\n      got:      ' +
