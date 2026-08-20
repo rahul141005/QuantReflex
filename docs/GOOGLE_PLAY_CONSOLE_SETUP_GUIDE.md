@@ -773,6 +773,45 @@ them for launch.
 
 ---
 
+## STEP 17b — Getting paid (this is NOT Razorpay's bank account)
+
+**[YOU — PLAY CONSOLE]** *Account-level → Payments profile*
+
+Razorpay and Google Play settle on completely separate rails. Razorpay pays into the bank account
+configured in the Razorpay dashboard. Google Play pays into a **Google payments profile**, which is set
+once at account level and has nothing to do with Razorpay. Nothing in this repository configures it and
+nothing in this repository can check it.
+
+**Verified 2026-08-21 from the console:** the profile exists (`KRISHNA A BAJAJ`) with **two** payments
+accounts, both INR:
+
+| Payments account | Scope |
+|---|---|
+| Google Play Apps · `…6580` | **Cross border** |
+| Google Play Apps · `…0576` | **India only** |
+
+**Two accounts is correct, not a duplicate.** Google splits payments for India-based sellers: sales to
+buyers in India settle through the *India only* account, sales to buyers outside India through the
+*Cross border* one. Do not delete either. For QuantReflex — INR pricing, an Indian exam-prep audience —
+essentially all revenue will land in *India only*, but a single purchase by someone abroad goes to
+*Cross border*, so both need to be able to pay out.
+
+**What still has to be true before money can reach you**, on **each** payments account (open it →
+*Settings*):
+
+- a **bank account** added and verified — an unverified account accrues a balance that simply never pays out;
+- **tax details** complete for the profile — incomplete tax info holds payouts even when the bank is fine.
+
+**Payout cadence.** Monthly, around the 15th, for the previous calendar month, and only once the balance
+clears the minimum payout threshold shown on the payments account — below it, the balance rolls forward.
+Google's service fee is deducted first (15% of the first USD 1M of annual earnings for most developers,
+30% above that).
+
+Google is the merchant of record for Play sales in India and handles buyer-side GST. That is **not** the
+same as your own tax position on the earnings — take that to an accountant rather than to this guide.
+
+---
+
 ## STEP 18 — After launch
 
 **[YOU — PLAY CONSOLE]**, check weekly at first:
