@@ -9,11 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.189 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.190 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.190 (2026-08-20)** — **ADR-152 was wired to one purge path out of two (ADR-160).** The guard that
+> stops a purge reaching the next user's server document covered the warm switch only. The COLD switch —
+> app closed as A, reopened as B — purges inside `loadFromFirestore` and never raised it, with a gap
+> spanning the whole network round-trip because that purge runs before `docRef.get()` is issued. And the
+> retries-exhausted branch actively CLEARED the flag, calling a failed hydration "done", while the
+> cross-user flush guard short-circuits on a null `_loadedUserId`. Behaviourally verified: reverting
+> either fix takes the incoming user's `totalAttempted` from 777 to 0. Firestore Version → 2.36.
 
 > **2.189 (2026-08-20)** — **A clock guard that defended only one direction (ADR-159).**
 > `clockSafeNow()` snaps a `now` that is behind the server anchor forward to it — correct against a clock

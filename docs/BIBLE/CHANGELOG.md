@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — The account-switch guard covered one purge path out of two (ADR-160, v288)
+
+ADR-152 added `_purgedAwaitingHydration` to stop a purge's zeroed `DEFAULT_PROGRESS` reaching the INCOMING
+user's server document. The guard was right; its wiring was incomplete.
+
+- **Warm switch** — `resetSyncState()` raises it. Correct from the start.
+- **Cold switch** — app closed while A was signed in, reopened as B, so `resetSyncState()` never runs.
+  `loadFromFirestore` purges on a uid change and did NOT raise it. The gap is *larger* here: that purge is
+  synchronous and runs BEFORE `docRef.get()` is even issued, so it spans the whole network round-trip.
+- **Read fails** — the retries-exhausted branch set the flag false alongside `_dataLoaded`, calling a
+  hydration that FAILED "done". `_flushUpdates`' cross-user guard cannot catch it either: it reads
+  `(_loadedUserId && currentUserId !== _loadedUserId)` and `_loadedUserId` is still null there, so the `&&`
+  short-circuits and it does not abort.
+
+- `main-app/js/firestore-sync.js` — raise at the cold-boot purge; stop lowering on failure; lower on the
+  ADR-157 snapshot adoption, which genuinely is a hydration
+- `main-app/scripts/purge-gap.check.js` — **new**, wired into `npm test`. Behavioural, not grep: the real
+  modules run in a vm against a fake Firestore and the assertion is the write log plus the final server
+  document. Reverting either fix takes B's `totalAttempted` from 777 to 0
+- Docs: DECISION_LOG (ADR-160), VERSIONS 2.190, Firestore Version 2.36
+
+A third scenario asserts the guard is **not** a blanket block — a normal session with no purge must still
+persist stats (ADR-054) — otherwise the fix would trade one silent data loss for another.
+
+Five mutations, five killed. One initially survived because the mutation itself was ineffective (a no-op
+inserted rather than the assignment removed); re-run correctly it killed three assertions. A mutation that
+does not change behaviour proves nothing.
+
+---
+
 ## 2026-08-20 — A forward-set device clock could permanently revoke a paid subscription (ADR-159, v287)
 
 `entitlement-core.js` `clockSafeNow()` anchors on `max(planUpdatedAt, updatedAt, createdAt)` and returns

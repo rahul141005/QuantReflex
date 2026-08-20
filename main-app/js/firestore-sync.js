@@ -456,6 +456,10 @@ var FirestoreSync = (function () {
         try {
           _memoryCache = d;
           _loadedUserId = uid;
+          /* ADR-160: adoption IS a hydration — the server's document is now in hand, so the ADR-152 purge
+             guard has done its job and stats writes are safe again. This is the path that releases a session
+             which the retries-exhausted branch above deliberately leaves guarded. */
+          _purgedAwaitingHydration = false;
           _enforcePremiumExpiry(_memoryCache, db.collection('users').doc(uid));
           console.info('[FirestoreSync] adopted the live snapshot after a failed startup hydration (ADR-157)');
           if (!_holdsTransientUi() && typeof Router !== 'undefined' && Router.refreshCurrentView) Router.refreshCurrentView();
@@ -527,6 +531,17 @@ var FirestoreSync = (function () {
       var lastUid = localStorage.getItem('qr_last_uid');
       if (lastUid && lastUid !== currentUserId) {
         _clearUserLocalStorage();
+        /* ADR-160 — THIS IS THE SECOND PURGE SITE, AND IT WAS NOT RAISING THE ADR-152 GUARD.
+           resetSyncState() raises it because that is the WARM switch: sign out of A, sign in as B in the
+           same session. This is the COLD one — the app was closed while A was signed in and reopened as B,
+           so resetSyncState() never ran, yet local state is just as stale and is purged just as completely.
+           The gap here is larger, not smaller: this purge is synchronous and the docRef.get() below has not
+           even been issued yet, so the window spans the whole network round-trip — and forever if that read
+           ultimately fails. Anything reading progress in that window (Router.onShow('practice') →
+           _renderDailyQuota is enough) gets AppState's zeroed DEFAULT_PROGRESS, persists it, and queues a
+           stats write onto the INCOMING user's document. Raising the flag here is what ADR-152 always meant;
+           it was simply only wired to the warm path. */
+        _purgedAwaitingHydration = true;
       }
       localStorage.setItem('qr_last_uid', currentUserId);
     } catch (_) {}
@@ -624,8 +639,22 @@ var FirestoreSync = (function () {
         return;
       }
       _loadRetryCount = 0;
-      _dataLoaded = true;
-        _purgedAwaitingHydration = false;   /* ADR-152: hydration done — stats writes are safe again */ /* retries exhausted — proceed so the app isn't wedged; server remains authoritative */
+      _dataLoaded = true;   /* retries exhausted — proceed so the app isn't wedged; server remains authoritative */
+      /* ADR-160 — DO NOT CLEAR THE PURGE GUARD HERE. This line used to set
+         `_purgedAwaitingHydration = false` alongside `_dataLoaded`, on the reasoning that hydration was
+         "done". It was not done — it FAILED. The flag means "we purged local state and have not replaced it
+         with the server's", and on this path that is still exactly true, so clearing it defeated ADR-152 on
+         the one path where it mattered most.
+         What followed: resetSyncState() had already purged qr_progress; AppState.getProgress() never returns
+         null (js/state/store.js hands back a zeroed DEFAULT_PROGRESS clone); the first surface to read
+         progress persists those zeros; queueUpdate('stats', …) is no longer dropped because the flag is
+         down; and _flushUpdates' cross-user guard cannot stop it either, because that guard reads
+         `(_loadedUserId && currentUserId !== _loadedUserId)` and _loadedUserId is STILL NULL on this path —
+         the `&&` short-circuits, so it does not abort. The user's real server stats are overwritten with
+         zeros by a single transient read failure.
+         Leaving the guard UP costs a session of stats writes, which the next successful sync re-derives.
+         Clearing it costs the user their history. The flag is now lowered only where hydration actually
+         happened: the two success paths, _createDefaultDocument, and the ADR-157 snapshot adoption. */
       if (callback) callback(false);
     });
   }

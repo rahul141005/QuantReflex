@@ -8,6 +8,40 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-160 — ADR-152 was wired to one purge path out of two, and cleared on the third (v288) (2026-08-20)
+
+- **Context:** ADR-152 added `_purgedAwaitingHydration` because `AppState.getProgress()` never returns
+  null — it hands back a zeroed `DEFAULT_PROGRESS` clone — so between purging localStorage and receiving
+  the incoming user's document, any surface reading progress persists zeros and queues a `stats` write
+  onto **the next user's** server document.
+- **The guard was right; its wiring was incomplete.** Three paths, one covered:
+  1. **Warm switch** — `resetSyncState()` raises the flag. Correct from the start.
+  2. **Cold switch** — the app was closed while A was signed in and reopened as B, so `resetSyncState()`
+     never runs. `loadFromFirestore` purges on a uid change and did **not** raise the flag. The gap here
+     is *larger*: that purge is synchronous and executes **before `docRef.get()` is even issued**, so it
+     spans the whole network round-trip.
+  3. **Read fails** — the retries-exhausted branch set the flag to `false` alongside `_dataLoaded`, on
+     the reasoning that hydration was "done". It had **failed**. And `_flushUpdates`' cross-user guard
+     cannot catch this either: it reads `(_loadedUserId && currentUserId !== _loadedUserId)`, and
+     `_loadedUserId` is still `null` on that path, so the `&&` short-circuits and it does not abort.
+- **Decision:** raise the flag at the cold-boot purge too, and stop lowering it when hydration failed.
+  It is now lowered only where hydration genuinely happened — the two success paths,
+  `_createDefaultDocument`, and the ADR-157 snapshot adoption (which really is a hydration).
+- **The trade is deliberate.** Leaving the guard up after a failed read costs a session of stats writes,
+  which the next successful sync re-derives. Lowering it costs the user their history, permanently, on
+  the server. Those are not comparable.
+- **Verified behaviourally, not by grep.** `scripts/purge-gap.check.js` runs the real `firestore-sync.js`,
+  `progress.js`, `store.js`, `storage-registry.js` and `mistake-archive.js` in a vm against a fake
+  Firestore and asserts on the write log and the final server document. With either fix reverted, B's
+  `totalAttempted` goes **777 → 0**. A third scenario asserts the guard is not a blanket block: a normal
+  session with no purge must still persist stats (ADR-054), or the fix would trade one silent data loss
+  for another.
+- **Verification:** five mutations, five killed. One initially *survived* — the mutation itself was
+  ineffective, inserting a no-op rather than removing the assignment. Re-run correctly, it killed three
+  assertions. A mutation that does not actually change behaviour proves nothing about the guard.
+
+---
+
 ## ADR-159 — A clock guard that defended only one direction (v287) (2026-08-20)
 
 - **Context:** `entitlement-core.js` `clockSafeNow()` anchors on
