@@ -8,6 +8,45 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-163 — A leaked scroll lock became a total input outage (v291) (2026-08-20)
+
+- **Context:** `QROverlay` ref-counts `body.modal-open` per class, adding it on open and removing it
+  only at count zero, so stacked overlays cannot unlock early. Two callers reached **past** that
+  ref-count, and both leaked it permanently.
+- **Why this is a P0 and not a scroll bug — and my own part in it.** `body.modal-open` is half of the
+  drill engine's `_blockedByOverlay()` predicate. Before ADR-158 that predicate gated the MCQ handlers
+  and the physical keyboard, so a leak broke MCQ questions. **ADR-158 added the numpad pointer handler
+  and both Submit paths.** ADR-158 is correct and stays, but it widened this pre-existing leak from
+  "MCQ unanswerable" to **no question in any drill or duel can be answered until the app is restarted**.
+  A fix that makes a latent defect catastrophic is worth recording plainly.
+- **REL-01 — the router.** `_cleanupOverlays` hid every `.modal-overlay` with `style.display='none'`
+  and stripped the class with a raw `classList.remove`. Neither touches `_locks`, so the count stayed
+  at 1: the class *looked* gone, then the next overlay took it to 2 and its close returned it to 1,
+  after which it could never be removed. Trigger: hardware Back while any Settings modal (Clear Data,
+  Delete Account, Profile) or the Learn custom-topic editor is open.
+- **REL-02 — the duel exit modal.** `showExitModal` had no re-entrancy guard. A second call opened a
+  **second** overlay and **overwrote `_exitHandle`**, orphaning the first, so `hideExitModal()` unlocked
+  once against two locks. Trigger: pressing hardware Back twice during duel solving — the most
+  instinctive Android gesture for dismissing a dialog. "Keep Solving" then returned the player to a
+  live, server-timed duel with a dead keypad: they watch the clock run out unable to answer.
+- **Decision:** `QROverlay.releaseAll()` — one supported teardown, so there is no third hand-rolled
+  version. Each stack token now carries its own `close`, so `releaseAll` drains **through** the real
+  lifecycle (ref-count, listeners, focus restore) rather than around it, and force-clears any lock that
+  survives its overlay, because a stuck lock is worse than a lost teardown. `showExitModal` gets an
+  `_exitShowing` guard mirroring `_exitDialogShowing` in `session-manager.js` — same guard, same reason,
+  tracked separately from the handle so it also covers the no-QROverlay fallback.
+- **This is the third instance of one mistake.** ADR-155 fixed `_exitDrillSession` reaching past the
+  handle; these are the other two. `releaseAll()` exists so the next caller has somewhere correct to go.
+- **Verified in headless Chromium, both directions.** With the fixes, a route change releases cleanly
+  and two duel Backs leave no stuck lock. With each reverted, `stuckAfterNextCycle` and `duelStuck` are
+  both `true`. Six mutations, six killed. ADR-158's four pause-screen doors were re-checked afterwards
+  and still hold, and Quick/Reflex/Timed still drive to their results cards.
+- **Adversarial note:** the REL-02 refuter returned `NOT_A_BUG` — because it read the code *after* this
+  fix and found the guard already present and annotated. That is confirmation the fix landed, not a
+  refutation of the finding. The other five verdicts came back `refuted:false` at high confidence.
+
+---
+
 ## ADR-162 — Refusing a destructive no-op, and a P1 I could not reproduce (v290) (2026-08-20)
 
 - **The claim, from an audit agent (P1):** `applyUpdate()` purges every cache and then navigates with no

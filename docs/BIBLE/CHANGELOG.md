@@ -6,6 +6,46 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — A leaked scroll lock left no question answerable anywhere (ADR-163, v291)
+
+`QROverlay` ref-counts `body.modal-open`, adding it on open and removing it only at count zero. Two
+callers reached past that ref-count and leaked it permanently.
+
+**Why this is a P0, and my own part in it.** `body.modal-open` is half of the drill engine's
+`_blockedByOverlay()`. Before ADR-158 that gated the MCQ handlers and the physical keyboard, so a leak
+broke MCQ questions. **ADR-158 added the numpad pointer handler and both Submit paths** — correct, and it
+stays — but it widened this pre-existing leak from "MCQ unanswerable" to *no question in any drill or
+duel can be answered until the app is restarted*.
+
+- **REL-01** — `router._cleanupOverlays` hid every `.modal-overlay` and stripped the class with a raw
+  `classList.remove`. Neither touches `_locks`, so the count stayed at 1; the next overlay took it to 2
+  and its close returned it to 1, after which the class could never be removed. Trigger: hardware Back
+  while any Settings modal or the Learn custom-topic editor is open.
+- **REL-02** — `DuelUI.showExitModal` had no re-entrancy guard: a second call opened a second overlay and
+  overwrote `_exitHandle`, so close unlocked once against two locks. Trigger: two hardware Backs during
+  duel solving. "Keep Solving" then returned the player to a live, server-timed duel with a dead keypad.
+
+- `main-app/js/ui/overlay.js` — `releaseAll()`, and each stack token now carries its own `close` so the
+  drain goes *through* the lifecycle; force-clears a lock that outlived its overlay
+- `main-app/js/router.js` — `_cleanupOverlays` calls `releaseAll()` instead of stripping the class
+- `main-app/js/duel-ui.js` — `_exitShowing` guard, mirroring `_exitDialogShowing` in `session-manager.js`
+- `main-app/scripts/practice-session-integrity.check.js` — 11 assertions incl. the premise that the class
+  really does gate answer input
+- Docs: DECISION_LOG (ADR-163), VERSIONS 2.193
+
+**This is the third instance of one mistake.** ADR-155 fixed `_exitDrillSession` reaching past its handle;
+these are the other two. `releaseAll()` exists so the next caller has somewhere correct to go.
+
+Verified in headless Chromium both directions: with the fixes a route change releases cleanly and two duel
+Backs leave no stuck lock; with each reverted, `stuckAfterNextCycle` and `duelStuck` are both true. Six
+mutations, six killed. ADR-158's four pause-screen doors re-checked afterwards and still hold.
+
+**Adversarial note:** the REL-02 refuter returned `NOT_A_BUG` — because it read the code *after* this fix
+and found the guard already present and annotated. Confirmation the fix landed, not a refutation. The
+other five verdicts came back `refuted:false` at high confidence.
+
+---
+
 ## 2026-08-20 — Refusing a destructive no-op, and a P1 that did not survive testing (ADR-162, v290)
 
 An audit agent reported a P1: `applyUpdate()` purges every cache and then navigates with no

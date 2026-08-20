@@ -9,11 +9,17 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.192 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.193 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.193 (2026-08-20)** — **A leaked scroll lock became a total input outage (ADR-163).** Two callers
+> reached past QROverlay's ref-counted `body.modal-open` — the router's `_cleanupOverlays` stripped it
+> raw, and the duel exit modal had no re-entrancy guard so a second Back locked twice and unlocked once.
+> Since ADR-158 that class gates every answer-input path, so a leak meant no question in any drill or
+> duel could be answered until restart. `QROverlay.releaseAll()` is now the one supported teardown.
 
 > **2.192 (2026-08-20)** — **Refusing a destructive no-op (ADR-162).** `applyUpdate()` purged every
 > cache before navigating, with no online check. The reported P1 — that an offline tap loses the app —

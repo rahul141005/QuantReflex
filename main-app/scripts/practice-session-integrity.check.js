@@ -435,6 +435,50 @@ ok(/document\.body\.classList\.add\('drill-paused'\)/.test(ENGINE_C) &&
 ok(/body\.drill-paused #customNumpad,\s*\n?\s*body\.drill-paused \.drill-actions \{ display: none; \}/.test(CSS),
   '** the two BODY-LEVEL session surfaces are hidden while paused, since the overlay cannot cover them');
 
+/* ── 10. Nothing may leak QROverlay's ref-counted body.modal-open (ADR-163) ─────────────────────────────
+   `body.modal-open` is half of the drill engine's `_blockedByOverlay()` predicate, and since ADR-158 that
+   predicate gates the numpad pointer handler, the physical keyboard, both MCQ handlers AND both Submit
+   paths. So a leaked lock is not a cosmetic scroll bug — it is a TOTAL INPUT OUTAGE: no question in any
+   drill or duel can be answered until the app is restarted. ADR-158 widened the blast radius of a defect
+   that already existed, which is exactly why these ratchets sit next to it.
+   Two leaks, both reproduced in headless Chromium and both from the most ordinary Android gesture:
+     REL-01  hardware Back while a Settings modal is open — router hid every .modal-overlay and stripped
+             the class RAW, never decrementing the count, so the next overlay cycle wedged it on forever.
+     REL-02  a second hardware Back during duel solving — showExitModal had no re-entrancy guard, opened a
+             SECOND overlay and overwrote _exitHandle, so close() unlocked once against two locks. */
+var ROUTER = stripComments(fs.readFileSync(path.join(ROOT, 'js/router.js'), 'utf8'));
+var OVERLAY = stripComments(fs.readFileSync(path.join(ROOT, 'js/ui/overlay.js'), 'utf8'));
+var DUELUI = stripComments(fs.readFileSync(path.join(ROOT, 'js/duel-ui.js'), 'utf8'));
+
+/* the premise: the class really is load-bearing for answer input */
+ok(/_blockedByOverlay[\s\S]{0,200}?classList\.contains\('modal-open'\)/.test(ENGINE_C),
+  '** ADR-163 premise: body.modal-open still gates answer input via _blockedByOverlay()');
+
+/* REL-01 — the router must go through the module, not around it */
+var _co = ROUTER.slice(ROUTER.indexOf('function _cleanupOverlays'), ROUTER.indexOf('function showView'));
+ok(_co.length > 100, 'the _cleanupOverlays body was located');
+ok(/QROverlay\.releaseAll\(\)/.test(_co),
+  '** _cleanupOverlays tears overlays down through QROverlay.releaseAll(), not by hand (ADR-163)');
+ok(!/document\.body\.classList\.remove\('modal-open'\)/.test(_co),
+  '** ...and never strips the ref-counted class raw, which is what leaked the count');
+ok(/function releaseAll\(\)/.test(OVERLAY) && /releaseAll: releaseAll/.test(OVERLAY),
+  'QROverlay exposes releaseAll so there is ONE supported teardown rather than a third hand-rolled one');
+ok(/token\.close = function \(\)/.test(OVERLAY),
+  '** each stack token carries its own close, so releaseAll drains through the real lifecycle');
+var _ra = OVERLAY.slice(OVERLAY.indexOf('function releaseAll'), OVERLAY.indexOf('var QROverlay ='));
+ok(/_locks\[cls\] = 0;/.test(_ra) && /classList\.remove\(cls\)/.test(_ra),
+  'releaseAll force-clears a lock that survived its overlay — a stuck lock is worse than a lost teardown');
+
+/* REL-02 — the duel exit modal must not be openable twice */
+ok(/var _exitShowing = false;/.test(DUELUI), 'duel-ui declares the re-entrancy flag');
+var _sem = DUELUI.slice(DUELUI.indexOf('function showExitModal'), DUELUI.indexOf('function hideExitModal'));
+ok(/if \(_exitShowing\) return;\s*\n?\s*_exitShowing = true;/.test(_sem),
+  '** showExitModal refuses a second open — a second Back used to double-lock and orphan the first handle');
+ok(/onClose: function \(\)[^}]*_exitShowing = false;/.test(_sem),
+  'the flag clears on the shared overlay lifecycle, not only on the button handlers');
+ok(/_exitShowing = false;/.test(DUELUI.slice(DUELUI.indexOf('function hideExitModal'))),
+  'the no-QROverlay fallback path clears it too');
+
 /* Behavioural: the eviction rule, run for real against a DESCENDING array (the post-hydration shape). */
 (function () {
   var CAP = 3;

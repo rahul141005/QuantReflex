@@ -72,6 +72,9 @@
     var closed = false;
     var token = {};
     _stack.push(token);
+    /* ADR-163: the token carries its own close so releaseAll() can drain the stack THROUGH the real
+       lifecycle (ref-count, listeners, focus restore) instead of anyone reaching past it. */
+    token.close = function () { doClose(); };
 
     _lock(opts.lockClass);
 
@@ -177,7 +180,43 @@
     return handle;
   }
 
-  var QROverlay = { open: open, confirm: confirm, lock: _lock, unlock: _unlock, reducedMotion: _reduced, focusables: _focusables };
+  /**
+   * ADR-163 — THE SUPPORTED WAY TO TEAR EVERY OVERLAY DOWN ON A ROUTE CHANGE.
+   *
+   * Callers used to do this by hand: hide every `.modal-overlay` with `style.display='none'` and strip
+   * `body.modal-open` with a raw classList.remove. That leaves this module's per-class ref-count
+   * untouched, so `_locks['modal-open']` stays at 1 forever. The class LOOKS gone, and then the next
+   * overlay to open takes the count to 2 and its close only brings it back to 1 — from that moment the
+   * class can never be removed again.
+   *
+   * That is not a cosmetic scroll bug. `body.modal-open` is half of the drill engine's
+   * `_blockedByOverlay()` predicate, which (since ADR-158) gates the numpad pointer handler, the
+   * physical-keyboard handler, both MCQ handlers and both Submit paths. A leaked class means NO
+   * question in any drill or duel can be answered until the app is restarted.
+   *
+   * Drains newest-first so stacked overlays unwind in the order they were opened. Each doClose() is
+   * idempotent, so an overlay already closed is a no-op. Anything that survives — an overlay whose
+   * element was ripped out of the DOM by someone else, leaving its token orphaned — is reported and
+   * the counts are force-cleared, because a stuck lock is worse than a lost teardown.
+   */
+  function releaseAll() {
+    for (var i = _stack.length - 1; i >= 0; i--) {
+      var t = _stack[i];
+      try { if (t && typeof t.close === 'function') t.close(); } catch (_) { /* keep draining */ }
+    }
+    _stack.length = 0;
+    var stuck = [];
+    for (var cls in _locks) {
+      if (Object.prototype.hasOwnProperty.call(_locks, cls) && _locks[cls] > 0) stuck.push(cls + '=' + _locks[cls]);
+      _locks[cls] = 0;
+      try { document.body.classList.remove(cls); } catch (_) {}
+    }
+    if (stuck.length) {
+      try { console.warn('[QROverlay] releaseAll force-cleared a stuck lock: ' + stuck.join(', ')); } catch (_) {}
+    }
+  }
+
+  var QROverlay = { open: open, confirm: confirm, lock: _lock, unlock: _unlock, releaseAll: releaseAll, reducedMotion: _reduced, focusables: _focusables };
   if (typeof module !== 'undefined' && module.exports) module.exports = QROverlay;
   if (root) root.QROverlay = QROverlay;
 })(typeof window !== 'undefined' ? window : this);

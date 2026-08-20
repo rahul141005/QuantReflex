@@ -520,8 +520,23 @@ var DuelUI = (function () {
 
   /* ═════════════════ Submit & Leave modal ═════════════════ */
   var _exitHandle = null;
+  var _exitShowing = false;   /* ADR-163: prevents a second Back from double-locking body.modal-open */
   function showExitModal(opts) {
     var modal = _el('exitDuelModal'); if (!modal) { opts.onConfirm(); return; }
+    /* ADR-163 — RE-ENTRANCY GUARD. Without it a second call rebuilt the markup, opened a SECOND
+       QROverlay (taking the ref-counted body.modal-open to 2) and OVERWROTE _exitHandle, orphaning the
+       first. hideExitModal() then closed only the survivor, so the count came back to 1 and the class
+       was never removed.
+       The trigger is the most instinctive gesture on Android: pressing hardware Back twice during duel
+       solving, once to raise this dialog and again to try to dismiss it. And since ADR-158,
+       body.modal-open is half of the drill engine's _blockedByOverlay() — it gates the numpad pointer
+       handler, the physical keyboard, both MCQ handlers and both Submit paths. So "Keep Solving"
+       returned the player to a LIVE, server-timed duel with a completely dead keypad: they watch the
+       clock run out and lose the match with no way to answer.
+       Mirrors _exitDialogShowing in js/session-manager.js — same guard, same reason. Tracked separately
+       from _exitHandle so it also covers the no-QROverlay fallback path below. */
+    if (_exitShowing) return;
+    _exitShowing = true;
     modal.innerHTML =
       '<div class="modal-content duel-exit-modal" role="dialog" aria-modal="true" aria-labelledby="duExitTitle">' +
         '<h3 class="duel-exit-title" id="duExitTitle">' + _esc(_t('duel.exitTitle')) + '</h3>' +
@@ -539,15 +554,17 @@ var DuelUI = (function () {
       dialogEl: modal.querySelector('.modal-content'),
       removeOnClose: false, closingClass: null, closeMs: 0,
       initialFocus: '#duExitCancel',
-      onClose: function () { modal.style.display = 'none'; modal.innerHTML = ''; _exitHandle = null; }
+      onClose: function () { modal.style.display = 'none'; modal.innerHTML = ''; _exitHandle = null; _exitShowing = false; }
     }) : null;
     if (!_exitHandle) document.body.classList.add('modal-open');
     _el('duExitCancel').onclick = function () { hideExitModal(); if (opts.onCancel) opts.onCancel(); };
     _el('duExitConfirm').onclick = function () { hideExitModal(); opts.onConfirm(); };
   }
   function hideExitModal() {
-    if (_exitHandle) { _exitHandle.close(); return; }
-    var m = _el('exitDuelModal'); if (m) { m.style.display = 'none'; m.innerHTML = ''; } document.body.classList.remove('modal-open');
+    if (_exitHandle) { _exitHandle.close(); return; }   /* onClose clears _exitShowing */
+    var m = _el('exitDuelModal'); if (m) { m.style.display = 'none'; m.innerHTML = ''; }
+    document.body.classList.remove('modal-open');
+    _exitShowing = false;
   }
 
   /* ═════════════════ shared share/clipboard helpers ═════════════════ */

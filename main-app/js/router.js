@@ -103,11 +103,29 @@ var Router = (function () {
       document.documentElement.classList.remove('drill-session-active');
     }
 
+    /* ADR-163 — CLOSE OVERLAYS THROUGH THEIR OWN LIFECYCLE, DO NOT REACH PAST IT.
+       This used to hide every `.modal-overlay` with style.display='none' and strip `body.modal-open`
+       with a raw classList.remove. Both lines look harmless and neither decrements QROverlay's
+       ref-count, so `_locks['modal-open']` stayed at 1 for the rest of the session: the class appeared
+       to go away, then the NEXT overlay to open took the count to 2 and its close only brought it back
+       to 1 — after which the class could never be removed again.
+       Since ADR-158 that is a total input outage, not a scroll bug. `body.modal-open` is half of the
+       drill engine's `_blockedByOverlay()`, which now gates the numpad pointer handler, the physical
+       keyboard, both MCQ handlers and both Submit paths — so no question in any drill or duel could be
+       answered until the app was restarted. The trigger is the most ordinary gesture on Android:
+       hardware Back while a Settings modal (Clear Data, Delete Account, Profile) or the Learn
+       custom-topic editor is open.
+       This is the same mistake ADR-155 fixed in _exitDrillSession, in a second place. releaseAll()
+       exists so there is one supported answer rather than a third hand-rolled teardown. */
+    if (typeof QROverlay !== 'undefined' && typeof QROverlay.releaseAll === 'function') {
+      try { QROverlay.releaseAll(); } catch (_) { /* fall through to the legacy sweep below */ }
+    }
+    /* Legacy sweep, kept for static modals that were never opened through QROverlay at all (they hold
+       no handle and no lock, so hiding them is the whole teardown). Harmless after releaseAll(). */
     var _allModals = document.querySelectorAll('.modal-overlay');
     for (var m = 0; m < _allModals.length; m++) {
       _allModals[m].style.display = 'none';
     }
-    document.body.classList.remove('modal-open');
   }
 
   function showView(viewId, params) {
