@@ -194,6 +194,40 @@ ok('** the engine equality chain is still exact -> numeric -> tolerance',
 ok('* the engine still treats an empty submission as not-numeric (never graded correct)',
   /normalizedRaw !== '' && !isNaN\(normalizedRaw\)/.test(src));
 
+/* ── ADR-166 — THE SERVER DUEL GRADER MUST BE THE SAME RULE ─────────────────────────────────────────
+   api/duel.js `_isCorrect` is the AUTHORITATIVE grader for duels: it decides who wins. Its docstring
+   claimed it mirrored the drill engine while actually using `Math.max(0.05, |expected| * 0.005)` — a
+   RELATIVE tolerance five times looser than even the relative rule the client used to have, and
+   unbounded as answers grow. On a duel question keyed 8800 the server accepted anything within ±44.
+   ADR-155 removed that shape from the client; the server copy was missed, so it stayed live in the one
+   place where it settles a contest between two real players.
+   Executed, not grepped: the shipped server function is extracted and driven against the same mirror
+   used above, so any future divergence fails here rather than silently deciding a match. */
+(function () {
+  var duelSrc = fs.readFileSync(path.join(__dirname, '..', 'api/duel.js'), 'utf8');
+  var m = duelSrc.match(/function _isCorrect\(userVal, expected\)[\s\S]*?\n\}/);
+  ok('** the server duel grader was located in api/duel.js', !!m);
+  if (!m) return;
+  ok('** ...and no longer uses a RELATIVE tolerance',
+    !/Math\.abs\(en\)\s*\*/.test(m[0]),
+    'a bigger answer must not buy a bigger margin of error — least of all where it decides a match');
+  var serverIsCorrect;
+  try { serverIsCorrect = eval('(' + m[0].replace('function _isCorrect', 'function') + ')'); } catch (e) { serverIsCorrect = null; }
+  ok('** the server grader is evaluable for parity testing', typeof serverIsCorrect === 'function');
+  if (typeof serverIsCorrect !== 'function') return;
+  var cases = [
+    ['8795', '8800'], ['8800', '8800'], ['8799.6', '8800'], ['8760', '8800'],
+    ['11990', '12000'], ['3.33', '3.3333333'], ['3.36', '3.3333333'], ['0.5', '0'],
+    ['42', '42'], ['', '42'], ['43', '42'], ['-8', '-8']
+  ];
+  var mismatches = [];
+  cases.forEach(function (c) {
+    if (grade(c[0], c[1]) !== !!serverIsCorrect(c[0], c[1])) mismatches.push(c[0] + ' vs ' + c[1]);
+  });
+  ok('** client and server grade IDENTICALLY on every case (ADR-166)',
+    mismatches.length === 0, mismatches.join('; '));
+})();
+
 console.log('\n------------------------------');
 console.log((fail === 0 ? 'ALL PASSED' : 'FAILURES') + ' - ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

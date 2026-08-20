@@ -8,6 +8,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-166 — The same grading bug, still live on the server, deciding who wins (v294) (2026-08-20)
+
+- **Context:** ADR-155 replaced the client's relative grading tolerance with an absolute rule, because
+  `max(0.01, 0.1% of |expected|)` grew without limit — on a ₹8,800 answer it accepted anything within
+  ±8.8, so the bigger the number, the more wrong you were allowed to be.
+- **The server copy was missed.** `api/duel.js` `_isCorrect` is the **authoritative** grader for duels —
+  it decides who wins — and it used `Math.max(0.05, |expected| * 0.005)`: relative, and **five times
+  looser** than even the client rule ADR-155 removed. On a duel question keyed 8800 the server accepted
+  anything within **±44**; on 12000, within ±60.
+- **Its docstring asserted the opposite.** It read "mirrors drill-engine normalization", which stopped
+  being true the moment ADR-155 landed. A comment claiming parity is worse than no comment: it tells the
+  next reader not to check.
+- **Where it actually bites.** The client/server *divergence* is not visible to a player, because duels
+  are graded server-side only — so there is no "my app said correct but I lost the point" symptom. The
+  harm is simpler and worse: the server was crediting wrong answers in a **real contest between two
+  people**, and the player who computed more carefully could lose to one who did not.
+- **Decision:** the identical rule — whole-number key takes a strict `< 0.5` rounds-to, decimal key the
+  inclusive `<= 0.01` allowance, both absolute. Docstring rewritten to say what the function does and
+  why parity matters, rather than asserting a parity nobody verified.
+- **Verification is EXECUTED, not grepped.** `drill-grading.check.js` extracts the shipped server
+  function and drives it against the same mirror the client assertions use, across twelve cases
+  including the ones that exposed the bug. A future divergence now fails the build instead of quietly
+  settling a match. Two mutations, two killed.
+
+---
+
 ## ADR-165 — A deck that repeated itself, and a subject that only ever showed five topics (v293) (2026-08-20)
 
 Two independent defects in `js/questions.js`, both invisible from inside the app because the SYMPTOM

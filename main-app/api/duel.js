@@ -73,7 +73,23 @@ function _validConfig(raw) {
   return { topics: topics, difficulty: diff, questionMode: mode, questionCount: count, timerPerQuestion: perQ, timerTotal: total, allowSkip: allowSkip };
 }
 
-/** Server-side correctness check (mirrors drill-engine normalization: trim + numeric equivalence + tolerance). */
+/**
+ * Server-side correctness check. This is the AUTHORITATIVE grader for duels — it decides who wins — and
+ * it must mirror the client rule in js/drill-engine.js checkAnswer exactly.
+ *
+ * ADR-166: it did not. The docstring claimed it mirrored the drill engine while using
+ * `Math.max(0.05, |expected| * 0.005)` — a RELATIVE tolerance, five times looser than even the relative
+ * rule the client used to have, and unbounded as answers grow. On a duel question keyed 8800 the server
+ * accepted anything within +/-44; on 12000, within +/-60. ADR-155 removed exactly this shape from the
+ * client because "the bigger the number, the more wrong you were allowed to be" is the opposite of what
+ * a grader must do — but the server copy was missed, so the defect stayed live in the one place where
+ * it settles a real contest between two players.
+ *
+ * The rule, identical to the client:
+ *   - whole-number key -> STRICT < 0.5, a true rounds-to test (0.5 rounds to 1, never down to 0)
+ *   - decimal key      -> inclusive <= 0.01, the stated rounding allowance for 1-2 dp approximations
+ * Both absolute, so accuracy no longer degrades as answers get larger.
+ */
 function _isCorrect(userVal, expected) {
   if (userVal == null) return false;
   const raw = String(userVal).replace(/\s/g, '');
@@ -83,8 +99,9 @@ function _isCorrect(userVal, expected) {
   const rn = parseFloat(raw), en = parseFloat(exp);
   if (!isNaN(rn) && !isNaN(en)) {
     if (rn === en) return true;
-    const tol = Math.max(0.05, Math.abs(en) * 0.005);
-    if (Math.abs(rn - en) <= tol) return true;
+    const expIsWhole = Math.abs(en - Math.round(en)) < 1e-9;
+    const tol = expIsWhole ? 0.5 : 0.01;
+    if (expIsWhole ? (Math.abs(rn - en) < tol) : (Math.abs(rn - en) <= tol)) return true;
   }
   return false;
 }

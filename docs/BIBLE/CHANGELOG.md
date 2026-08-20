@@ -6,6 +6,30 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — The same grading bug, still live on the server, deciding who wins (ADR-166, v294)
+
+ADR-155 replaced the client's relative grading tolerance with an absolute rule. The server copy was
+missed. `api/duel.js` `_isCorrect` is the AUTHORITATIVE grader for duels — it decides who wins — and it
+used `Math.max(0.05, |expected| * 0.005)`: relative, and five times looser than even the client rule
+ADR-155 removed. On a duel question keyed 8800 the server accepted anything within **±44**.
+
+Its docstring read "mirrors drill-engine normalization", which stopped being true the moment ADR-155
+landed. A comment claiming parity is worse than no comment — it tells the next reader not to check.
+
+**Where it bites:** the client/server divergence is not visible to a player, because duels are graded
+server-side only. The harm is simpler and worse — the server credited wrong answers in a real contest
+between two people, and the player who computed more carefully could lose to one who did not.
+
+- `main-app/api/duel.js` — identical rule: whole-number key takes a strict `< 0.5` rounds-to, decimal key
+  the inclusive `<= 0.01`, both absolute. Docstring rewritten to say what it does rather than assert an
+  unverified parity
+- `main-app/scripts/drill-grading.check.js` — EXECUTES the shipped server function against the same
+  mirror the client assertions use, over twelve cases including the ones that exposed the bug
+
+Two mutations, two killed. Full suite green.
+
+---
+
 ## 2026-08-20 — A deck that repeated itself, and a subject that only ever showed five topics (ADR-165, v293)
 
 Two defects in `js/questions.js`, both invisible from inside the app because the symptom looks like
