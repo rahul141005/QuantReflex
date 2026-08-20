@@ -127,6 +127,23 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
   };
 
   var config = Object.assign({}, modes[modeKey] || modes.quick);
+
+  /* ADR-167 — THE ADR-151 PROMISE APPLIES TO EVERY MODE, NOT JUST SETS.
+     "Don't advertise questions the allowance can't cover" was implemented for DI/Reasoning sets
+     (ADR-151) and extended to session review (ADR-155), but the six modes in the table above still took
+     their `count` verbatim. A free user with 2 questions left tapped Reflex Drill, read "10 Questions"
+     on the start screen, and was stopped by the quota panel after 2 — the engine gate is correct, the
+     NUMBER was the lie.
+     Premium is never clamped (_questionsLeftToday returns Infinity), and the floor of 1 in that helper
+     means a clamp can never produce an empty deck, which the engine would treat as a generation
+     failure. The hard gate above (hasReachedDailyLimit) still runs first and is unaffected: this only
+     makes the promise on the start screen the truth. */
+  var _dpPremium = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
+  var _dpLeft = _questionsLeftToday(_dpPremium);
+  if (isFinite(_dpLeft) && typeof config.count === 'number' && config.count > _dpLeft) {
+    config.count = _dpLeft;
+  }
+
   if (category) {
     config.category = category;
     config.mode = '🎯 ' + (categoryLabel || category);

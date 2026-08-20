@@ -8,6 +8,30 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-167 — The ADR-151 promise finally covers every mode (v295) (2026-08-20)
+
+- **Context:** ADR-151 established the rule "don't advertise questions the allowance can't cover" and
+  implemented it for DI/Reasoning sets. ADR-155 extended it to session review. The six modes in
+  `startDrillFromPractice`'s table still took their `count` verbatim.
+- **The defect:** a free user with 2 questions left tapped Reflex Drill, read **"10 Questions"** on the
+  start screen, and was stopped by the quota panel after 2. The engine's gate was always correct — the
+  **number** was the lie, and it was the number the user made their decision on.
+- **Decision:** clamp `config.count` to `_questionsLeftToday()` — the same helper ADR-155 factored out —
+  right after the mode table is copied, so every mode inherits it. Premium is never clamped (the helper
+  returns `Infinity`), and its floor of 1 means a clamp can never produce an empty deck, which the
+  engine would treat as a generation failure. The hard `hasReachedDailyLimit` gate still runs first and
+  is untouched: this changes only what is promised, never what is enforced.
+- **Verified in a browser, both directions.** With 2 questions left, quick/reflex/timed promise **2**
+  (down from 5/10/10). With a full allowance they promise **5/10/10 unchanged**, so the clamp does not
+  over-fire. Three mutations, three killed.
+- **A probe correction worth recording.** My first run scored `mixed` a failure because it read no
+  number from the start screen. `mixed` is premium-gated: a free user gets the paywall, so there is no
+  start screen and nothing to over-promise. The probe was wrong, not the code — the fourth time this
+  pass that a harness fault masqueraded as a product fault, and the reason every one of these fixes is
+  checked in both directions rather than only the failing one.
+
+---
+
 ## ADR-166 — The same grading bug, still live on the server, deciding who wins (v294) (2026-08-20)
 
 - **Context:** ADR-155 replaced the client's relative grading tolerance with an absolute rule, because

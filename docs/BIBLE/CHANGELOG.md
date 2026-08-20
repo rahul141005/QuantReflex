@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — The deck clamp finally covers every mode (ADR-167, v295)
+
+ADR-151 established "don't advertise questions the allowance can't cover" and implemented it for
+DI/Reasoning sets; ADR-155 extended it to session review. The six modes in `startDrillFromPractice` still
+took their `count` verbatim — so a free user with 2 questions left tapped Reflex Drill, read
+**"10 Questions"**, and was stopped after 2. The engine gate was always right; the number was the lie,
+and it was the number the user decided on.
+
+- `main-app/js/controllers/practice-modes.js` — `config.count` clamped through `_questionsLeftToday()`,
+  the helper ADR-155 factored out, right after the mode table is copied so every mode inherits it
+- `main-app/scripts/practice-session-integrity.check.js` — four assertions incl. the helper's floor of 1,
+  which is what stops a clamp producing an empty deck
+
+Premium is never clamped (the helper returns `Infinity`) and the hard `hasReachedDailyLimit` gate still
+runs first — this changes what is promised, never what is enforced.
+
+Verified in a browser both directions: with 2 left, quick/reflex/timed promise **2** (from 5/10/10); with
+a full allowance, **5/10/10 unchanged**.
+
+**Probe correction:** the first run scored `mixed` a failure for showing no number. `mixed` is
+premium-gated — a free user gets the paywall, so there is no start screen to over-promise. The probe was
+wrong, not the code; the fourth time this pass a harness fault looked like a product fault, and the reason
+every fix here is checked in both directions.
+
+Three mutations, three killed. Full suite green.
+
+---
+
 ## 2026-08-20 — The same grading bug, still live on the server, deciding who wins (ADR-166, v294)
 
 ADR-155 replaced the client's relative grading tolerance with an absolute rule. The server copy was

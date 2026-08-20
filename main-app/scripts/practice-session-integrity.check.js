@@ -479,6 +479,27 @@ ok(/onClose: function \(\)[^}]*_exitShowing = false;/.test(_sem),
 ok(/_exitShowing = false;/.test(DUELUI.slice(DUELUI.indexOf('function hideExitModal'))),
   'the no-QROverlay fallback path clears it too');
 
+/* ── 11. The ADR-151 promise covers EVERY mode, not just sets (ADR-167) ────────────────────────────────
+   "Don't advertise questions the allowance can't cover" was built for DI/Reasoning sets (ADR-151) and
+   extended to session review (ADR-155), but the six modes in startDrillFromPractice's table still took
+   their `count` verbatim. A free user with 2 questions left tapped Reflex Drill, read "10 Questions" on
+   the start screen and was stopped after 2. The engine gate was right; the NUMBER was the lie.
+   Verified in a browser both directions: with 2 left, quick/reflex/timed all promise 2 (down from
+   5/10/10); with a full allowance they promise 5/10/10 unchanged, so the clamp does not over-fire. */
+var _sdfp = PRACTICE_C.slice(PRACTICE_C.indexOf('function startDrillFromPractice'),
+                             PRACTICE_C.indexOf('function startMockFromPractice'));
+ok(_sdfp.length > 200, 'the startDrillFromPractice body was located');
+ok(/_questionsLeftToday\(_dpPremium\)/.test(_sdfp),
+  '** every practice mode clamps its promised count to the remaining allowance (ADR-167)');
+ok(/isFinite\(_dpLeft\)[\s\S]{0,120}?config\.count = _dpLeft;/.test(_sdfp),
+  '** ...and only when the allowance is finite, so premium is never clamped');
+ok(/hasReachedDailyLimit/.test(_sdfp),
+  'the hard daily gate still runs first — the clamp is about the PROMISE, not enforcement');
+/* The floor of 1 is what stops a clamp producing an empty deck, which the engine treats as a
+   generation failure. It lives in the shared helper, so pin it there. */
+ok(/return Math\.max\(1, limit - used\);/.test(PRACTICE_C),
+  '** the remaining-allowance helper floors at 1 — a clamp can never produce an empty deck');
+
 /* Behavioural: the eviction rule, run for real against a DESCENDING array (the post-hydration shape). */
 (function () {
   var CAP = 3;

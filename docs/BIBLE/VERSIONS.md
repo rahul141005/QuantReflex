@@ -9,11 +9,16 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.196 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.197 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.197 (2026-08-20)** — **The ADR-151 promise finally covers every mode (ADR-167).** The deck clamp
+> existed for sets and session review, but the six modes in `startDrillFromPractice` took their count
+> verbatim — so a free user with 2 questions left read "10 Questions" and was stopped after 2. Now
+> clamped through the same helper; premium untouched, and the floor of 1 keeps a deck from being empty.
 
 > **2.196 (2026-08-20)** — **The same grading bug, still live on the server (ADR-166).** ADR-155 made
 > the client tolerance absolute; `api/duel.js` `_isCorrect` — the authoritative grader that decides who
