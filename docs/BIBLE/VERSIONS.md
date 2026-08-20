@@ -9,11 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.187 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.188 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.188 (2026-08-20)** — **A z-index is not a stacking order (ADR-158).** The pause overlay is
+> `z-index:200` and the numpad `z-index:99`, and ADR-155 read those two numbers as proof the overlay
+> covered the keypad. `#drillContainer` is `position:fixed; z-index:10` — a stacking context — so the
+> overlay's 200 resolves inside it and stays below the body-level numpad. Browser-confirmed: with the
+> pause screen open a digit tap typed and Submit graded the question, burning a daily question and
+> filing a mistake while the user believed time was frozen. Four entry points needed the guard, only
+> two had it. Corrects the erroneous disproof recorded in ADR-155.
 
 > **2.187 (2026-08-19)** — **A failed startup hydration must be recoverable (ADR-157).**
 > `loadFromFirestore` gives up after bounded retries with `_memoryCache` null — the right fail direction —

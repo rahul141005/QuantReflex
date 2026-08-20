@@ -392,6 +392,49 @@ ok(/!_purgedAwaitingHydration/.test(_adopt),
 ok(/_holdsTransientUi\(\)/.test(_adopt),
   'the recovery repaint obeys ADR-151 like every other repaint in this file');
 
+/* ── 9. Nothing may grade a question while the pause screen is up (ADR-158) ─────────────────────────────
+   A z-index comparison says the pause overlay (200) covers the numpad (99). It does not, and reasoning from
+   those two numbers is exactly how this was WRONGLY DISPROVED in the ADR-155 pass.
+   `body.drill-session-active #drillContainer` is `position:fixed; z-index:10`, and a positioned element with
+   a z-index CREATES A STACKING CONTEXT — so the overlay, appended inside that container, has its 200 resolved
+   within it and can never rise above the body-level #customNumpad. Confirmed in a real browser: with the
+   pause screen open, elementFromPoint over the keypad returned the keypad, a digit tap typed, and Submit
+   graded the question — todayAttempted 0->1 and a mistake filed while the user believed time was frozen.
+   Four doors had to close, and the two JS guards must hold even if the CSS rule is ever overridden. */
+var NUMPAD = stripComments(fs.readFileSync(path.join(ROOT, 'js/ui/numpad.js'), 'utf8'));
+var CSS = fs.readFileSync(path.join(ROOT, 'css/style.css'), 'utf8');
+
+/* the premise itself — if this ever stops being true the whole finding changes shape */
+ok(/body\.drill-session-active #drillContainer \{[^}]*position: fixed;[^}]*z-index: var\(--z-session-bg\)/.test(CSS),
+  '** the premise holds: #drillContainer is still a positioned, z-indexed STACKING CONTEXT');
+ok(/--z-session-bg:\s*10;[\s\S]{0,120}?--z-session-numpad:\s*99;/.test(CSS),
+  '** ...and the numpad still outranks it at the body level (10 vs 99)');
+
+/* The click handler is the one that had no guard. Anchor on ITS OWN body — the debounce latch it owns —
+   rather than on a comment string, because NUMPAD is comment-stripped and slicing on prose silently matched
+   the whole file, which let the keydown guard satisfy an assertion about the click guard. That mistake made
+   this very check pass while the defect was live; the mutation run is what caught it. */
+var _npClickAt = NUMPAD.indexOf('_lastNumpadClick < _NUMPAD_DEBOUNCE_MS');
+var _npClick = _npClickAt === -1 ? '' : NUMPAD.slice(Math.max(0, _npClickAt - 700), _npClickAt);
+ok(_npClickAt !== -1 && /getElementById\('drillPauseOverlay'\)[\s\S]{0,140}?classList\.contains\('modal-open'\)[\s\S]{0,40}?return;/.test(_npClick),
+  '** the numpad CLICK handler yields to a blocking overlay BEFORE it debounces (ADR-158)');
+ok((NUMPAD.match(/getElementById\('drillPauseOverlay'\)/g) || []).length >= 2,
+  '** both numpad entry paths — pointer and physical keyboard — carry the guard');
+
+/* Every answer-entry path must share the one predicate: MCQ (:374), set MCQ, set free-entry, single free-entry. */
+ok((ENGINE_C.match(/answered \|\| _blockedByOverlay\(\)\) return;/g) || []).length >= 4,
+  '** all FOUR answer-entry paths refuse under an overlay (MCQ, set MCQ, set free-entry, free-entry)');
+ok(!/var submit = function \(\) \{ if \(answered\) return;/.test(ENGINE_C),
+  '** the SET path\'s Submit button is guarded too - it was a third door into grading while paused');
+ok(!/function submit\(\) \{\s*\n?\s*if \(answered\) return;/.test(ENGINE_C),
+  '** ...and so is the single-question path\'s');
+
+ok(/document\.body\.classList\.add\('drill-paused'\)/.test(ENGINE_C) &&
+   /document\.body\.classList\.remove\('drill-paused'\)/.test(ENGINE_C),
+  'the body is marked while paused and unmarked on resume (presentational half)');
+ok(/body\.drill-paused #customNumpad,\s*\n?\s*body\.drill-paused \.drill-actions \{ display: none; \}/.test(CSS),
+  '** the two BODY-LEVEL session surfaces are hidden while paused, since the overlay cannot cover them');
+
 /* Behavioural: the eviction rule, run for real against a DESCENDING array (the post-hydration shape). */
 (function () {
   var CAP = 3;

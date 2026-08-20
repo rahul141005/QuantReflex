@@ -6,6 +6,42 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — Answers could be graded through the pause screen (ADR-158, v286)
+
+**This corrects a disproof recorded in ADR-155.** That pass concluded the numpad does not render above
+the pause overlay, comparing `--z-sticky: 200` against `--z-session-numpad: 99`. The two numbers are not
+comparable: `body.drill-session-active #drillContainer` is `position:fixed; z-index:10`, which creates a
+stacking context, and `_showPauseOverlay()` appends the overlay inside it — so 200 resolves within a
+context whose own level is 10 and never rises above a body-level element at 99.
+
+Verified in a real browser rather than argued: with the pause screen open, `elementFromPoint` over the
+keypad returned the keypad, tapping a digit typed it, and Submit graded the question — `todayAttempted`
+0 → 1 with a mistake archived, while the user believed the session was frozen.
+
+Four entry points needed the guard and only two had it. Now all four refuse under a blocking overlay:
+the numpad's pointer/click handler (the keydown handler already did), the single-question Submit, the
+set path's Submit, and the MCQ handlers that were already correct.
+
+- `main-app/js/ui/numpad.js` — overlay guard on the click handler, before the multi-touch debounce
+- `main-app/js/drill-engine.js` — `_blockedByOverlay()` on both Submit paths; `body.drill-paused`
+  added/removed around the overlay
+- `main-app/css/style.css` — `body.drill-paused` hides `#customNumpad` and `.drill-actions`
+- `main-app/scripts/practice-session-integrity.check.js` — 9 assertions, including the stacking-context
+  premise itself, so the finding changes shape loudly if the CSS ever changes
+- Docs: DECISION_LOG (ADR-158, and the ADR-155 disproof struck through), VERSIONS 2.188
+
+The JS guards were proven to hold **with the CSS defeated** — `display: grid !important` forced on the
+keypad — so correctness does not depend on the presentational rule.
+
+**Method note worth keeping:** the first version of this change's own regression check passed while the
+defect was live. It sliced a comment-stripped file on a comment string, so an assertion about the click
+guard was satisfied by the keydown guard instead. The mutation run caught it. A check that has never
+been made to fail is not evidence.
+
+Nine mutations, nine killed. Full suite green.
+
+---
+
 ## 2026-08-19 — A failed startup hydration could not recover (ADR-157, v285)
 
 `loadFromFirestore` retries a failed read a bounded number of times then gives up, setting `_dataLoaded`

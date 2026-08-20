@@ -5834,6 +5834,15 @@ html.dark-mode .drill-report-btn:active { background: rgba(255,255,255,.15); col
 body.drill-session-active .drill-report-btn {
   position: fixed; top: calc(.75rem + env(safe-area-inset-top, 0px)); left: calc(.75rem + 2.75rem + .4rem); z-index: var(--z-nav);
 }
+/* ADR-158 — while the pause screen is up, the two body-level session surfaces must not paint over it.
+   The overlay lives inside #drillContainer, which `body.drill-session-active #drillContainer` makes a stacking
+   context (position:fixed + z-index), so the overlay's z-index:200 is confined below the body-level
+   #customNumpad (99) and .drill-actions (98) no matter how high it goes. Hiding them is the presentational
+   half of the fix; the pointer/keyboard guards in js/ui/numpad.js and drill-engine's submit() are the
+   correctness half, and they stand alone if this rule is ever overridden. */
+body.drill-paused #customNumpad,
+body.drill-paused .drill-actions { display: none; }
+
 .drill-pause-overlay {
   position: fixed; inset: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: center;
   padding: 1.5rem; background: rgba(15,23,42,.55); backdrop-filter: var(--glass-scrim); -webkit-backdrop-filter: var(--glass-scrim);

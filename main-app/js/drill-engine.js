@@ -375,7 +375,10 @@ function createDrillEngine(container, opts) {
       }
     } else {
       var input = ui.answerInputEl;
-      var submit = function () { if (answered) return; if (!input.value.trim()) return; checkAnswer(input.value.trim()); }; /* sets never run in duels — empty submits ignored (ADR-091 review) */
+      /* ADR-158: `_blockedByOverlay()` here too — the set path has its own Submit button, and without this it
+         was a third way to grade a question through the pause screen. Sets never run in duels; empty submits
+         stay ignored (ADR-091 review). */
+      var submit = function () { if (answered || _blockedByOverlay()) return; if (!input.value.trim()) return; checkAnswer(input.value.trim()); };
       submitBtn.addEventListener('click', submit);
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
     }
@@ -615,7 +618,10 @@ function createDrillEngine(container, opts) {
        The input is readonly and receives input from the custom numpad buttons. */
 
     function submit() {
-      if (answered) return;
+      /* ADR-158 — the MCQ option handler (:374) and the set-path handler (:683) both refuse while a blocking
+         overlay is up; this free-entry path did not, so the Submit button was a second door into grading under
+         the pause screen even with the numpad guarded. Same predicate, same reason. */
+      if (answered || _blockedByOverlay()) return;
       /* Practice: ignore empty submissions (ADR-091 review) — a stray Submit tap must never burn
          the question with a failure verdict + sound; deliberate give-up paths are Skip or the
          timer. Duels keep empty submits: locking in blank is a legitimate "move on" play there. */
@@ -1745,6 +1751,13 @@ function createDrillEngine(container, opts) {
     /* Escape resumes — the overlay is modal, so a keyboard user isn't trapped. */
     ov.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') { ev.preventDefault(); resumeSession(); } });
     container.appendChild(ov);
+    /* ADR-158 — the overlay CANNOT cover the body-level keypad/action bar on its own: #drillContainer is a
+       stacking context (position:fixed; z-index:10), so this overlay's z-index:200 is resolved inside it and
+       still paints below #customNumpad at z-index:99. Rather than move the node to <body> (which would change
+       every container.querySelector('#drillPauseOverlay') lookup and the teardown path), mark the body and let
+       CSS hide the two body-level surfaces while paused. Presentation only — the guards in numpad.js and
+       submit() are what make it CORRECT; this is what makes it LOOK paused. */
+    try { document.body.classList.add('drill-paused'); } catch (_) {}
     var rb = ov.querySelector('#drillResumeBtn');
     if (rb) { rb.addEventListener('click', resumeSession); try { rb.focus(); } catch (_) {} }
   }
@@ -1752,6 +1765,7 @@ function createDrillEngine(container, opts) {
   function _hidePauseOverlay() {
     var ov = container.querySelector('#drillPauseOverlay');
     if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    try { document.body.classList.remove('drill-paused'); } catch (_) {}
   }
 
   /* Auto-pause when the tab is backgrounded mid-question so time-away never counts against the user. Deliberately does

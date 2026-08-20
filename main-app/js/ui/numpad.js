@@ -187,6 +187,18 @@ function hideCustomNumpad() {
     /* Guard: ensure input element is still in the DOM (prevents stale reference writes) */
     if (!document.body.contains(_numpadInput)) return;
 
+    /* ADR-158 — YIELD TO A BLOCKING OVERLAY, exactly as the physical-keyboard handler below already does.
+       This guard existed only on the keydown path, on the assumption that the on-screen keypad is covered and
+       pointer-blocked whenever the pause overlay is up. It is not. `body.drill-session-active #drillContainer`
+       is `position:fixed; z-index:10` (css/style.css), and a positioned element with a z-index creates a
+       STACKING CONTEXT — so the pause overlay, which is appended INSIDE that container, has its own z-index:200
+       resolved within it and can never rise above this body-level numpad at z-index:99. Verified in a real
+       browser: with the pause screen open, elementFromPoint over the keypad returns the keypad, tapping a digit
+       types it, and Submit grades the question — burning a daily question and filing a mistake while the user
+       believes the session is frozen. Comparing the two raw z-index values says the opposite; the stacking
+       context is what actually decides. */
+    if (document.getElementById('drillPauseOverlay') || document.body.classList.contains('modal-open')) return;
+
     /* Multi-touch debounce: drop second event if < 40ms after previous */
     var now = Date.now();
     if (now - _lastNumpadClick < _NUMPAD_DEBOUNCE_MS) return;

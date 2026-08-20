@@ -8,6 +8,39 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-158 — A z-index is not a stacking order (v286) (2026-08-20)
+
+- **Context:** the pause overlay is `z-index: 200`; `#customNumpad` is `z-index: 99`. Comparing those
+  two numbers says the overlay covers the keypad. It does not, and ADR-155 recorded that comparison as
+  a *disproof* of a real defect.
+- **Why the comparison is invalid:** `body.drill-session-active #drillContainer` is
+  `position: fixed; z-index: var(--z-session-bg)` — a positioned element with a z-index **creates a
+  stacking context**. `_showPauseOverlay()` appends the overlay INSIDE that container, so its 200 is
+  resolved *within* a context whose own level is 10, and it can never rise above a body-level element
+  at 99. Two numbers on two elements in different stacking contexts are not orderable by value.
+- **What it cost:** verified in a real browser. With the pause screen open, `elementFromPoint` over the
+  keypad returned the keypad; tapping a digit typed it; Submit graded the question. `todayAttempted`
+  went 0 → 1 and a mistake was archived — while the user believed the session was frozen. Pause is a
+  promise that time has stopped; this broke it, and it was worst on Reflex Drills where pausing is
+  most useful.
+- **Four doors, not one.** The guard existed on `numpad.js`'s physical-keyboard handler and on both
+  MCQ handlers, but not on: the numpad's **pointer/click** handler, the single-question **Submit**, or
+  the **set path's** Submit. All four now share `_blockedByOverlay()` / the same overlay predicate.
+- **Correctness and presentation are separated deliberately.** The three new JS guards are what make
+  it correct, and they were proven to hold *with the CSS defeated* (`display: grid !important` forced
+  on the keypad). A `body.drill-paused` class hiding `#customNumpad` and `.drill-actions` is what makes
+  it *look* paused. Neither depends on the other.
+- **Rejected:** moving the overlay to `<body>`. It would fix the stacking honestly, but it changes every
+  `container.querySelector('#drillPauseOverlay')` lookup and the teardown path, for a presentational
+  gain the class already delivers.
+- **Method note.** The first version of this ADR's own regression check *passed while the defect was
+  live*: it sliced a comment-stripped file on a comment string, so the assertion about the click guard
+  was actually satisfied by the keydown guard. Only the mutation run caught it. A check that has never
+  been made to fail is not evidence.
+- **Verification:** nine mutations, nine killed; browser-confirmed before and after.
+
+---
+
 ## ADR-157 — A failed startup hydration must be recoverable (v285) (2026-08-19)
 
 - **Context:** `loadFromFirestore` retries a failed read a bounded number of times and then gives up,
@@ -113,9 +146,11 @@ wired to the path where it mattered.
   to continue" then opened a paywall for something the user already owned, and their only way off the
   card was "See results" — which ENDS a session they had just become entitled to finish. Entitlement
   is now re-derived at click time, and both resume paths share one body.
-- **Disproved while verifying, and deliberately left alone.** The numpad does NOT render above the
-  pause overlay (the overlay is `--z-sticky: 200`, the numpad `--z-session-numpad: 99`, and
-  `numpad.js:238` already guards the keyboard path that bypasses z-order). Starting a set does NOT buy
+- **~~Disproved while verifying~~ — THIS DISPROOF WAS WRONG; see ADR-158.** I claimed the numpad does
+  NOT render above the pause overlay, reasoning from `--z-sticky: 200` vs `--z-session-numpad: 99`.
+  Those two numbers are not comparable: `#drillContainer` is `position:fixed; z-index:10`, which creates
+  a STACKING CONTEXT, so the overlay's 200 is resolved inside it and stays below the body-level numpad.
+  The defect was real and is fixed in ADR-158. Starting a set does NOT buy
   a free daily streak: the streak keys on `lastPracticeDate`, written only by `recordAnswer`, not on
   the `lastActiveDate` that `recordSetStarted` touches.
 - **Verification:** every new guard was proven load-bearing by deleting it and confirming a named
