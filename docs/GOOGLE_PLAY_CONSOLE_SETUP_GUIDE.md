@@ -140,6 +140,31 @@ and the account-deletion policy require.
 **Re-check these after every deploy.** A Vercel rewrite change can start swallowing `/legal/*` into
 the SPA, and the failure is silent — the URL still returns 200, it just returns the app.
 
+### 🔴 But the deployed CODE is behind — and that is what decides the payment path
+
+Verified 2026-08-20 by fetching the live origin: `https://quantreflex.app` serves **`APP_VERSION v283`**.
+The repository is at **v285**.
+
+This matters more than it looks. **The AAB is only a shell.** A Trusted Web Activity does not contain your
+JavaScript — it loads `https://quantreflex.app` at launch, so the installed Play app runs whatever the
+origin is serving *right now*, not whatever the repository says. Rebuilding the Android app changes
+nothing about the app's behaviour; only a deploy does.
+
+`v283` predates ADR-156, and in `v283` a Play build **loses** its Play verdict after any full-page
+navigation — a settings change, a logout, a session expiry. `js/payments/gateway.js` answers a lost
+verdict by selecting **Razorpay**, inside the Play app. That is the reported bug, and it is a deploy
+problem, not a build problem.
+
+**Order of operations, and it is not negotiable:**
+
+1. **Deploy the current repository to `quantreflex.app` first.** Confirm with
+   `curl -s https://quantreflex.app/service-worker.js | grep APP_VERSION` — it must read `v285` or later.
+2. Only then build/upload the AAB (STEP 9), with the launch URL set per the note in that step.
+3. Then create the two products (STEP 10) and enable the server switch (STEP 11).
+
+Building before deploying produces an app that looks correct in Play Console and behaves wrongly on the
+device, which is exactly what happened on the current internal-testing build.
+
 ---
 
 ## STEP 3 — Store listing

@@ -194,6 +194,33 @@ ok('★ referrer android-app://<our package> alone ⇒ Play distribution',
     'a Play build that forgets it is a Play build offers Razorpay — listing-removal territory');
 })();
 
+/* ADR-168 — THE REAL TWA CARRIES BOTH MARKERS AT ONCE, AND THAT IS THE CASE THAT BROKE IN PRODUCTION.
+   `_playDist = _referrerSignal() || _srcSignal()` short-circuits, and BOTH signals latch as a side effect
+   of being read. On the one configuration the guide actually asks for — launch URL `/?src=play` inside a
+   TWA, i.e. referrer AND query present — the referrer answered first, `_srcSignal()` never ran, and the
+   `?src=play` latch was never written. Reproduced in a browser against the bytes deployed at
+   quantreflex.app (v283): launch answered `play`, one full-page reload answered `razorpay`.
+
+   HONEST NOTE ON WHAT THIS PINS. It pins the OUTCOME — the latch exists and the verdict survives a
+   reload — not the mechanism. Today that outcome is satisfied TWICE OVER: ADR-156 made the referrer
+   signal latch on its own, and ADR-168 removed the short-circuit so `_srcSignal()` always runs too.
+   Either alone would satisfy these three assertions, so they do NOT discriminate between the two fixes
+   and would not have failed on the pre-ADR-168 source. They fail only if BOTH latches are lost, which
+   is exactly the production state being ratcheted against. Do not read a pass here as proof that the
+   short-circuit is gone; read it as proof that the Play verdict cannot be forgotten by a reload. */
+(function () {
+  var tab = {};
+  var launch = boot({ referrer: 'android-app://com.quantreflex.app', search: '?src=play', store: tab });
+  ok('★★ a TWA launch carrying BOTH markers is Play distribution',
+    launch.P.isPlayDistribution() === true);
+  ok('★★★ …and the latch IS written even though the referrer answered first (no || short-circuit)',
+    tab.qr_src_play === '1',
+    'the src latch was skipped by short-circuit evaluation — the next reload would select Razorpay');
+  var afterReload = boot({ referrer: '', search: '', store: tab });
+  ok('★★★ …so the verdict survives the reload on the exact build configuration we ship',
+    afterReload.P.isPlayDistribution() === true);
+})();
+
 /* ...but the latch is SESSION scope, so it can never leak into ordinary browsing of this origin later. */
 ok('★★ the latch does not leak into a fresh tab (sessionStorage, never localStorage)',
   boot({ referrer: '' }).P.isPlayDistribution() === false);

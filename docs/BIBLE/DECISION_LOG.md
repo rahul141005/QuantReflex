@@ -8,7 +8,75 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
-## ADR-167 — The ADR-151 promise finally covers every mode (v295) (2026-08-20)
+## ADR-168 — A Play build that forgets it is a Play build, and eleven version numbers that never existed (v285) (2026-08-20)
+
+**Context.** The owner installed QuantReflex from the Play Console internal-testing track and reported
+that tapping Premium still opens **Razorpay**. That is the one unrecoverable Play-policy violation this
+whole workstream exists to prevent, so it was traced rather than guessed at.
+
+**What the trace found — three separate facts, in order of decisiveness.**
+
+**1. None of this work is deployed.** `https://quantreflex.app` serves `APP_VERSION v283`. The TWA is a
+shell; the JavaScript it runs is fetched from the live origin at launch, so the installed app is running
+the code as of `origin/main`, not this branch. ADR-156 — the fix that makes a Play build keep its Play
+verdict — has never reached a device. No Android rebuild changes this; only a deploy does.
+
+**2. The deployed v283 detector cannot hold the verdict, and the failure was reproduced.** Running the
+bytes actually served from `/js/platform.js` in a browser:
+
+| launch conditions | at launch | after one full-page navigation |
+|---|---|---|
+| referrer `android-app://com.quantreflex.app`, no `?src=play` | play | **razorpay** |
+| referrer + `?src=play` | play | **razorpay** |
+| neither | razorpay | razorpay |
+
+The app performs full-page navigations from ten call sites (`js/settings.js` ×7, `js/session.js` ×2,
+`js/services/update-manager.js` ×1) — a settings change, a logout, a session expiry. Any one of them
+drops the Play verdict for the rest of the tab's life, and `js/payments/gateway.js` answers a false
+verdict by selecting Razorpay.
+
+**3. The combined case — the one the guide actually asks for — fails for a second, subtler reason.**
+`_playDist = _referrerSignal() || _srcSignal()` short-circuits, and **both signals latch as a side
+effect of being read**. On a real TWA launch document both markers are present, so the referrer answered
+first and `_srcSignal()` never ran: the `?src=play` latch was never written on precisely the build that
+carries it. Measured directly — launch with both markers, v283: `isPlayDistribution() === true`,
+`sessionStorage.qr_src_play === null`.
+
+**Decision.**
+
+- **Read both signals; never short-circuit.** `isPlayDistribution()` now evaluates `_referrerSignal()`
+  and `_srcSignal()` into locals before OR-ing them, so both latches are written regardless of which
+  answers first. On this branch ADR-156 already made the referrer latch independently, so this is
+  belt-and-braces rather than a live fix — its value is that the invariant no longer depends on an
+  internal detail of one signal.
+- **Ratchet the outcome, and say what the ratchet does not prove.** `scripts/platform.check.js` gains
+  three assertions covering the combined launch. They pin the *outcome* — the latch exists, the verdict
+  survives a reload — not the mechanism, and they are satisfied by either fix alone, so they would not
+  have failed on the pre-ADR-168 source. The check comment says so explicitly rather than implying a
+  discrimination it does not have.
+- **The real remedy is a deploy, and it is recorded as such.** No client change can rescue a build whose
+  origin serves v283.
+
+**Also corrected here: the version numbers.** ADR-156 through ADR-167 carried headings claiming `v284`
+through `v295`. Exactly **one** `APP_VERSION` bump landed across those eighteen commits (`v283 → v284`,
+in the ADR-161 commit), and `v284` was never deployed. Eleven of those twelve version numbers therefore
+described nothing. They all ship in one release, so all twelve headings now read **v285**, and
+`APP_VERSION` is bumped `v284 → v285` in lockstep with `index.html`. This is a labelling correction, not
+a cache-correctness one: because `v284` never reached production, no client ever cached under a version
+label that later changed meaning.
+
+**Consequences.** A deployed build keeps its Play verdict across every navigation the app performs. The
+Play adapter still reports `isReady() === false` until the two Play Console products exist and the
+`config/playBilling` operator switch is on, so the correct behaviour inside the Play app today is **no
+purchase control at all** — never Razorpay. Web, mobile browser and installed-PWA users are untouched:
+they raise neither marker and continue to get Razorpay.
+
+**Rejected.** Putting `?src=play` in `manifest.json` `start_url`. It would make every installed *web*
+PWA latch as a Play build and lose its Razorpay option — the marker belongs on the TWA launch URL only.
+
+---
+
+## ADR-167 — The ADR-151 promise finally covers every mode (v285) (2026-08-20)
 
 - **Context:** ADR-151 established the rule "don't advertise questions the allowance can't cover" and
   implemented it for DI/Reasoning sets. ADR-155 extended it to session review. The six modes in
@@ -32,7 +100,7 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
-## ADR-166 — The same grading bug, still live on the server, deciding who wins (v294) (2026-08-20)
+## ADR-166 — The same grading bug, still live on the server, deciding who wins (v285) (2026-08-20)
 
 - **Context:** ADR-155 replaced the client's relative grading tolerance with an absolute rule, because
   `max(0.01, 0.1% of |expected|)` grew without limit — on a ₹8,800 answer it accepted anything within
@@ -58,7 +126,7 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
-## ADR-165 — A deck that repeated itself, and a subject that only ever showed five topics (v293) (2026-08-20)
+## ADR-165 — A deck that repeated itself, and a subject that only ever showed five topics (v285) (2026-08-20)
 
 Two independent defects in `js/questions.js`, both invisible from inside the app because the SYMPTOM
 looks like normal variety.
@@ -96,7 +164,7 @@ looks like normal variety.
 
 ---
 
-## ADR-164 — An MCQ with two correct answers, one of them graded wrong (v292) (2026-08-20)
+## ADR-164 — An MCQ with two correct answers, one of them graded wrong (v285) (2026-08-20)
 
 - **The question:** *"Who among the following is **an** immediate neighbour of X?"* (and the floor
   variant, *"immediately adjacent to X"*). `js/lr-set-engine.js` picks the subject from
@@ -128,7 +196,7 @@ looks like normal variety.
 
 ---
 
-## ADR-163 — A leaked scroll lock became a total input outage (v291) (2026-08-20)
+## ADR-163 — A leaked scroll lock became a total input outage (v285) (2026-08-20)
 
 - **Context:** `QROverlay` ref-counts `body.modal-open` per class, adding it on open and removing it
   only at count zero, so stacked overlays cannot unlock early. Two callers reached **past** that
@@ -167,7 +235,7 @@ looks like normal variety.
 
 ---
 
-## ADR-162 — Refusing a destructive no-op, and a P1 I could not reproduce (v290) (2026-08-20)
+## ADR-162 — Refusing a destructive no-op, and a P1 I could not reproduce (v285) (2026-08-20)
 
 - **The claim, from an audit agent (P1):** `applyUpdate()` purges every cache and then navigates with no
   `navigator.onLine` check, so an offline user who taps the always-visible "Update App" button loses the
@@ -198,7 +266,7 @@ looks like normal variety.
 
 ---
 
-## ADR-161 — Only the shell may be stored under the shell key (v289) (2026-08-20)
+## ADR-161 — Only the shell may be stored under the shell key (v285) (2026-08-20)
 
 - **Context:** the service worker's navigation branch cached every successful in-scope navigation under
   the canonical key `./index.html`. The *canonical-key* part is correct and deliberate — audit
@@ -234,7 +302,7 @@ looks like normal variety.
 
 ---
 
-## ADR-160 — ADR-152 was wired to one purge path out of two, and cleared on the third (v288) (2026-08-20)
+## ADR-160 — ADR-152 was wired to one purge path out of two, and cleared on the third (v285) (2026-08-20)
 
 - **Context:** ADR-152 added `_purgedAwaitingHydration` because `AppState.getProgress()` never returns
   null — it hands back a zeroed `DEFAULT_PROGRESS` clone — so between purging localStorage and receiving
@@ -268,7 +336,7 @@ looks like normal variety.
 
 ---
 
-## ADR-159 — A clock guard that defended only one direction (v287) (2026-08-20)
+## ADR-159 — A clock guard that defended only one direction (v285) (2026-08-20)
 
 - **Context:** `entitlement-core.js` `clockSafeNow()` anchors on
   `max(planUpdatedAt, updatedAt, createdAt)` and, when `now` is more than `CLOCK_SKEW_TOLERANCE_MS`
@@ -308,7 +376,7 @@ looks like normal variety.
 
 ---
 
-## ADR-158 — A z-index is not a stacking order (v286) (2026-08-20)
+## ADR-158 — A z-index is not a stacking order (v285) (2026-08-20)
 
 - **Context:** the pause overlay is `z-index: 200`; `#customNumpad` is `z-index: 99`. Comparing those
   two numbers says the overlay covers the keypad. It does not, and ADR-155 recorded that comparison as
@@ -366,7 +434,7 @@ looks like normal variety.
 
 ---
 
-## ADR-156 — The TWA referrer must name OUR package, and must survive a reload (v284) (2026-08-19)
+## ADR-156 — The TWA referrer must name OUR package, and must survive a reload (v285) (2026-08-19)
 
 - **Context:** `js/platform.js` answers the one question that decides which payment path a build may
   offer. Its `_referrerSignal()` tested `/^android-app:\/\//` — ANY Android app — and did not latch.

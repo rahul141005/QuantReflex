@@ -161,7 +161,20 @@
          right question; it just no longer decides WHICH STORE the user belongs to.
          ADR-144's fail-safe direction is unchanged: if either real marker is present we still answer
          Play, which resolves to no purchase path rather than to Razorpay inside a Play app. */
-      _playDist = _referrerSignal() || _srcSignal();
+      /* ADR-168 — EVALUATE BOTH, NEVER SHORT-CIRCUIT. `a || b` stops at the first true, and both of
+         these signals LATCH as a side effect of being read. A real TWA launch document carries BOTH
+         markers, so `||` meant the referrer answered first and `_srcSignal()` never ran — the
+         `?src=play` latch was therefore never written on precisely the build that carries it, and the
+         next full-page navigation (js/settings.js reloads on several settings changes, js/session.js
+         on logout/expiry) lost every marker at once. That is the shipped v283 behaviour, reproduced
+         in a browser against the deployed bytes: launch answered `play`, one reload answered
+         `razorpay` — Razorpay inside a Play app, the one unrecoverable Play-policy violation.
+         ADR-156 fixed it from the other end by latching the referrer too, which makes the two writes
+         independent again. This line stops the fix from depending on that: read BOTH signals so BOTH
+         latch, and the verdict no longer turns on which one is tested first. */
+      var _refSig = _referrerSignal();
+      var _srcSig = _srcSignal();
+      _playDist = _refSig || _srcSig;
     }
     return _playDist;
   }
