@@ -507,6 +507,7 @@
       notifEnableFailed: 'Couldn\'t enable notifications — check your browser or device permissions.',
       updatingApp: '⏳ Updating app...',
       updatingAppToast: 'Updating app...',
+      updateOfflineToast: 'You\u2019re offline \u2014 reconnect first, then update.',
       logoutFailed: 'Logout failed: {error}',
       versionLine: 'Version {version}',
       updateReadyLine: '🚀 An update is ready — install it from Settings → Update App.',

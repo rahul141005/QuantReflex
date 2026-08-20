@@ -502,6 +502,7 @@
       notifEnableFailed: 'सूचनाएँ चालू नहीं हो सकीं — अपने ब्राउज़र या डिवाइस की अनुमतियाँ जाँचें।',
       updatingApp: '⏳ ऐप अपडेट हो रहा है...',
       updatingAppToast: 'ऐप अपडेट हो रहा है...',
+      updateOfflineToast: 'आप ऑफ़लाइन हैं \u2014 पहले कनेक्ट करें, फिर अपडेट करें।',
       logoutFailed: 'लॉग आउट विफल: {error}',
       versionLine: 'संस्करण {version}',
       updateReadyLine: '🚀 अपडेट तैयार है — सेटिंग्स → ऐप अपडेट करें से इंस्टॉल करें।',

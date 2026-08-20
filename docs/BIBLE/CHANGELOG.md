@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — Refusing a destructive no-op, and a P1 that did not survive testing (ADR-162, v290)
+
+An audit agent reported a P1: `applyUpdate()` purges every cache and then navigates with no
+`navigator.onLine` check, so an offline user tapping the always-visible "Update App" button loses the
+offline app.
+
+**The mechanism is real. The consequence is not.** The button is always visible (`index.html:1001`,
+labelled "Refresh app to latest version"), there is no online check, and the purge does delete entries —
+measured in headless Chromium at **176 → 121** after an offline tap. But the next offline launch was
+**fully usable**: zero missing globals of the ten checked, stylesheet loaded, all 119 script tags present,
+and the only failed requests were Firebase calls that fail offline anyway. The browser's HTTP disk cache
+and the still-active worker covered the loss. The P1 severity is **not supported**, and is recorded in the
+decision log as not reproduced.
+
+The fix is kept on a narrower, honest justification: purging every cache while offline cannot succeed —
+there is no network to fetch a replacement from — so it is purely destructive. The masking that saved it
+here is not guaranteed, since the HTTP disk cache can be evicted under storage pressure.
+
+- `shared/update/update-manager.js` — resolves `{applied:false, reason:'offline'}` instead of purging when
+  `navigator.onLine === false`; the three app copies regenerated via `scripts/sync-update-manager.js`
+- `main-app/js/settings.js` — restores the button and explains, rather than leaving it stuck on "Updating…"
+- `main-app/locales/{en,hi,mr}.js` — `settings.updateOfflineToast`
+- Docs: DECISION_LOG (ADR-162), VERSIONS 2.192
+
+Recorded deliberately even though the headline claim failed. A log of only-confirmed findings teaches the
+next reader that every reported severity was correct, and this one was not.
+
+---
+
 ## 2026-08-20 — Opening the privacy policy replaced the offline app (ADR-161, v289)
 
 The service worker's navigation branch cached every successful in-scope navigation under the canonical key

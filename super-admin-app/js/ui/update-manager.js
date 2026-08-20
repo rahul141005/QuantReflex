@@ -17,7 +17,9 @@
  *                          //   themed "✅ App updated successfully".
  *   })
  *   QRUpdateManager.isUpdateAvailable() -> bool   // drives the conditional Update button
- *   QRUpdateManager.applyUpdate()       -> Promise (never resolves; the page reloads)
+ *   QRUpdateManager.applyUpdate()       -> Promise; normally never settles (the page reloads),
+ *                                          but resolves {applied:false, reason:'offline'} rather than
+ *                                          purging the only copy of the app while offline (ADR-162)
  *
  * CANONICAL SOURCE: shared/update/update-manager.js. Because shared/ is OUTSIDE every app's Vercel
  * deploy root (the ADR-099 P0), each app loads a BYTE-IDENTICAL local copy instead of cross-root:
@@ -180,12 +182,26 @@
      The cache purge makes the reload safe regardless of which worker controls the reloaded page
      (empty cache ⇒ every asset comes from the network in a single load — no stale/partial state). */
   function applyUpdate() {
+    var nav = root.navigator;
+    /* ADR-162 — REFUSE TO PURGE THE ONLY COPY OF THE APP WHILE OFFLINE.
+       The steps below delete EVERY cache and then navigate. That is correct when the network can supply a
+       replacement and catastrophic when it cannot: offline, the purge removes the precached shell and every
+       asset, the navigation then has nothing to fall back on, and the user is left on a browser error page.
+       In a browser that is merely annoying — reload when you reconnect. In the Play build there is no URL
+       bar, no reload button and no tab switcher, so the app is simply broken until connectivity returns.
+       The trigger is not exotic: the button is ALWAYS visible in Settings and reads "Update App / Refresh
+       app to latest version", which sounds like a harmless thing to try when something looks stale — and
+       looking stale is exactly what being offline feels like.
+       Resolving with a value rather than throwing keeps every existing caller working; those that inspect
+       it can restore their button and say why. */
+    if (nav && nav.onLine === false) {
+      return Promise.resolve({ applied: false, reason: 'offline' });
+    }
     var done = function () {
       _set(_updatingKey(), 'true');
       var pathname = (root.location && root.location.pathname) || '/';
       try { root.location.href = pathname; } catch (_) {}
     };
-    var nav = root.navigator;
     if (root.caches && root.caches.keys) {
       return root.caches.keys().then(function (keys) {
         return Promise.all(keys.map(function (k) { return root.caches.delete(k); }));
@@ -201,7 +217,7 @@
       }).then(done, done);
     }
     done();
-    return Promise.resolve();
+    return Promise.resolve({ applied: true, reason: 'no-cache-api' });
   }
 
   var QRUpdateManager = { init: init, isUpdateAvailable: isUpdateAvailable, applyUpdate: applyUpdate };

@@ -682,6 +682,7 @@ function initSettingsView() {
     rebind(updateAppBtn, 'click', function () {
       updateAppBtn.disabled = true;
       var labelEl = updateAppBtn.querySelector('.settings-btn-label');
+      var _origLabel = labelEl ? labelEl.textContent : updateAppBtn.textContent;   /* ADR-162 restore point */
       if (labelEl) {
         labelEl.textContent = QRI18n.t('settings.updatingApp');
       } else {
@@ -691,7 +692,18 @@ function initSettingsView() {
       /* ADR-102: the shared QRUpdateManager owns cache-purge + skip-waiting + the one-shot reload
          (identical sequence to before). This handler is now pure presentation + the action call. */
       if (typeof QRUpdateManager !== 'undefined') {
-        QRUpdateManager.applyUpdate();
+        /* ADR-162: applyUpdate normally never settles — the page navigates out from under us. It DOES
+           resolve when it declined to run, which today means the device is offline: purging every cache
+           without a network to refill them would leave the app with nothing to load. Restore the button
+           and say why, rather than leaving it stuck on "Updating…" forever. */
+        QRUpdateManager.applyUpdate().then(function (res) {
+          if (res && res.applied === false) {
+            updateAppBtn.disabled = false;
+            if (labelEl) labelEl.textContent = _origLabel;
+            else updateAppBtn.textContent = _origLabel;
+            if (typeof showToast === 'function') showToast(QRI18n.t('settings.updateOfflineToast'));
+          }
+        }, function () { /* a rejection still means the page is on its way out — leave the button as is */ });
       } else {
         window.location.href = window.location.pathname;
       }

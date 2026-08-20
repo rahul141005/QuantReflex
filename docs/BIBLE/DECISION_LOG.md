@@ -8,6 +8,37 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-162 — Refusing a destructive no-op, and a P1 I could not reproduce (v290) (2026-08-20)
+
+- **The claim, from an audit agent (P1):** `applyUpdate()` purges every cache and then navigates with no
+  `navigator.onLine` check, so an offline user who taps the always-visible "Update App" button loses the
+  offline app.
+- **What I verified, and what I could NOT.** The mechanism is real: the button *is* always visible
+  (`index.html:1001`, labelled "Refresh app to latest version" — it sounds harmless), there *is* no
+  online check, and the purge *does* delete cache entries — measured in headless Chromium, **176 → 121**
+  after an offline tap. **The consequence is not.** On the very next offline launch the app was
+  **fully usable**: zero missing globals of the ten checked, stylesheet loaded, all 119 script tags
+  present; the only failed requests were Firebase calls that fail offline regardless. The browser's HTTP
+  disk cache and the still-active worker covered the loss. So the P1 severity is **not supported** and
+  the claim is recorded here as **not reproduced**.
+- **The fix is kept anyway, on a narrower and honest justification.** Purging every cache while offline
+  cannot possibly succeed — there is no network to fetch a replacement from — so it is a purely
+  destructive no-op. It costs the user cache entries that must be re-fetched later, and the masking that
+  saved it here is not guaranteed: the HTTP disk cache can be evicted under storage pressure, and its
+  contents depend on response headers this app does not control.
+- **Decision:** `applyUpdate()` resolves `{applied:false, reason:'offline'}` instead of purging when
+  `navigator.onLine === false`. Resolving with a value rather than throwing keeps every existing caller
+  working. `js/settings.js` restores the button and shows `settings.updateOfflineToast` ("You're offline —
+  reconnect first, then update.") rather than leaving it stuck on "Updating…" forever. String added to
+  all three locales.
+- **Canonical source respected:** edited `shared/update/update-manager.js` and regenerated the three
+  byte-identical app copies with `scripts/sync-update-manager.js`, which `update.check.js` enforces.
+- **Why this entry exists at all.** A finding that survives investigation with its mechanism intact but
+  its consequence disproved is worth writing down. Recording only confirmed bugs teaches the next reader
+  that every reported severity was correct — and this one was not.
+
+---
+
 ## ADR-161 — Only the shell may be stored under the shell key (v289) (2026-08-20)
 
 - **Context:** the service worker's navigation branch cached every successful in-scope navigation under

@@ -9,11 +9,17 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.191 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.192 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.192 (2026-08-20)** — **Refusing a destructive no-op (ADR-162).** `applyUpdate()` purged every
+> cache before navigating, with no online check. The reported P1 — that an offline tap loses the app —
+> was **not reproduced**: entries did drop 176 → 121, but the next offline launch was fully usable. The
+> guard is kept on the narrower ground that purging caches offline cannot succeed and is purely
+> destructive; the button now says why instead of hanging on "Updating…".
 
 > **2.191 (2026-08-20)** — **Only the shell may be stored under the shell key (ADR-161).** The service
 > worker cached every in-scope navigation as `./index.html`, so opening one of the three legal documents
