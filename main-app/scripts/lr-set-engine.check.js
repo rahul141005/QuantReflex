@@ -76,7 +76,26 @@ var RANK = { easy: 0, medium: 1, hard: 2 };
       ok(cat + ' answer in options', q.options.indexOf(String(q.answer)) !== -1);
       ok(cat + ' options distinct', new Set(q.options).size === q.options.length);
       var exp = expectedFor(q.question, sol);
-      if (Array.isArray(exp)) ok(cat + ' neighbour answer valid', exp.indexOf(String(q.answer)) !== -1);
+      if (Array.isArray(exp)) {
+        ok(cat + ' neighbour answer valid', exp.indexOf(String(q.answer)) !== -1);
+        /* ADR-164 — AND IT MUST BE THE ONLY VALID ANSWER ON OFFER.
+           `exp` is an ARRAY here precisely because "an immediate neighbour of X" has TWO correct
+           answers whenever X is not at an end — and the generator only ever asks about interior
+           positions. The assertion above checks the KEY is a neighbour, which it always was; it never
+           checked whether the OTHER neighbour was also sitting in the option list. It was: measured at
+           291 of 445 questions (65.4%) before the fix. A student who named the un-keyed neighbour was
+           told they were wrong, which for an exam-prep app is the worst possible failure — it teaches
+           that a correct method is incorrect.
+           An MCQ must have exactly one correct option. This asserts that property directly, so it
+           holds however the generator later changes. */
+        var alsoCorrect = (q.options || []).map(String).filter(function (o) {
+          return exp.indexOf(o) !== -1 && o !== String(q.answer);
+        });
+        ok(cat + ' ** neighbour question offers exactly ONE correct answer (ADR-164)',
+          alsoCorrect.length === 0,
+          alsoCorrect.length ? ('also correct but graded wrong: ' + alsoCorrect.join(', ') +
+            ' | q=' + q.question + ' | options=' + (q.options || []).join('/')) : '');
+      }
       else if (exp !== undefined) ok(cat + ' answer matches solution', String(exp) === String(q.answer));
       else ok(cat + ' question recognized: ' + q.question, false);
     });

@@ -8,6 +8,38 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-164 — An MCQ with two correct answers, one of them graded wrong (v292) (2026-08-20)
+
+- **The question:** *"Who among the following is **an** immediate neighbour of X?"* (and the floor
+  variant, *"immediately adjacent to X"*). `js/lr-set-engine.js` picks the subject from
+  `_ri(1, N - 2)`, so X is **never at an end** and therefore always has **two** neighbours. Both are
+  correct answers to the question as worded.
+- **The defect:** `ans: _pick(nb)` keyed one of them at random while `opts: people` offered *everyone* —
+  so the other neighbour sat in the list as a distractor. A student who named it was told they were
+  wrong. For an exam-prep app that is the worst failure available: it teaches that a correct method is
+  incorrect, in a premium mode.
+- **Measured, not estimated.** Driving the real generator in headless Chromium across both categories:
+  **291 of 445 neighbour questions (65.4%)** offered two correct answers. A representative case —
+  *"Who among the following is an immediate neighbour of Gita?"*, options Deepak / Gita / Bina /
+  Farhan, keyed **Farhan**, while **Bina** is equally correct. After the fix: **0 of 464**.
+- **The generator already knew.** `_v.any` records BOTH valid neighbours. But `generateSet()` maps
+  questions through a whitelist that drops `_v`, and the drill engine grades by option VALUE against
+  `q.answer` — so nothing downstream could ever have used it.
+- **Decision:** remove the un-keyed neighbour from the OPTION POOL for that one question. This fixes
+  the ambiguity exactly where it reaches the user, without touching the question text (an i18n change
+  across three locales) or the answer key. N is 5–6, so the pool still yields the full four options.
+- **Why the existing suite missed it.** `lr-set-engine.check.js` already recomputed every answer from
+  `_solution`, and its neighbour rule correctly returns an ARRAY of both valid names — then asserted
+  only that the key was *one of* them. It never asked whether the other was also on offer. The
+  assertion now states the real property: an MCQ has exactly one correct option. One mutation, 16
+  assertions killed.
+- **A third harness lesson.** My first probe for this reported a clean pass with `total: 0` — it looked
+  for `_v`, which `generateSet` strips, so it examined nothing and declared victory. A probe that finds
+  no cases is not a passing probe, and the rewritten one asserts on what the user actually receives
+  (`subtype` + `_solution`) rather than on internal metadata.
+
+---
+
 ## ADR-163 — A leaked scroll lock became a total input outage (v291) (2026-08-20)
 
 - **Context:** `QROverlay` ref-counts `body.modal-open` per class, adding it on open and removing it

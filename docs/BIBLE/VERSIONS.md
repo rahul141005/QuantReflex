@@ -9,11 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.193 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.194 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.194 (2026-08-20)** — **An MCQ with two correct answers (ADR-164).** "Who is an immediate
+> neighbour of X?" always has two correct answers, because the generator only asks about interior
+> positions — but it keyed one at random and offered everyone, so 291 of 445 questions (65.4%) put the
+> other correct name in the list as a distractor and graded it wrong. Now the un-keyed neighbour is
+> excluded from the option pool: 0 of 464. The existing check asserted the key was *a* neighbour, never
+> that it was the only one offered.
 
 > **2.193 (2026-08-20)** — **A leaked scroll lock became a total input outage (ADR-163).** Two callers
 > reached past QROverlay's ref-counted `body.modal-open` — the router's `_cleanupOverlays` stripped it

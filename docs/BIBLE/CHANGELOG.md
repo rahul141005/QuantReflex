@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — A Reasoning question with two correct answers graded one of them wrong (ADR-164, v292)
+
+*"Who among the following is an immediate neighbour of X?"* — the generator picks X from
+`_ri(1, N - 2)`, so X is never at an end and always has TWO neighbours. Both answer the question as
+worded. `ans: _pick(nb)` keyed one at random while `opts: people` offered everyone, so the other correct
+name sat in the list as a distractor and a student who chose it was marked wrong.
+
+Measured against the real generator in headless Chromium: **291 of 445 (65.4%)** before, **0 of 464**
+after. A representative case: *"Who among the following is an immediate neighbour of Gita?"* — options
+Deepak / Gita / Bina / Farhan, keyed Farhan, while Bina is equally correct.
+
+- `main-app/js/lr-set-engine.js` — the un-keyed neighbour is removed from the option pool. Fixes the
+  ambiguity where it reaches the user, without touching the question text (an i18n change across three
+  locales) or the answer key; N is 5–6 so four options still render
+- `main-app/scripts/lr-set-engine.check.js` — asserts the real property: an MCQ has exactly ONE correct
+  option. The old assertion checked the key was *a* neighbour and never that it was the only one offered
+
+The generator already knew both were valid (`_v.any`), but `generateSet()` drops `_v` and the engine
+grades by option value — so nothing downstream could have used it.
+
+**Harness lesson, the third this pass:** my first probe reported a clean pass with `total: 0`, because it
+looked for `_v`. A probe that finds no cases is not a passing probe. The rewritten one asserts on what
+the user actually receives.
+
+One mutation, 16 assertions killed. Full suite green.
+
+---
+
 ## 2026-08-20 — A leaked scroll lock left no question answerable anywhere (ADR-163, v291)
 
 `QROverlay` ref-counts `body.modal-open`, adding it on open and removing it only at count zero. Two

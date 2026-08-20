@@ -93,7 +93,24 @@
     var ii = _ri(0, N - 2); bank.push({ skill: 'neighbour', d: 'medium', q: V.qImmRight(names[sol[ii]]), ans: names[sol[ii + 1]], opts: people, _v: { t: 'immRight', x: names[sol[ii]] } });
     var gi = _ri(0, N - 2), gj = _ri(gi + 1, N - 1); bank.push({ skill: 'count', d: 'medium', q: V.qBetween(names[sol[gi]], names[sol[gj]]), ans: String(gj - gi - 1), opts: ['0', '1', '2', '3', '4', '5'], _v: { t: 'between', x: names[sol[gi]], y: names[sol[gj]] } });
     var kk = _ri(2, N - 1); bank.push({ skill: 'fromend', d: 'hard', q: V.qFromRight(kk), ans: names[sol[N - kk]], opts: people, _v: { t: 'fromRight', k: kk } });
-    var ni = _ri(1, N - 2); var nb = [names[sol[ni - 1]], names[sol[ni + 1]]]; bank.push({ skill: 'adjacency', d: 'hard', q: V.qNeighbour(names[sol[ni]]), ans: _pick(nb), opts: people, _v: { t: 'neighbour', x: names[sol[ni]], any: nb } });
+    /* ADR-164 — THIS QUESTION HAS TWO CORRECT ANSWERS; ONLY ONE MAY BE OFFERED.
+       The stem is "Who among the following is AN immediate neighbour of X?" (and the floor variant,
+       "immediately adjacent to X"). With 1 <= ni <= N-2, X is never at an end, so BOTH sol[ni-1] and
+       sol[ni+1] are genuinely correct. `ans` keys one of them at random while `opts: people` offered
+       everyone — so the other neighbour sat in the list as a distractor and a student who named it was
+       told they were wrong. For an exam-prep app that is the worst possible failure: it teaches a
+       correct method is incorrect.
+       The generator already knew — `_v.any` records BOTH — but nothing consults it at grading time, and
+       the drill engine grades by option VALUE against `q.answer`.
+       Removing the un-keyed neighbour from the OPTION POOL fixes it where the ambiguity actually
+       reaches the user, without touching the question text (which would mean an i18n change across
+       three locales) or the answer key. N is 5-6, so the pool still yields the full 4 options. */
+    var ni = _ri(1, N - 2);
+    var nb = [names[sol[ni - 1]], names[sol[ni + 1]]];
+    var nbAns = _pick(nb);
+    var nbOther = (nbAns === nb[0]) ? nb[1] : nb[0];
+    var nbOpts = people.filter(function (nm) { return nm !== nbOther; });
+    bank.push({ skill: 'adjacency', d: 'hard', q: V.qNeighbour(names[sol[ni]]), ans: nbAns, opts: nbOpts, _v: { t: 'neighbour', x: names[sol[ni]], any: nb } });
     var diffs = count <= 4 ? ['easy', 'medium', 'medium', 'hard'] : ['easy', 'easy', 'medium', 'medium', 'hard'];
     var bySkill = {}, picked = [];
     _shuffle(bank).forEach(function (b) { if (!bySkill[b.skill]) { bySkill[b.skill] = 1; picked.push(b); } });
