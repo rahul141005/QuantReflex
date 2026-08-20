@@ -8,6 +8,39 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-172 — The one payment route with no timeout was the one that calls Google (v285) (2026-08-21)
+
+**Context.** Reviewing the operator's live Pub/Sub push subscription against the handler it delivers to.
+
+**Finding.** `vercel.json` declares `maxDuration` for six routes. `api/payment/play-rtdn.js` is not one
+of them, so it inherits the platform default — while its direct sibling `api/payment/webhook.js`, the
+Razorpay equivalent doing the same shape of work, is explicitly given **15 s**. That is an omission
+rather than a decision: this handler does an outbound `androidpublisher` round-trip **plus** Firestore
+reads and writes before it can answer, which is strictly more work than the webhook it sits beside.
+
+The other undeclared routes (`session`, `notify`, `validate-coaching`, `auth/register`) are short
+request/response work with no third-party round-trip, so the default is right for them.
+
+**Why it matters even though nothing is lost.** A timeout is not data loss: the handler is idempotent
+and Pub/Sub redelivers on any non-2xx. But every slow Google call burns a redelivery, and against
+Pub/Sub's **default 10 s acknowledgement deadline** a handler that legitimately needs longer settles
+into a hot retry loop — the subscription redelivering a message the previous attempt is still working
+on. The two deadlines have to be set with each other in mind, and neither was.
+
+**Decision.** Declare `api/payment/play-rtdn.js` at `maxDuration: 15`, the same as the sibling it
+mirrors — not a larger number chosen for comfort. `scripts/play-rtdn.check.js` gains two assertions
+(T20) that read the real `vercel.json` and fail if the entry is missing or drifts away from the
+webhook's value; both were mutation-tested by deleting the entry.
+
+**Operator counterpart, recorded because the code alone cannot fix it.** The push subscription's
+acknowledgement deadline should be raised above the function budget (60 s is comfortable), and its
+**expiration period must be set to "Never expire"** — the console default expires a subscription after
+31 days of inactivity, and a new app can easily go 31 days without a refund, at which point the
+subscription is deleted and refunds stop being processed silently. Both are in
+`docs/GOOGLE_PLAY_CONSOLE_SETUP_GUIDE.md`.
+
+---
+
 ## ADR-171 — The RTDN docstring promised a guarantee the voided path does not give (v285) (2026-08-21)
 
 **Context.** Checking the blast radius of a weak `PLAY_RTDN_SECRET` before advising on it, rather than

@@ -576,6 +576,30 @@ Two practical notes verified against the current code:
 3. On the topic's **Permissions** tab, grant
    `google-play-developer-notifications@system.gserviceaccount.com` the role **Pub/Sub Publisher**.
 
+**Four subscription settings that are not the console defaults.** The defaults are wrong for this
+endpoint in ways that fail silently rather than loudly:
+
+| Setting | Set it to | Why |
+|---|---|---|
+| **Expiration period** | **Never expire** | The default expires the subscription after **31 days of inactivity**. A new app can easily go 31 days without a refund — the subscription is then deleted and refunds stop being processed, with no error anywhere. This is the one that will bite you months from now. |
+| **Acknowledgement deadline** | **60 seconds** | The default is 10 s. The handler makes an `androidpublisher` round-trip plus Firestore reads/writes and is declared at `maxDuration: 15` (ADR-172), so 10 s can expire while the first attempt is still working — Pub/Sub then redelivers on top of it. |
+| **Retry policy** | **Retry after exponential backoff delay** | "Retry immediately" turns a transient Firestore or Google blip — which the handler correctly answers with a 500 — into a hot loop against your own function. |
+| **Enable payload unwrapping** | **leave OFF** | `_decode` reads `body.message.data` and base64-decodes it. Unwrapping strips that envelope, `_decode` returns null, and **every notification is silently ignored** as `no_known_notification`. |
+
+**`Enable authentication` and `PLAY_RTDN_AUDIENCE` are one switch, not two.** `_authenticate` requires a
+Bearer token *only when* `PLAY_RTDN_AUDIENCE` is set. So:
+
+- Audience unset + authentication unchecked → shared secret only. Works.
+- Audience **set** + authentication **unchecked** → **every notification 401s.** Broken.
+- Audience set + authentication checked (audience = the full push URL) → both factors. Best.
+
+If you turn one on, turn on the other, and prefer this order: tick **Enable authentication** in
+Pub/Sub first, then add `PLAY_RTDN_AUDIENCE` in Vercel and redeploy. That ordering never leaves a
+window where notifications are rejected.
+
+**When you rotate `PLAY_RTDN_SECRET`, change it in BOTH places** — the Vercel variable *and* the `?key=`
+on this push endpoint URL — and redeploy. They are compared directly; a mismatch 401s everything.
+
 **[YOU — PLAY CONSOLE]** ✅ *Monetise with Play → **Monetisation setup*** → Real-time developer
 notifications → paste `projects/YOUR-PROJECT-ID/topics/play-rtdn` → **Send test notification** → it
 must succeed.

@@ -542,6 +542,25 @@ console.log('Google Play RTDN + reconciliation (ADR-146, WS6)\n');
   ok(U('u19').plan === 'premium', 'T19 …and the Razorpay entitlement is untouched');
   ok(GOOGLE.gets.length === 0, 'T19 ★ …and Google is never asked about a Razorpay payment');
 
+  /* ADR-172 — THE HANDLER MUST BE GIVEN TIME TO TALK TO GOOGLE.
+     This endpoint does an outbound androidpublisher round-trip plus Firestore reads and writes before
+     it can answer. Its direct sibling api/payment/webhook.js — the Razorpay equivalent, same shape of
+     work — is declared with maxDuration 15 in vercel.json; play-rtdn.js was simply left out and
+     inherited the platform default. A timeout is not data loss (the handler is idempotent and Pub/Sub
+     redelivers on any non-2xx) but it burns a redelivery on every slow Google call, and against
+     Pub/Sub's default 10s acknowledgement deadline it can settle into a hot retry loop. Pin it to the
+     sibling so the omission cannot recur. */
+  (function () {
+    var vercel = JSON.parse(require('fs').readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+    var fns = vercel.functions || {};
+    var rtdn = fns['api/payment/play-rtdn.js'];
+    var webhook = fns['api/payment/webhook.js'];
+    ok(!!(rtdn && rtdn.maxDuration),
+      'T20 ** the RTDN handler declares an explicit maxDuration (it calls Google before it can answer)');
+    ok(!!(rtdn && webhook && rtdn.maxDuration === webhook.maxDuration),
+      'T20 ** …and it matches the Razorpay webhook, which does the same shape of work');
+  })();
+
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);
