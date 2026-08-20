@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-159 — A clock guard that defended only one direction (v287) (2026-08-20)
+
+- **Context:** `entitlement-core.js` `clockSafeNow()` anchors on
+  `max(planUpdatedAt, updatedAt, createdAt)` and, when `now` is more than `CLOCK_SKEW_TOLERANCE_MS`
+  behind that anchor, returns the anchor instead. That is the correct defence against a device clock
+  rolled **backwards** to extend a lapsed subscription.
+- **The defect:** the mirror image was unguarded. `js/firestore-sync.js` `_validateAndFillDefaults()`
+  stamped `patch.updatedAt = new Date().toISOString()` — the **client** clock — and persisted it to the
+  server document. A clock rolled **forwards** therefore wrote a future instant into the very field the
+  guard trusts. The poison is permanent and global: every later device, on a correct clock, reads that
+  future `updatedAt`, `clockSafeNow()` snaps "now" forward to it, `isActivePremium()` compares that
+  against `planExpiry` — and a **paying user is told their subscription has ended, on every device**,
+  until the field is repaired by hand.
+- **`_serverTs()` already existed for exactly this**, and its own comment says it is used "everywhere we
+  write `updatedAt` so a client clock can't poison the clock-skew reference the entitlement expiry guard
+  relies on". This one call site was not using it. Same shape as ADR-155: a guard that exists, but not on
+  the path that needed it.
+- **Decision:** `patch.updatedAt = _serverTs()`, and deliberately **stop mirroring it into
+  `data.updatedAt`** — a `FieldValue` sentinel is not a date and would leave the *local* `clockSafeNow()`
+  anchor unparseable. The last known server value is both safe and more accurate, and the ADR-118
+  listener mirrors the resolved value back on the next snapshot (ADR-151's `REFRESH_STAMPS_NO_REPAINT`
+  keeps that from repainting).
+- **Scope, established rather than assumed.** Only the ROOT `users/{uid}` document matters —
+  `clockSafeNow()` reads nothing else. The other client-clock `updatedAt` writes in the module all target
+  sub-collections (`performance/overall`, `practice/data`), and the one at the entitlement-defaults filler
+  is **in-memory only** (its own comment forbids writing entitlement fields back). All verified, none
+  changed. The `services/` writes run server-side, where `new Date()` *is* a trusted clock.
+- **The check asserts the general rule**, not the one line: no client-clock `updatedAt` may reach the root
+  user document from `firestore-sync.js`. A separate premise pin in `entitlement-core.check.js` fixes the
+  anchor set itself, so if `clockSafeNow()` ever stops reading `updatedAt` — or stops snapping forward —
+  this finding changes shape loudly instead of leaving a guard defending nothing.
+- **Method note, again.** Two of this ADR's own assertions were initially **vacuous**: the slice bound
+  `var _defaultStats` sits *above* the function in the file, so the body sliced to an empty string and
+  every assertion on it passed trivially; and the sub-collection detector looked only backwards, missing
+  a payload built before its `_subcollectionWrite(...)` call. Both were caught by mutation, not by the
+  green run. Same lesson as ADR-158.
+- **Verification:** six mutations, six killed.
+
+---
+
 ## ADR-158 — A z-index is not a stacking order (v286) (2026-08-20)
 
 - **Context:** the pause overlay is `z-index: 200`; `#customNumpad` is `z-index: 99`. Comparing those

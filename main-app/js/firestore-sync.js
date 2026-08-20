@@ -883,8 +883,23 @@ var FirestoreSync = (function () {
     if (!Array.isArray(data.bookmarks)) { data.bookmarks = []; patch.bookmarks = data.bookmarks; needsPatch = true; }
 
     if (!needsPatch) return;
-    patch.updatedAt = new Date().toISOString();
-    data.updatedAt = patch.updatedAt;
+    /* ADR-159 — THIS MUST BE THE SERVER'S CLOCK, AND _serverTs() ALREADY EXISTS FOR EXACTLY THIS.
+       The helper's own comment (see _serverTs above) says it is "used everywhere we write updatedAt so a
+       client clock can't poison the clock-skew reference the entitlement expiry guard relies on". This call
+       site was the one that did not use it, and it is the worst possible place to miss:
+
+         · entitlement-core.js clockSafeNow() anchors on max(planUpdatedAt, updatedAt, createdAt) and, when
+           `now` is more than CLOCK_SKEW_TOLERANCE_MS behind that anchor, RETURNS THE ANCHOR — correct defence
+           against a clock rolled BACKWARDS to extend a lapsed subscription.
+         · but a clock rolled FORWARDS wrote that future instant into the SERVER document here. The poison is
+           then permanent and global: every later device reads a future `updatedAt`, clockSafeNow() snaps
+           "now" forward to it, and isActivePremium() compares that against planExpiry — so a PAYING user is
+           told their subscription has ended, on every device, until the field is repaired by hand.
+       Writing the sentinel is only half of it: `data.updatedAt` is deliberately NOT overwritten, because a
+       FieldValue sentinel is not a date and would make the local clockSafeNow() anchor unparseable. Leaving
+       the last known server value is both safe and more accurate; the ADR-118 listener mirrors the resolved
+       value back on the next snapshot, and ADR-151's REFRESH_STAMPS_NO_REPAINT keeps that from repainting. */
+    patch.updatedAt = _serverTs();
     docRef.set(patch, { merge: true }).then(function () {
 
     }).catch(function (err) {

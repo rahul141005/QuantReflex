@@ -29,6 +29,52 @@ ok('flushUpdatesAsync found', !!fuaM);
 if (fuaM) {
   const body = fuaM[0];
   ok('flushUpdatesAsync uses server timestamp', /_serverTs\(\)/.test(body) && !/updatedAt\s*=\s*new Date\(\)\.toISOString\(\)/.test(body));
+
+  /* ── ADR-159 — NO CLIENT CLOCK MAY REACH THE ROOT USER DOCUMENT'S updatedAt ──────────────────────────
+     entitlement-core clockSafeNow() anchors on max(planUpdatedAt, updatedAt, createdAt) and, when `now` is
+     more than CLOCK_SKEW_TOLERANCE_MS behind that anchor, returns the ANCHOR — the right defence against a
+     clock rolled backwards to extend a lapsed subscription. The mirror image was unguarded: a clock rolled
+     FORWARDS wrote that future instant into the SERVER doc from _validateAndFillDefaults, and the poison is
+     then permanent and global — every later device snaps "now" forward past planExpiry, so a PAYING user is
+     told their subscription ended, on every device, until the field is repaired by hand.
+     _serverTs() already existed for exactly this and its own comment says it is used "everywhere we write
+     updatedAt". One call site was not using it. This asserts the general rule rather than that one line, so
+     a future writer to the root doc cannot reintroduce it. Sub-collection writes (performance/overall,
+     practice/data) are deliberately out of scope: clockSafeNow only ever reads the ROOT document. */
+  (function () {
+    /* Slice FORWARD to the next top-level function. `var _defaultStats` sits ABOVE this function in the
+       file, so slicing to it returned an empty string and every assertion below passed vacuously — the same
+       trap that made the ADR-158 numpad check pass while its defect was live. */
+    var _vStart = sync.indexOf('function _validateAndFillDefaults');
+    var _vEnd = sync.indexOf('\n  function ', _vStart + 10);
+    var v = _vStart === -1 ? '' : sync.slice(_vStart, _vEnd > _vStart ? _vEnd : _vStart + 4000);
+    ok('the _validateAndFillDefaults body was actually located', v.length > 200);
+    ok('** _validateAndFillDefaults stamps updatedAt with the SERVER clock (ADR-159)',
+      /patch\.updatedAt = _serverTs\(\);/.test(v));
+    ok('** ...and never with the client clock',
+      !/patch\.updatedAt = new Date\(\)/.test(v));
+    ok('** ...and does not mirror the unresolved sentinel into the local cache',
+      !/data\.updatedAt = patch\.updatedAt/.test(v),
+      'a FieldValue sentinel is not a date - it would make the local clockSafeNow anchor unparseable');
+
+    /* Every ROOT-doc write in this module must go through the helper. A root write is one whose target is
+       the user doc itself, i.e. NOT followed into a .collection(...) subpath. */
+    var offenders = [];
+    var re = /updatedAt\s*[:=]\s*new Date\(\)/g, m;
+    while ((m = re.exec(sync))) {
+      /* Look BOTH ways: a payload object can be built before its _subcollectionWrite(...) call
+         (_syncPracticeSubcollection does exactly that), so a backwards-only window misses it. */
+      var before = sync.slice(Math.max(0, m.index - 400), m.index) + sync.slice(m.index, m.index + 400);
+      /* Sub-collection writes go out either through an explicit .collection('<name>') path or through the
+         _subcollectionWrite(name, …) helper. Both are out of scope: clockSafeNow reads the ROOT doc only. */
+      var sub = /\.collection\('(performance|practice|sessions|derived)'\)/.test(before) ||
+                /_subcollectionWrite\(\s*'[a-z]+'/.test(before);
+      var inMemoryOnly = /NEVER write them back to Firestore/.test(sync.slice(Math.max(0, m.index - 200), m.index + 1200));
+      if (!sub && !inMemoryOnly) offenders.push(sync.slice(0, m.index).split('\n').length);
+    }
+    ok('** no client-clock updatedAt reaches the ROOT user document from firestore-sync',
+      offenders.length === 0, 'offending line(s): ' + offenders.join(', '));
+  })();
   ok('flushUpdatesAsync retains data on failure (durable buffer)', /_persistPendingBuffer\(\)/.test(body));
   ok('flushUpdatesAsync does not clear _pendingUpdates up front', !/_pendingUpdates = \{\};/.test(body));
 }

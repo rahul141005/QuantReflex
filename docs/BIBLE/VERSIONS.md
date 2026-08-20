@@ -9,11 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.188 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.189 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.35 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.21 | Auth model, rules, claims, abuse controls. |
+| **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.189 (2026-08-20)** — **A clock guard that defended only one direction (ADR-159).**
+> `clockSafeNow()` snaps a `now` that is behind the server anchor forward to it — correct against a clock
+> rolled backwards. But `_validateAndFillDefaults` persisted the CLIENT clock into that same anchor, so a
+> clock rolled forwards wrote a future `updatedAt` to the server, and every later device then read "now"
+> as past `planExpiry`: a paying user told their subscription ended, on every device, permanently.
+> `_serverTs()` already existed for exactly this and one call site was not using it. Security Version → 2.22.
 
 > **2.188 (2026-08-20)** — **A z-index is not a stacking order (ADR-158).** The pause overlay is
 > `z-index:200` and the numpad `z-index:99`, and ADR-155 read those two numbers as proof the overlay

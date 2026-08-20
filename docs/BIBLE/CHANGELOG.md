@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — A forward-set device clock could permanently revoke a paid subscription (ADR-159, v287)
+
+`entitlement-core.js` `clockSafeNow()` anchors on `max(planUpdatedAt, updatedAt, createdAt)` and returns
+that anchor whenever `now` is more than `CLOCK_SKEW_TOLERANCE_MS` behind it — the right defence against a
+clock rolled BACKWARDS to extend a lapsed subscription.
+
+The mirror image was unguarded. `js/firestore-sync.js` `_validateAndFillDefaults()` stamped
+`patch.updatedAt` from the CLIENT clock and persisted it to the server document, so a clock rolled
+FORWARDS wrote a future instant into the very field the guard trusts. The poison is permanent and global:
+every later device, on a correct clock, snaps "now" forward past `planExpiry` — a paying user told their
+subscription has ended, on every device, until the field is repaired by hand.
+
+`_serverTs()` already existed for this, and its own comment says it is used "everywhere we write
+updatedAt". One call site was not using it — the same shape as ADR-155.
+
+- `main-app/js/firestore-sync.js` — `patch.updatedAt = _serverTs()`, and the sentinel is deliberately no
+  longer mirrored into `data.updatedAt` (a `FieldValue` is not a date; it would break the local anchor)
+- `main-app/scripts/firestore-durability.check.js` — asserts the GENERAL rule: no client-clock `updatedAt`
+  reaches the root user document. Sub-collection writes (`performance/overall`, `practice/data`) are out of
+  scope by design, since `clockSafeNow` reads only the root
+- `main-app/scripts/entitlement-core.check.js` — pins the anchor set itself, so if `clockSafeNow` stops
+  reading `updatedAt` the guard above is revisited rather than left defending nothing
+- Docs: DECISION_LOG (ADR-159), VERSIONS 2.189, Security Version 2.22
+
+**Method note:** two assertions in this change were initially vacuous — a slice bound that sits above its
+target returned an empty string, and a detector that looked only backwards missed a payload built before
+its write call. Mutation caught both; the green run did not. Six mutations, six killed.
+
+---
+
 ## 2026-08-20 — Answers could be graded through the pause screen (ADR-158, v286)
 
 **This corrects a disproof recorded in ADR-155.** That pass concluded the numpad does not render above

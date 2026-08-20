@@ -155,5 +155,21 @@ var sCore = saHtml.indexOf('js/entitlement-core.js');
 var sUtils = saHtml.indexOf('js/utils.js');
 ok(sCore > 0 && sCore < sUtils, '10 super-admin loads the core before utils.js');
 
+/* ── ADR-159 PREMISE PIN — clockSafeNow's anchor set ────────────────────────────────────────────────────
+   ADR-159 exists because clockSafeNow() trusts the ROOT user document's `updatedAt` as a clock anchor, so a
+   client-clock value written there is load-bearing for entitlement. If this anchor set ever changes, that
+   whole finding changes shape — and the guard in firestore-durability.check.js would be defending something
+   that no longer matters, or missing a NEW field that now does. Pin the premise so the change is loud.
+   (Guard lives in firestore-durability.check.js; this is the fact it depends on.) */
+(function () {
+  var body = canonical.slice(canonical.indexOf('function clockSafeNow'),
+                           canonical.indexOf("function isActivePremium"));
+  ok(body.length > 100, 'ADR-159 premise: clockSafeNow body located');
+  ok(/toMillis\(user\.planUpdatedAt\)[\s\S]{0,120}?toMillis\(user\.updatedAt\)[\s\S]{0,120}?toMillis\(user\.createdAt\)/.test(body),
+    '** ADR-159 premise: clockSafeNow still anchors on planUpdatedAt + updatedAt + createdAt');
+  ok(/now < lastUpdateMs - CLOCK_SKEW_TOLERANCE_MS\) return lastUpdateMs;/.test(body),
+    '** ADR-159 premise: a `now` behind the anchor still snaps FORWARD to it (the defence being protected)');
+})();
+
 console.log('\nentitlement-core.check: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);
