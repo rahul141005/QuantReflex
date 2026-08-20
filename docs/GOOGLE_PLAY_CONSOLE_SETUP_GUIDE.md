@@ -407,7 +407,53 @@ purchases fail with "unknown product".
 | `premium_6m` | `QuantReflex Premium — 6 Months` | `Full access to AI Coach, Planner, Insights, mock tests and the complete Learn library for 6 months.` | **₹299** |
 | `premium_12m` | `QuantReflex Premium — 12 Months` | `Full access to AI Coach, Planner, Insights, mock tests and the complete Learn library for 12 months.` | **₹399** |
 
-Set both to **Active**.
+Set both to **Active**. Draft products do not resolve.
+
+### The create form is a two-step wizard ✅
+
+**① Product details — ② Availability and pricing.** The field that matters to the code lives on
+**step ①**, and step ② has a trap.
+
+| Field | Step | 6-month | 12-month |
+|---|---|---|---|
+| **Product ID** — *this is the SKU the code matches* | ① | `premium_6m` | `premium_12m` |
+| **Purchase option ID** — internal only, users never see it | ② | `buy-6m` | `buy-12m` |
+| **Purchase type** | ② | **Buy** *(not Rent — "Buy" is the default)* | **Buy** |
+| **Tags** | ② | leave empty | leave empty |
+
+> 🔴 **The Purchase option ID cannot be `premium_6m`.** The console's own hint on that field reads:
+> *"Must start with a number or lowercase letter, and can contain numbers, lowercase letters and
+> hyphens."* **No underscores** — so the string will be rejected. Do not "fix" it by typing
+> `premium-6m` and assuming that is now the SKU. It is not. The SKU is the **Product ID** on step ①,
+> and a mismatch here is invisible until purchases fail.
+
+**Why the Product ID is the one that matters**, traced end to end:
+`js/payments/play-provider.js:53` declares `SKUS = ['premium_6m', 'premium_12m']`, hands them to
+`QRPlatform.canUsePlayBilling(SKUS)` → `getDetails(SKUS)` and matches on `itemId`; the purchase is
+launched with `data: { sku: planType }`; and the server verifies at
+`…/products/{productId}/tokens/{purchaseToken}` (`services/playBillingService.js`). Nothing anywhere
+in the codebase reads a purchase-option id or an offer token — grep-verified, zero matches.
+
+### Availability and pricing (step ②)
+
+The region table opens with every country **Available** at price `–`. It will not activate in that
+state. Two workable choices:
+
+- **Sell in India only** — narrow it under **Edit availability and access**, then price that one row.
+  Simplest, and it matches the audience.
+- **Sell everywhere** — use **Set prices** and let Play convert from an INR base.
+
+**Selling outside India is safe on the server side**, and this was checked rather than assumed:
+`api/payment.js:324` records a Play grant with `currency: 'INR'` and **deliberately no
+`amountPaise`** — the entitlement is granted by *duration*, not by amount, so a foreign-currency
+purchase still grants correctly. So it is a product decision, not a technical constraint. Worth
+knowing: the Razorpay path is INR-only, so Play is the only way an overseas user could ever pay you.
+
+> ⚠️ **One thing this guide cannot confirm.** How the new purchase-option model surfaces through the
+> Digital Goods API was not verifiable from outside your console. The code matches
+> `itemId === 'premium_6m'`, which is the product ID. If both products are Active and the app still
+> shows no purchase option, that is the first thing to investigate — capture what `getDetails`
+> actually returns before changing any code.
 
 **Both, not one.** If only one resolves, the client shows **no purchase UI at all** rather than a
 half catalogue — deliberately, so a customer can never be sold the plan you happened to configure
