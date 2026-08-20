@@ -720,6 +720,33 @@ already started — the page shows the current status.
 
 ---
 
+## STEP 15b — Associated developer accounts (account-level, one-off)
+
+**[YOU — PLAY CONSOLE]** *Account-level → Associated developer accounts → Manage account group*
+
+Not part of the QuantReflex build and unrelated to billing — it is an account declaration Play asks
+every developer to complete, and it can gate production access. Two yes/no questions, both about **you**,
+not about the app. **Save stays greyed out until both are answered.**
+
+**"Does your legal entity own any other Play Console developer accounts?"**
+Other *Play developer* accounts — the kind you pay the one-off registration fee for — owned by the same
+person or company. Not other Google accounts, not other apps inside this account. If this developer
+account is the only one you or your company holds, the answer is No.
+
+**"Are there any other developer accounts that publish apps that use similar brand features to the apps
+in your developer account?"**
+Apps published from a *different* developer account that share your branding — same or near-same name,
+logo, colour scheme, or store presence. A co-founder shipping a "QuantReflex Lite" from their own
+account would be a Yes. Unrelated apps that merely happen to be exam-prep are not.
+
+**Why it matters, and which way to err.** Google uses this to link accounts under one owner, mostly to
+stop a terminated developer opening a fresh account. Declaring an account you do own costs nothing — its
+admins simply get a request to accept, and correctly-declared groups are routine. Failing to declare one
+is an account-linking policy problem, and enforcement there applies across every linked account. So if
+an account exists and you are unsure whether it counts, declare it.
+
+---
+
 ## STEP 16 — Apply for production access
 
 **[YOU — PLAY CONSOLE]** ✅ *Test and release → Production → Apply for production access*
