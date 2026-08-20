@@ -24,7 +24,24 @@
  *                                cannot resurrect a refunded entitlement, because Google reports the
  *                                purchase as voided and `activatePremium` refuses a terminal row.
  *   · REPLAYED notification    → same as duplicate.
- *   · FORGED notification      → it can only name a token; the token's truth comes from Google.
+ *   · FORGED notification      → for a PURCHASE, it can only name a token and the token's truth comes
+ *                                from Google, so it cannot manufacture an entitlement.
+ *
+ * ADR-171 — THAT LAST LINE DOES NOT COVER THE VOIDED PATH, AND SAYING SO PLAINLY MATTERS.
+ * `_handleVoided` resolves the token to a uid and calls `revokePayment` WITHOUT re-asking Google.
+ * That is deliberate: a voided purchase is the one state Google will not confirm through
+ * `purchases.products.get` — it 404s, and a 404 is ambiguous (voided, or simply a token we were never
+ * given). Verifying a void would mean the voidedPurchases API and a different failure model, and
+ * getting it wrong means refunds silently stop being honoured, which is worse than the risk below.
+ * So the revoke path trusts an AUTHENTICATED notification, and its safety rests entirely on the
+ * authentication above rather than on re-derivation:
+ *   · an attacker needs BOTH the shared secret AND a valid purchase token (a bearer secret known only
+ *     to the buyer, Google, and this server) to revoke one user's Premium;
+ *   · the damage is a wrongly-revoked entitlement — recoverable by an admin grant, but it does NOT
+ *     self-heal, because the revoked row is settled and drops out of the reconciliation sweep.
+ * Two operational consequences follow, and neither is optional for a production deployment:
+ * `PLAY_RTDN_SECRET` must be long and random rather than memorable, and `PLAY_RTDN_AUDIENCE` should be
+ * set so the Pub/Sub OIDC token is verified as well — the code already supports it (see _authenticate).
  *
  * So there is no message-id ledger and no ordering buffer here, and that is a design choice rather
  * than an omission: correctness comes from re-deriving state, not from bookkeeping about deliveries.

@@ -8,6 +8,35 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-171 — The RTDN docstring promised a guarantee the voided path does not give (v285) (2026-08-21)
+
+**Context.** Checking the blast radius of a weak `PLAY_RTDN_SECRET` before advising on it, rather than
+asserting a risk level from memory.
+
+**Finding.** The module docstring said a forged notification *"can only name a token; the token's truth
+comes from Google."* That holds for the purchase path — `_handleOneTime` re-fetches from
+`androidpublisher` and `activatePremium` refuses a terminal row. It does **not** hold for
+`_handleVoided`, which resolves the token to a uid and calls `revokePayment` **without** re-asking
+Google. So the endpoint's safety on that path rests entirely on authentication, not on re-derivation,
+and the comment said otherwise.
+
+**Decision — do NOT change the revoke behaviour.** Verifying a void is not the symmetric operation it
+looks like: `purchases.products.get` 404s for a voided purchase, and a 404 is ambiguous (voided, or a
+token we were never given). Making the revoke conditional on a Google confirmation risks silently
+dropping real refunds, which is a worse failure than the one being defended against. The existing
+design — trust an *authenticated* void — is the right call; the docstring was simply overclaiming.
+
+**What changed:** the docstring now states the exception explicitly, names the attack (an attacker
+needs BOTH the shared secret AND a valid purchase token — a bearer secret known only to the buyer,
+Google and this server), and names the consequence honestly: a wrongly-revoked entitlement is
+recoverable by an admin grant but does **not** self-heal, because a revoked row is settled and drops
+out of the reconciliation sweep. `.env.example` is upgraded from calling `PLAY_RTDN_AUDIENCE`
+"optional" to **recommended**, with the reason attached.
+
+No behaviour change; `scripts/play-rtdn.check.js` stays green at 60/60.
+
+---
+
 ## ADR-170 — Review Mistakes had a second ceiling nobody measured (v285) (2026-08-21)
 
 **Context.** A pre-build regression pass over the whole Practice tab, driving the real app in a browser
