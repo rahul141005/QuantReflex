@@ -9,11 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.190 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.191 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.191 (2026-08-20)** — **Only the shell may be stored under the shell key (ADR-161).** The service
+> worker cached every in-scope navigation as `./index.html`, so opening one of the three legal documents
+> Play requires a user to reach replaced the offline app shell with an 8 KB legal page. Verified in
+> headless Chromium: the cached shell became "Privacy Policy — QuantReflex" and the next offline launch
+> of `/` rendered it. Recoverable in a browser; not in the TWA, which has no URL bar and shares its
+> CacheStorage with Chrome. Now keyed on pathname, so `?duel=CODE` deep links still refresh the shell.
 
 > **2.190 (2026-08-20)** — **ADR-152 was wired to one purge path out of two (ADR-160).** The guard that
 > stops a purge reaching the next user's server document covered the warm switch only. The COLD switch —

@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v283';
+const APP_VERSION = 'v284';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -267,19 +267,42 @@ self.addEventListener('fetch', function (event) {
   /* SPA navigation fallback: serve cached index.html for HTML navigation requests
      so that deep links and browser refresh work offline */
   if (event.request.mode === 'navigate') {
+    /* ADR-161 — ONLY THE SHELL MAY BE STORED UNDER THE SHELL KEY.
+       This used to cache EVERY successful in-scope navigation as './index.html'. The canonical-key part
+       was right (audit network-recovery-03: never key on the full URL, or every ?duel=CODE deep link
+       fragments the shell and grows the cache without bound) — but "every navigation" is not "the shell".
+       This origin also serves real static documents, and they are the ones Play REQUIRES a user to be
+       able to open: /legal/privacy.html, /legal/terms.html, /legal/delete-account.html. Opening one
+       replaced the offline app shell with an 8 KB legal page. Verified in headless Chromium: after
+       visiting the privacy page the cached shell was 8,932 bytes titled "Privacy Policy — QuantReflex",
+       and the next OFFLINE launch of "/" rendered the privacy policy instead of the app.
+       In a browser that is recoverable — the next online visit re-caches the real shell. In the TWA it is
+       not: there is no URL bar, no reload button and no tab switcher, so the user is left staring at a
+       privacy policy where their app should be. And because the TWA and Chrome share one origin and one
+       CacheStore, poisoning it from an ordinary tab reaches the installed app.
+       The app is hash-routed with scope "/" and start_url "/", so the shell's pathname is ALWAYS "/" —
+       `?duel=CODE` and `#practice` deep links included. Anything with a different pathname is a real
+       document and must never be written to the shell key. */
+    var _navPath = '/';
+    try { _navPath = new URL(event.request.url).pathname; } catch (_) { /* keep the default */ }
+    var _isShellNav = (_navPath === '/' || _navPath === '/index.html');
+
     event.respondWith(
       fetch(event.request, { cache: 'no-cache' }).then(function (response) {
-        if (response.ok) {
+        if (response.ok && _isShellNav) {
           var clone = response.clone();
-          // Cache navigations under the CANONICAL shell key, never the full URL incl ?duel=CODE — otherwise every
-          // deep link grows the cache unbounded and fragments the shell (audit network-recovery-03).
           caches.open(CACHE_NAME).then(function (cache) {
             cache.put('./index.html', clone);
           });
         }
         return response;
       }).catch(function () {
-        return caches.match('./index.html');
+        /* Offline. Serve the exact document if we happen to hold it, and only then fall back to the
+           shell — so an offline legal page shows the app rather than nothing, while a shell navigation
+           still gets the shell. */
+        return caches.match(event.request).then(function (exact) {
+          return exact || caches.match('./index.html');
+        });
       })
     );
     return;

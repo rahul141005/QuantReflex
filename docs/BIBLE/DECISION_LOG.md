@@ -8,6 +8,42 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-161 — Only the shell may be stored under the shell key (v289) (2026-08-20)
+
+- **Context:** the service worker's navigation branch cached every successful in-scope navigation under
+  the canonical key `./index.html`. The *canonical-key* part is correct and deliberate — audit
+  network-recovery-03 established that keying on the full URL fragments the shell across every
+  `?duel=CODE` deep link and grows the cache without bound.
+- **The defect:** "every navigation" is not "the shell". This origin also serves three real static
+  documents, and they are precisely the ones Play **requires** a user to be able to open:
+  `/legal/privacy.html`, `/legal/terms.html`, `/legal/delete-account.html`. Opening one replaced the
+  offline app shell with an 8 KB legal page.
+- **Verified in headless Chromium**, not argued: after visiting the privacy page the cached shell was
+  **8,932 bytes, titled "Privacy Policy — QuantReflex"**, and the next **offline launch of `/` rendered
+  the privacy policy instead of the app**.
+- **Why this is a TWA problem specifically.** In a browser it is recoverable — the next online visit to
+  `/` re-caches the real shell. In the Play build there is no URL bar, no reload button and no tab
+  switcher, so the user is left staring at a privacy policy where their app should be. And because the
+  TWA shares one origin and one CacheStorage with Chrome, poisoning it from an ordinary tab reaches the
+  installed app.
+- **Decision:** cache under the shell key only when the navigation *is* a shell navigation, decided by
+  **pathname**. The app is hash-routed with `scope: "/"` and `start_url: "/"`, so the shell's pathname is
+  always `/` — `?duel=CODE` and `#practice` deep links included. Anything with a different pathname is a
+  real document. The offline fallback now tries the exact request before the shell, so an offline legal
+  page resolves rather than silently rendering the app under a legal URL.
+- **The original intent was re-verified, not assumed.** A `?duel=ABC123` deep link still refreshes the
+  shell (123,013 bytes, title "QuantReflex"), and an offline launch of `/` still serves it. A fix that
+  quietly stopped the shell caching would have been worse than the bug.
+- **Method note.** The first version of this probe reported the shell *surviving* — a false negative. It
+  navigated back to `index.html` before reading the cache, and that navigation re-cached the real shell,
+  repairing the damage before it could be measured. The corrected probe reads CacheStorage from the
+  privacy page itself. An earlier iteration also matched on body text, which fails because `index.html`
+  *links to* those documents and therefore contains both phrases; the `<title>` is the decisive signal.
+- **Verification:** four mutations, four killed. `APP_VERSION` bumped to `v284`, which the existing
+  lockstep guard immediately caught in `index.html` and the About panel — working exactly as intended.
+
+---
+
 ## ADR-160 — ADR-152 was wired to one purge path out of two, and cleared on the third (v288) (2026-08-20)
 
 - **Context:** ADR-152 added `_purgedAwaitingHydration` because `AppState.getProgress()` never returns

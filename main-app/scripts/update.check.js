@@ -91,5 +91,38 @@ APPS.forEach(function (a) {
   ok(rel + ': install does NOT call self.skipWaiting() (admin waiting-worker policy)', !/self\.skipWaiting/.test(installBody));
 });
 
+/* ── ADR-161 — ONLY THE SHELL MAY BE STORED UNDER THE SHELL KEY ─────────────────────────────────────
+   main-app's SW cached EVERY successful in-scope navigation as './index.html'. The canonical-key part is
+   right (network-recovery-03: keying on the full URL fragments the shell across ?duel=CODE deep links),
+   but "every navigation" is not "the shell". This origin also serves the three static documents Play
+   REQUIRES a user to be able to open — /legal/privacy.html, /legal/terms.html, /legal/delete-account.html
+   — and opening one replaced the offline app shell with an 8 KB legal page.
+   Verified in headless Chromium: after visiting the privacy page the cached shell was 8,932 bytes titled
+   "Privacy Policy — QuantReflex", and the next OFFLINE launch of "/" rendered the privacy policy instead
+   of the app. In a browser the next online visit repairs it. In the TWA there is no URL bar, no reload
+   button and no tab switcher — and the TWA shares its origin and CacheStorage with Chrome, so an ordinary
+   tab can poison the installed app. */
+(function () {
+  var sw = read('main-app/service-worker.js');
+  var navAt = sw.indexOf("event.request.mode === 'navigate'");
+  var nav = navAt === -1 ? '' : sw.slice(navAt, navAt + 2600);
+  ok('main-app: the navigate branch was located', nav.length > 200);
+  ok('** main-app: a navigation is only cached under the shell key when it IS a shell navigation (ADR-161)',
+    /_isShellNav/.test(nav) && /response\.ok && _isShellNav/.test(nav));
+  ok('** main-app: "is it the shell" is decided by PATHNAME, so ?duel=CODE deep links still refresh it',
+    /new URL\(event\.request\.url\)\.pathname/.test(nav) &&
+    /_navPath === '\/' \|\| _navPath === '\/index\.html'/.test(nav));
+  ok('** main-app: the canonical shell key is still the only key written (network-recovery-03 intact)',
+    /cache\.put\('\.\/index\.html', clone\)/.test(nav) && !/cache\.put\(event\.request/.test(nav));
+  ok('main-app: the offline fallback tries the exact document before the shell',
+    /caches\.match\(event\.request\)[\s\S]{0,200}?exact \|\| caches\.match\('\.\/index\.html'\)/.test(nav));
+  /* The premise: these documents really are same-origin navigations the SW sees. If they ever move to a
+     different host the finding changes shape. */
+  ['legal/privacy.html', 'legal/terms.html', 'legal/delete-account.html'].forEach(function (rel) {
+    ok('ADR-161 premise: ' + rel + ' is a real same-origin document under the SW scope',
+      fs.existsSync(path.join(ROOT, 'main-app', rel)));
+  });
+})();
+
 console.log('\nupdate.check.js: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

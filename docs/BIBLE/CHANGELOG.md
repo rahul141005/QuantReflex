@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — Opening the privacy policy replaced the offline app (ADR-161, v289)
+
+The service worker's navigation branch cached every successful in-scope navigation under the canonical key
+`./index.html`. The canonical-key part is right — network-recovery-03 established that keying on the full
+URL fragments the shell across every `?duel=CODE` deep link. But "every navigation" is not "the shell",
+and this origin also serves the three static documents Play REQUIRES a user to be able to open.
+
+Verified in headless Chromium rather than argued: after visiting `/legal/privacy.html` the cached shell
+was **8,932 bytes titled "Privacy Policy — QuantReflex"**, and the next offline launch of `/` rendered the
+privacy policy instead of the app. In a browser the next online visit repairs it. In the Play build there
+is no URL bar, no reload button and no tab switcher — and the TWA shares its origin and CacheStorage with
+Chrome, so an ordinary tab can poison the installed app.
+
+- `main-app/service-worker.js` — cache under the shell key only for a shell navigation, decided by
+  pathname (`/` or `/index.html`), so `?duel=CODE` deep links still refresh it; the offline fallback now
+  tries the exact document before the shell. `APP_VERSION` → `v284`
+- `main-app/index.html` — `window.QR_APP_VERSION` and the About panel line brought into lockstep (the
+  existing guard caught both immediately)
+- `main-app/scripts/update.check.js` — four assertions plus a premise pin that the three legal documents
+  really are same-origin navigations under the SW scope
+- Docs: DECISION_LOG (ADR-161), VERSIONS 2.191
+
+The original intent was re-verified rather than assumed: a `?duel=ABC123` deep link still refreshes the
+shell and an offline launch still serves it.
+
+**Method note:** the first probe reported the shell *surviving* — a false negative caused by navigating
+back to `index.html` before reading the cache, which re-cached the real shell and repaired the damage
+before it could be measured. An earlier iteration matched on body text, which fails because `index.html`
+links to those documents and so contains both phrases. The `<title>` is the decisive signal.
+
+Four mutations, four killed. Full suite green.
+
+---
+
 ## 2026-08-20 — The account-switch guard covered one purge path out of two (ADR-160, v288)
 
 ADR-152 added `_purgedAwaitingHydration` to stop a purge's zeroed `DEFAULT_PROGRESS` reaching the INCOMING
