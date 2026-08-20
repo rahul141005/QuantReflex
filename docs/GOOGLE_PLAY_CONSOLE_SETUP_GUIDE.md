@@ -370,12 +370,20 @@ carry — read it off the release page, do not guess.
 
 ### Two build-time notes
 
-**Launch URL and `?src=play`.** The web manifest's `start_url` is `/` and **must stay `/`**. Do not
-put `?src=play` in `manifest.json` — every installed *web* PWA would then latch as a Play build and
-lose its Razorpay option. If you want that marker, set it on the **TWA launch URL** in the
-PWABuilder/bubblewrap Android config only. It is optional either way: `js/platform.js` now also
-recognises and latches an `android-app://com.quantreflex.app` referrer, so a Play build identifies
-itself correctly with or without it.
+**Launch URL and `?src=play` — set this.** The web manifest's `start_url` is `/` and **must stay
+`/`**: putting `?src=play` there would make every installed *web* PWA latch as a Play build and lose
+its Razorpay option. The marker belongs on the **TWA launch URL** in the PWABuilder/bubblewrap Android
+config — set it to **`/?src=play`**.
+
+An earlier version of this guide called that optional, on the grounds that `js/platform.js` also
+recognises and latches an `android-app://com.quantreflex.app` referrer. That is true, but it makes the
+referrer the **only** Play marker the shipped build raises, and a launch document that arrives without
+one resolves to `isPlayDistribution() === false` — which `js/payments/gateway.js` answers by selecting
+**Razorpay inside the Play app**, the one unrecoverable Play-policy violation. The second marker costs
+nothing and is set once at build time. Set it.
+
+With both in place either one is sufficient, they are independent, and neither can be forged by a web
+page.
 
 **Edge-to-edge on Android 15.** Your console's *For your next release* panel shows ✅:
 
