@@ -8,6 +8,44 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-165 — A deck that repeated itself, and a subject that only ever showed five topics (v293) (2026-08-20)
+
+Two independent defects in `js/questions.js`, both invisible from inside the app because the SYMPTOM
+looks like normal variety.
+
+- **Topic monoculture.** `generateMultiTopic` gives each topic `floor(n / topics)` questions and hands
+  the remainder to the first `n % topics` of them. When there are MORE topics than questions — the
+  normal case for a subject-scoped drill — `floor` is **0**, so exactly the first n topics **in source
+  order** get one question each and every other topic gets `continue`. A subject-scoped Quant Quick
+  Drill is 5 questions over 36 categories, so it served the same five for ever: **31 of 36 categories
+  were unreachable through that entry point.** Measured: **5 of 36** distinct categories across 200
+  decks; after shuffling the topic list first, **36 of 36**. The user could never notice, because the
+  QUESTIONS differ every run — only the topics never do.
+- **In-deck duplicates.** `seen` is the only thing preventing the same question appearing twice in the
+  deck being built, and the escape hatch cleared it on the FIRST exhaustion. Worse, most escapes were
+  not exhaustion at all: `_makeFingerprint` keyed on `category + first 3 digit-runs of the stem`, so a
+  stem with **no digits** collapsed to just `"cat:"` — identical for every question in that category.
+  The first such question poisoned the fingerprint for the whole category, and everything after it was
+  rejected as a duplicate until the hatch fired. 25 of 68 categories emit digitless stems (the verbal-
+  and visual-reasoning families).
+- **The standard is `min(pool, n)`, not zero.** A category with a 7-question pool cannot fill a
+  10-question deck without repeating; demanding zero there would be demanding the impossible. After
+  giving digitless stems their own key and surrendering `seen` only on a THIRD escape:
+  permutation-combination/easy went 4.35 → **3.00** average repeats, which is **exactly** its
+  arithmetic floor (pool 7, deck 10); cubes/easy 36-of-40 decks → **0 of 40**; lr-critical/medium
+  10-of-40 → **0 of 40**. A full sweep of all 204 category × difficulty cells: **191 achieve
+  `min(pool, 10)`**.
+- **What is NOT fixed, stated plainly.** The remaining 13 cells fall 1–2 short on 12-item pools — a
+  coupon-collector shortfall, not a structural defect. And several authored Reasoning categories have
+  genuinely tiny pools (lr-decision/easy has **4** distinct questions; permutation-combination/easy has
+  **7**), so a 10-question deck there is short or repetitive no matter what the generator does. That is
+  a **content gap**, not an engineering one, and no code change here can close it.
+- **Verification:** `scripts/deck-quality.check.js` is new and wired into `npm test`. It is behavioural —
+  `js/questions.js` runs under node, so it measures real decks — and asserts `min(pool, n)` rather than
+  zero. Three mutations, three killed.
+
+---
+
 ## ADR-164 — An MCQ with two correct answers, one of them graded wrong (v292) (2026-08-20)
 
 - **The question:** *"Who among the following is **an** immediate neighbour of X?"* (and the floor

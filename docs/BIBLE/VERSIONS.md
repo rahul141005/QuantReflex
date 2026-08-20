@@ -9,11 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.194 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.195 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.82 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.36 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.22 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.17 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.195 (2026-08-20)** — **A deck that repeated itself, and a subject that only showed five topics
+> (ADR-165).** `generateMultiTopic` allocates `floor(n / topics)`, which is 0 whenever topics outnumber
+> questions — so a subject-scoped Quant Quick Drill served the same 5 of 36 categories for ever
+> (measured 5/36 → 36/36 after shuffling). Separately, a digitless stem collapsed the dedup fingerprint
+> to a per-category constant, driving the escape hatch that clears the in-deck identity map. 191 of 204
+> cells now reach `min(pool, 10)` distinct.
 
 > **2.194 (2026-08-20)** — **An MCQ with two correct answers (ADR-164).** "Who is an immediate
 > neighbour of X?" always has two correct answers, because the generator only asks about interior

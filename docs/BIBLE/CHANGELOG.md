@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-20 — A deck that repeated itself, and a subject that only ever showed five topics (ADR-165, v293)
+
+Two defects in `js/questions.js`, both invisible from inside the app because the symptom looks like
+normal variety.
+
+**Topic monoculture.** `generateMultiTopic` gives each topic `floor(n / topics)` and hands the remainder
+to the first `n % topics`. When topics outnumber questions — the normal case for a subject-scoped drill —
+`floor` is 0, so exactly the first n topics IN SOURCE ORDER get a question. A subject-scoped Quant Quick
+Drill is 5 questions over 36 categories: the same five, for ever, with 31 unreachable. Measured **5 of
+36** distinct categories over 200 decks; **36 of 36** after shuffling the topic list first.
+
+**In-deck duplicates.** The escape hatch cleared `seen` — the only guard against the same question twice
+in one deck — on the FIRST exhaustion. And most escapes were not exhaustion: `_makeFingerprint` keyed on
+`category + first 3 digit-runs`, so a digitless stem collapsed to `"cat:"`, identical for every question
+in the category, poisoning it after the first one. 25 of 68 categories emit digitless stems.
+
+- `main-app/js/questions.js` — digitless stems get their own key; `seen` survives until a third escape;
+  topics shuffled before allocation
+- `main-app/scripts/deck-quality.check.js` — **new**, wired into `npm test`; behavioural, measuring real
+  decks, asserting `min(pool, n)` rather than zero
+
+**Results:** permutation-combination/easy 4.35 → **3.00** repeats, exactly its arithmetic floor (pool 7,
+deck 10); cubes/easy 36-of-40 decks → **0 of 40**; lr-critical/medium 10-of-40 → **0 of 40**. Full sweep
+of 204 cells: **191 achieve `min(pool, 10)`**.
+
+**What is NOT fixed:** the remaining 13 cells fall 1–2 short on 12-item pools (coupon-collector, not
+structural). And several authored Reasoning categories have genuinely tiny pools — lr-decision/easy has
+**4** distinct questions, permutation-combination/easy has **7** — so a 10-question deck there is short
+or repetitive whatever the generator does. That is a content gap no code change can close.
+
+Three mutations, three killed. Full suite green.
+
+---
+
 ## 2026-08-20 — A Reasoning question with two correct answers graded one of them wrong (ADR-164, v292)
 
 *"Who among the following is an immediate neighbour of X?"* — the generator picks X from

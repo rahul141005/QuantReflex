@@ -962,6 +962,15 @@ function _makeFingerprint(q) {
   try {
     var cat = q.category || 'x';
     var nums = String(q.question).match(/\d+/g) || [];
+    /* ADR-165 — A DIGITLESS STEM MUST NOT COLLAPSE TO A SINGLE PER-CATEGORY KEY.
+       With no digits, `cat + ':' + [].join(':')` is just "cat:" — identical for EVERY question in that
+       category. The first such question therefore poisons the fingerprint for the whole category, and
+       every later candidate is rejected as a duplicate until generateQuestions' escape hatch fires.
+       25 of 68 categories emit digitless stems (all the verbal-reasoning families — syllogism,
+       inequality, critical/statement/cause/course/decision — plus the visual ones and some
+       trigonometry), so this is the common case there, not an edge case. Fall back to the stem itself,
+       which is what the fingerprint is standing in for. */
+    if (!nums.length) return cat + '|' + (q.subtype || '') + '|' + String(q.question);
     return cat + ':' + nums.slice(0, 3).join(':');
   } catch (_) { return ''; }
 }
@@ -1058,13 +1067,20 @@ function generateQuestions(n, category, difficulty) {
     var maxAttempts = n * 12; /* headroom for fingerprint dedup */
     var attempts = 0;
 
+    var escapes = 0;
     while (qs.length < n) {
       if (attempts >= maxAttempts) {
-        /* Unique pool exhausted! Reset trackers gracefully instead of dumping
-           blind duplicates, ensuring repeats are still spaced out. */
-        seen = {};
+        /* Pool looks exhausted. Relax the CROSS-SESSION trackers first and try again.
+           ADR-165: `seen` is different in kind from the other two — it is the only thing preventing the
+           SAME QUESTION APPEARING TWICE IN THE DECK BEING BUILT, and clearing it on the first escape is
+           what produced byte-identical duplicates (permutation-combination/easy: duplicates in 40 of 40
+           decks, averaging 4.28 identical questions per 10). Most escapes were not real exhaustion at
+           all but the fingerprint collapse fixed above. So surrender `seen` only on a SECOND escape,
+           which keeps the loop bounded for a pool genuinely smaller than n while making an in-deck
+           duplicate the last resort rather than the first. */
         resetRecentQuestions();
         attempts = 0;
+        if (++escapes >= 3) seen = {};
       }
 
       var q = gen ? gen() : generateQuestion();
@@ -1101,6 +1117,23 @@ function generateMultiTopic(n, topicKeys, difficulty) {
     if (categoryGenerators[k] && !seen[k]) { validTopics.push(k); seen[k] = true; }
   });
   if (!validTopics.length) return generateQuestions(n, null, difficulty);
+
+  /* ADR-165 — SHUFFLE THE TOPICS BEFORE ALLOCATING, OR ONLY THE FIRST n EVER APPEAR.
+     The allocation below gives each topic `floor(n / topics)` questions and hands the remainder to the
+     first `n % topics` of them. Whenever there are MORE topics than questions — which is the normal
+     case for a subject-scoped drill — `floor` is 0 and the remainder is n, so exactly the first n
+     topics IN SOURCE ORDER get one question each and every other topic gets `continue`.
+     Quant has 36 categories and a Quick Drill is 5 questions, so a subject-scoped Quant Quick Drill
+     served squares, cubes, area, volume and percentages — the first five — every single time, for
+     ever. 31 of 36 categories were unreachable through that entry point, and the user had no way to
+     tell: the deck looks freshly generated because the QUESTIONS differ each run, only the topics
+     never do.
+     Shuffling the topic list makes the choice of WHICH n topics random per deck while leaving the
+     allocation arithmetic untouched. Same Fisher-Yates already used for `assembled` below. */
+  for (var t = validTopics.length - 1; t > 0; t--) {
+    var tj = Math.floor(Math.random() * (t + 1));
+    var tt = validTopics[t]; validTopics[t] = validTopics[tj]; validTopics[tj] = tt;
+  }
 
   var eachCount = Math.floor(n / validTopics.length);
   var remainder = n % validTopics.length;
