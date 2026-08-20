@@ -250,6 +250,71 @@ if (found.length === 0) {
     strays.length === 0, strays.join(', '));
 })();
 
+/* ── ADR-173 — THE TWO ICON PURPOSES HAVE OPPOSITE SHAPE REQUIREMENTS ────────────────────────────
+   PWABuilder/bubblewrap builds the TWA SPLASH from the `any` icon and the ADAPTIVE LAUNCHER icon from
+   the `maskable` one, and those two want opposite things:
+
+     any      → drawn UNMASKED on the manifest background_color. A full-bleed square therefore shows
+                its own hard edges as a visible rectangle on the splash. It needs its corners rounded,
+                with the outside TRANSPARENT so the splash background shows through.
+     maskable → Android applies its OWN mask. It must stay full-bleed and opaque to the edge; rounding
+                it produces a corner rounded twice, and transparency there produces a white backing.
+
+   The two files were byte-identical, so the splash rendered a hard blue square (observed on the v3
+   internal-testing build; the earlier build looked right only because its artwork happened to carry
+   transparent rounded corners at ~14.8% radius, which is what these assertions now pin). */
+(function () {
+  var zlib = require('zlib');
+  function png(p) {
+    var b = fs.readFileSync(path.join(APP, p));
+    var w = b.readUInt32BE(16), h = b.readUInt32BE(20);
+    var bitDepth = b[24], colorType = b[25];
+    var idat = [], off = 8;
+    while (off < b.length) {
+      var len = b.readUInt32BE(off), type = b.toString('ascii', off + 4, off + 8);
+      if (type === 'IDAT') idat.push(b.slice(off + 8, off + 8 + len));
+      off += 12 + len;
+    }
+    var raw = zlib.inflateSync(Buffer.concat(idat));
+    /* Only the shapes we actually ship: 8-bit RGBA, no interlace. */
+    if (bitDepth !== 8 || colorType !== 6) return null;
+    var bpp = 4, stride = w * bpp, prev = Buffer.alloc(stride), rows = [], o = 0;
+    for (var y = 0; y < h; y++) {
+      var ft = raw[o++], line = Buffer.from(raw.slice(o, o + stride)); o += stride;
+      for (var i = 0; i < stride; i++) {
+        var a = i >= bpp ? line[i - bpp] : 0, bb = prev[i], c = i >= bpp ? prev[i - bpp] : 0, x = line[i];
+        if (ft === 1) x += a; else if (ft === 2) x += bb; else if (ft === 3) x += (a + bb) >> 1;
+        else if (ft === 4) {
+          var pp = a + bb - c, pa = Math.abs(pp - a), pb = Math.abs(pp - bb), pc = Math.abs(pp - c);
+          x += (pa <= pb && pa <= pc) ? a : (pb <= pc ? bb : c);
+        }
+        line[i] = x & 0xff;
+      }
+      rows.push(line); prev = line;
+    }
+    return { w: w, h: h, alphaAt: function (x, y) { return rows[y][x * 4 + 3]; } };
+  }
+
+  [['icons/icon-192.png', 192], ['icons/icon-512.png', 512]].forEach(function (c) {
+    var im = png(c[0]);
+    if (!im) { ok('icon shape: ' + c[0] + ' is 8-bit RGBA so its alpha can be verified', false); return; }
+    ok('** ' + c[0] + ' (purpose "any") has TRANSPARENT corners — the TWA splash draws it unmasked',
+      im.alphaAt(0, 0) === 0 && im.alphaAt(im.w - 1, 0) === 0 &&
+      im.alphaAt(0, im.h - 1) === 0 && im.alphaAt(im.w - 1, im.h - 1) === 0,
+      'corner alpha ' + im.alphaAt(0, 0) + '; a full-bleed square renders as a hard rectangle on the splash');
+    ok('** ...and is still opaque through the middle (rounded, not faded)',
+      im.alphaAt(im.w >> 1, im.h >> 1) === 255);
+  });
+
+  [['icons/icon-192-maskable.png'], ['icons/icon-512-maskable.png']].forEach(function (c) {
+    var im = png(c[0]);
+    if (!im) { ok('icon shape: ' + c[0] + ' is 8-bit RGBA so its alpha can be verified', false); return; }
+    ok('** ' + c[0] + ' (purpose "maskable") stays FULL-BLEED — Android applies its own mask',
+      im.alphaAt(0, 0) === 255 && im.alphaAt(im.w - 1, im.h - 1) === 255,
+      'corner alpha ' + im.alphaAt(0, 0) + '; rounding a maskable icon rounds the corner twice');
+  });
+})();
+
 console.log('\n──────────────────────────────');
 console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

@@ -8,6 +8,75 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-173 — The splash drew a hard square, and "no purchase button" had six causes that all looked the same (v286) (2026-08-21)
+
+**Context.** Two internal-testing builds were handed over as APKs and unpacked. That turned several
+open questions into measurements rather than hypotheses.
+
+**What the APKs settled.** Both builds are byte-identical in the ways that were suspected of being
+different: same `classes.dex`, same `com.android.vending.BILLING` permission, same `DelegationService`,
+same signing certificate (`0C:7A:3B:2C:…`, which **is** one of the four in `.well-known/assetlinks.json`),
+same package. So Play Billing capability, asset-link eligibility and signing were never the variable.
+Exactly two things differ:
+
+| | version code 2 | version code 3 |
+|---|---|---|
+| launch URL in `resources.arsc` | `https://quantreflex.app/` | `https://quantreflex.app/?src=play` ✅ |
+| splash icon corner alpha | **0** (transparent, ~14.8% radius) | **255** (hard square) |
+
+### 1. The splash square
+
+PWABuilder/bubblewrap builds the TWA **splash** from the `any` icon and the **adaptive launcher** icon
+from the `maskable` one, and the two purposes want opposite shapes:
+
+- `any` is drawn **unmasked** on the manifest `background_color`. A full-bleed square therefore shows
+  its own hard edges as a visible rectangle.
+- `maskable` is masked **by Android**. It must stay full-bleed and opaque, or the corner is rounded
+  twice and transparency picks up a white backing plate.
+
+`icon-192.png` and `icon-512.png` were byte-identical to their `-maskable` counterparts — full-bleed
+squares — so the splash rendered a hard blue rectangle on the near-white `#f8fafc` field. The earlier
+build looked right only by accident: its artwork carried transparent rounded corners, measured at
+178/1200 = **14.8%** radius.
+
+**Decision.** Round the two `any` icons to that same 14.8% radius with transparent corners (4×
+supersampled mask, so 192px stays smooth); leave both `maskable` icons untouched and full-bleed.
+`background_color` is deliberately **not** changed — it is `#f8fafc` to match `--qr-bg`, so making it
+brand blue to hide the square would trade a rectangle on the splash for a blue flash before first
+paint on every web load.
+
+`scripts/assetlinks.check.js` gains six assertions that decode the PNGs and check corner alpha in both
+directions. They were written with the arguments reversed first, which made all six vacuously green —
+caught by mutating the icons back and finding the suite still passed. Corrected, then re-mutated: a
+square `any` icon and a rounded `maskable` icon each fail exactly one assertion.
+
+### 2. Reader mode had six indistinguishable causes
+
+`prepare()` resolves to "no purchase control" for six different reasons — `not_play_distribution`,
+`no_digital_goods_api`, `no_skus_requested`, `sku_missing:<id>`, the server flag being off, or the probe
+throwing — and every one of them renders the same sentence. The reason was already logged, but reading a
+console line needs `chrome://inspect` and a computer, which is exactly what an operator testing an
+internal-testing build on a phone does not have. That is an observability gap, and it is why the
+difference between the two builds could not be diagnosed from the device.
+
+**Decision.** Retain the last reason in `js/payments/play-provider.js` (`lastReason()`) and surface it
+through `js/services/report-context.js`, alongside the resolved `paymentProvider` — i.e. through the
+in-app bug report the app already has, readable in super-admin. Diagnostic only: nothing reads it to
+make a decision and it can never enable a purchase. `playReason` is null for anyone not on a Play build,
+so a web report is not padded with a field that could only ever say `not_play_distribution`.
+
+Verified in a browser against the real app: no DGA → `no_digital_goods_api`; one product missing →
+`sku_missing:premium_12m`; everything present → `ok` with `canPurchase() === true`; ordinary web visitor
+→ `provider=razorpay`, `playReason=null`.
+
+**`APP_VERSION` v285 → v286.** The icons are cache-first in the service worker, so without a bump an
+existing install keeps serving the square icon from its old cache.
+
+**Left alone, deliberately.** The `.svg` icons stay square: they are the browser-tab favicon, where the
+shape is not visible, and rounding an SVG means adding a clip path to artwork that is otherwise correct.
+
+---
+
 ## ADR-172 — The one payment route with no timeout was the one that calls Google (v285) (2026-08-21)
 
 **Context.** Reviewing the operator's live Pub/Sub push subscription against the handler it delivers to.

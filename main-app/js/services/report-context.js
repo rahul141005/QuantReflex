@@ -64,6 +64,24 @@
     return _safe(function () { return root.QRPlatform ? root.QRPlatform.mode() : null; });
   }
 
+  function _paymentProvider() {
+    return _safe(function () {
+      return (root.QRPayments && typeof root.QRPayments.providerId === 'function')
+        ? root.QRPayments.providerId() : null;
+    });
+  }
+
+  /* Only meaningful on a Play build; null everywhere else so a web report is not padded with a
+     field that can never be anything but 'not_play_distribution'. */
+  function _playReason() {
+    return _safe(function () {
+      if (!root.QRPaymentsPlay || typeof root.QRPaymentsPlay.lastReason !== 'function') return null;
+      if (!root.QRPayments || typeof root.QRPayments.providerId !== 'function') return null;
+      if (root.QRPayments.providerId() !== 'play') return null;
+      return String(root.QRPaymentsPlay.lastReason() || '').slice(0, 80);
+    });
+  }
+
   function _reducedMotion() {
     return _safe(function () { return !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches); });
   }
@@ -108,6 +126,13 @@
         hardwareConcurrency: _num(nav.hardwareConcurrency),
         standalone: _standalone(),
         platformMode: _platformMode(),
+        /* ADR-173: the payment provider this device resolved to, and — when it is Play — WHY the
+           purchase control is or is not showing. A "no purchase button" report is unactionable
+           without it: reader mode has six causes that look identical on screen, and reading them off
+           the console needs chrome://inspect and a computer, which an operator testing an
+           internal-testing build on a phone does not have. Diagnostic only; nothing decides on it. */
+        paymentProvider: _paymentProvider(),
+        playReason: _playReason(),
         reducedMotion: _reducedMotion()
       },
       locale: {

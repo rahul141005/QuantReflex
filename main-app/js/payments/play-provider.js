@@ -81,6 +81,17 @@
      purchase path re-checks isReady() itself, and the server verifies every token regardless. */
   var _FINAL_FALSE = { not_play_distribution: 1, no_digital_goods_api: 1, no_skus_requested: 1 };
 
+  /* ADR-173 — WHY THE PURCHASE CONTROL IS ABSENT, VISIBLE FROM THE DEVICE.
+     Reader mode has six distinct causes and they look identical to the user: the catalogue did not
+     resolve, one SKU is missing, the Digital Goods API is not exposed at all, the server flag is off,
+     the ID token was unavailable, or the probe threw. `prepare()` already console.info's the reason,
+     but a console line needs `chrome://inspect` and a computer — which is exactly what an operator
+     testing an internal-testing build on a phone does not have. So the last reason is retained and
+     surfaced through js/services/report-context.js, i.e. through the in-app bug report the app already
+     has. Diagnostic only: nothing reads it to make a decision, and it can never enable a purchase. */
+  var _lastReason = 'not_prepared';
+  function lastReason() { return _lastReason; }
+
   function _R() { return root.QRPayments ? root.QRPayments.RESULT : {}; }
   function _t(key) { return (typeof root.QRI18n !== 'undefined') ? root.QRI18n.t(key) : key; }
 
@@ -123,6 +134,7 @@
     var plat = root.QRPlatform;
     if (!plat || typeof plat.canUsePlayBilling !== 'function') {
       /* No platform module ⇒ we cannot prove Play billing is usable ⇒ it is not. */
+      _lastReason = 'no_platform_module';
       _prepared = true; _ready = false;
       return Promise.resolve(done(false));
     }
@@ -132,6 +144,7 @@
       .then(function (verdict) {
         if (!verdict || verdict.ok !== true) {
           var reason = (verdict && verdict.reason) || 'unknown';
+          _lastReason = reason;
           console.info('[PaymentFlow] PLAY_NOT_USABLE | ' + reason);
           return { ready: false, final: !!_FINAL_FALSE[reason] };
         }
@@ -140,6 +153,7 @@
            it later against a catalogue that may have changed.
            Only now ask the server. Ordered this way so a web/PWA user never issues this call at all. */
         return _serverEnabled().then(function (enabled) {
+          _lastReason = enabled ? 'ok' : 'server_disabled';
           if (!enabled) console.info('[PaymentFlow] PLAY_SERVER_DISABLED | reader mode');
           /* An operator can switch `config/playBilling` on, and an ID token can start working, without
              this document reloading — so a server "no" is never final. */
@@ -149,6 +163,7 @@
       .catch(function (err) {
         /* Fails CLOSED. An error establishing readiness is not permission to offer a purchase — but it
            is also not evidence that Play billing is permanently unusable, so it stays re-probeable. */
+        _lastReason = 'prepare_threw:' + String((err && err.message) || err).slice(0, 60);
         console.warn('[PaymentFlow] PLAY_PREPARE_FAILED | ' + ((err && err.message) || err));
         return { ready: false, final: false };
       })
@@ -283,6 +298,7 @@
     });
   }
 
-  root.QRPaymentsPlay = { id: 'play', isReady: isReady, prepare: prepare, purchase: purchase };
+  root.QRPaymentsPlay = { id: 'play', isReady: isReady, prepare: prepare, purchase: purchase,
+                          lastReason: lastReason };
 
 })(typeof self !== 'undefined' ? self : this);
