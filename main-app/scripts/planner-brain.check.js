@@ -211,7 +211,13 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   var exTypes = (exDoc.blocks || []).map(function (b) { return b.type; });
   ok(exTypes.indexOf('metric') >= 0, 'Explanation shows a Mastery-Status metric when the student has data here');
   ok((exDoc.blocks || []).some(function (b) { return b.type === 'card' && /^In CAT/.test(b.title || ''); }), 'Explanation shows an Exam-Insight card grounded in the syllabus for the student\'s exam');
-  ok((exDoc.blocks || []).some(function (b) { return b.type === 'mission'; }), 'Explanation ends in a recommended next-step mission');
+  /* Owner decision, 2026-08-21: the explanation ends in a next-step NOTE, not in a "Drill {topic} now"
+     MISSION CARD. The card deep-linked away and tore down the explanation being read; the "⚡ Drill this"
+     chip is the same intent done better (ADR-045: in place, conversation intact). This assertion was
+     inverted rather than deleted, so the card cannot come back unnoticed. */
+  ok((exDoc.blocks || []).some(function (b) { return b.type === 'callout'; }), 'Explanation still ends in a recommended next-step note');
+  ok(!(exDoc.blocks || []).some(function (b) { return b.type === 'mission'; }), 'Explanation offers NO "Drill {topic} now" mission card');
+  ok((exDoc.chips || []).some(function (c) { return c.kind === 'drill'; }), '…and still offers the in-place "Drill this" chip (the action survived, only the card went)');
   ok((exDoc.chips || []).some(function (c) { return c.value === 'explain_simpler'; }), 'Explanation chips (Simpler/Deeper/Another/Drill) still extend the document');
 
   /* (C) low-data Explanation never invents a mastery number (omits the metric) and skips exam insight without an exam */

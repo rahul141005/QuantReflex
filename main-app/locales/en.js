@@ -1892,6 +1892,7 @@
       unlocked: 'Premium unlocked 🎉',
       unlockedRefresh: 'Premium unlocked! Refresh to see your benefits.',
       failed: 'Payment failed. Please try again.',
+      timedOut: 'This is taking longer than usual. If your payment went through, tap \u2018Restore access\u2019 below \u2014 you will not be charged twice.',
       couldNotOpen: 'Could not open payment. Check your network and retry.',
       couldNotConnect: 'Could not connect to payment service. Check your network.',
       bestValue: 'BEST VALUE',

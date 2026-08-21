@@ -8,6 +8,66 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-177 — The explanation stopped selling a drill it was already offering, and three quieter gaps (v289) (2026-08-21)
+
+Implementation pass over the consolidated audit blueprint. Every item below was re-verified against
+current `main` before it was touched; one blueprint finding was **refuted** and deliberately left alone.
+
+**1. The "Drill {topic} now" card is gone from the explanation (owner decision).** `explainQuestion`
+ended its envelope with a `mission` block — a full-width card, "A focused set is the fastest way to fix
+this.", circular ▶ — immediately above the `⚡ Drill this` chip. Two controls, one intent, and the card
+was the worse of them: tapping it ran `deepLink()`, which **closes the sheet and navigates to Practice**,
+destroying the explanation the student was still reading. The chip runs the same five questions *in
+place* (ADR-045, which exists precisely so the learning flow is not broken). Removed at the source, and
+the client additionally refuses to render a `mission` block in the explain sheet — because the server is
+not the only thing that can produce an envelope this sheet displays, and "no user ever sees it" should be
+a property of the app rather than of one deployment being current. Coach / Insights / Planner are
+untouched: there the card **is** the primary action and navigating away is the point.
+The next-step *note* stays — each of those strings is a complete sentence ("You've got this topic down."),
+explanation content rather than a lead-in to a control, so nothing is left dangling.
+
+**2. The in-place micro-drill ignored the free daily cap.** `startMicroDrill` served five real generated
+questions with no gate and recorded none of them — the one practice surface reachable *after* the
+20-question wall: answer the last question, open the explanation, tap "Drill this", get five more.
+Bounded (a free account has five lifetime explanations, so ≤25 questions ever) but real, and invisible to
+statistics besides. Now gated with the same one-line idiom and the same `daily_limit` paywall context the
+practice launchers use. Premium is never gated.
+
+**3. `'practice'` was a deep-link mode the mode table did not have.** The AI companion deep-links with
+server-supplied mode strings; it emits exactly two, `'focus'` (a table key) and `'practice'` (not one), so
+`'practice'` reached the `|| modes.quick` default and ran a 5-question Quick Drill. That is the correct
+session for it — but by accident, and the same default silently absorbed any genuinely wrong key. The
+alias is now declared, so the default means only what it says, and an unrecognised key is logged instead
+of impersonating a Quick Drill. **No behaviour changed for any input the server sends**, verified in a
+browser: `'practice'` → 5-question Quick Drill, `'focus'` → 10-question focus drill, both unchanged.
+
+**4. A timed-out purchase said "Payment failed."** The facade's 120s safety timer gives up on an attempt
+whose provider sheet may still be open and whose payment the **server** may still verify and grant —
+verification does not depend on this tab. Telling someone whose money may have moved that their payment
+failed is the one wrong thing to say, and it also hides the recovery: Restore re-reads server truth and is
+exactly right for this case. The timeout now has its own copy in all three locales.
+
+**REFUTED — session review does not double-count in the way the blueprint claimed.** The concern was that
+re-answering a missed question puts a duplicate row in the archive and the same question then eats
+multiple slots of a Review Mistakes deck. The archive genuinely does keep every attempt as its own row —
+that is deliberate (`stableId` includes `ts`; `qkey` groups attempts for progression tracking) — but
+**ADR-155 already collapses the review POOL to one record per `qkey`**, keeping the most recent attempt.
+Re-verified in `js/questions.js` `reviewableMistakePool()`. No change made. Counting a re-answer as an
+attempt is likewise correct: it *is* an attempt.
+
+**Verification.** `npm test` exit 0. `planner-brain.check.js` executes the real `explainBase()` and now
+asserts the absence of the card, the presence of the next-step note, and the survival of the drill chip —
+the old assertion was inverted, not deleted, so the card cannot return unnoticed. Five source ratchets
+across `free-explain.check.js` and `payment-facade.check.js`, each mutation-verified (re-adding the
+mission block, deleting the client filter, removing the drill chip, mis-scoping the filter to `coach`,
+dropping the timeout branch — all turn the suite red). In a headless browser: the card is absent while
+say/steps/card/metric/callout/all five chips render, Simpler / Go deeper / Another like this each append a
+turn with no card, the drill chip still launches the micro-drill in place, Coach still shows its mission,
+and there are no page errors. The nine-row provider-routing matrix and the ADR-176 CTA state machine were
+re-executed unchanged after these edits.
+
+---
+
 ## ADR-176 — The Premium sheet told a Play user purchasing was unavailable because auth had not settled yet (v288) (2026-08-21)
 
 **Reported from the device, not from the code.** On the Play internal-testing build (version code 3) the

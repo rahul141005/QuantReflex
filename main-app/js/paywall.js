@@ -217,6 +217,14 @@ function _onPurchaseResult(result) {
   var code = (result && result.code) || R.FAILED;
 
   if (code !== R.OK) {
+    /* A TIMED-OUT attempt is not a known failure, and saying "payment failed" to someone whose money may
+       have moved is the one wrong thing to say here. The facade's 120s safety timer fires on an attempt it
+       has stopped waiting for — the provider sheet may still be open, and the SERVER may still verify and
+       grant, since verification does not depend on this tab. So the copy states what is actually known and
+       points at Restore, which re-reads server truth and is the correct recovery for exactly this case.
+       (Duplicate charging is not a risk being papered over: Razorpay verification is per-order and Play
+       products are one-time managed products the server re-checks against Google.) */
+    if (result && result.timedOut) { showToast(QRI18n.t('paywall.timedOut')); return; }
     /* PROVIDER_UNAVAILABLE deliberately carries no provider-specific message — the copy stays neutral. */
     showToast((result && result.message) ||
       (code === R.PROVIDER_UNAVAILABLE ? QRI18n.t('paywall.purchaseUnavailable') : QRI18n.t('paywall.failed')));

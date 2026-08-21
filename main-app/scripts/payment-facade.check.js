@@ -488,6 +488,16 @@ ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVID
     /readinessFinal\s*\(/.test(pwCode));
   ok('★★ the paywall has a pending state and a retryable-error state, not just yes/no',
     /'pending'/.test(pwCode) && /'retry'/.test(pwCode));
+
+  /* A TIMED-OUT attempt must not be reported as a known failure. The facade's 120s safety timer gives up
+     on an attempt whose provider sheet may still be open and whose payment the SERVER may still verify and
+     grant — verification does not depend on this tab. "Payment failed" is the one wrong thing to say to
+     someone whose money may have moved, so the timeout gets its own copy pointing at Restore. */
+  ok('★★ a timed-out attempt gets its own copy, not the generic "payment failed"',
+    /result\s*&&\s*result\.timedOut/.test(pwCode) && /paywall\.timedOut/.test(pwCode));
+  var gwCode = R('js/payments/gateway.js');
+  ok('…and the facade is what raises that flag (timedOut on the safety timer)',
+    /timedOut:\s*true/.test(gwCode));
 }
 
 /* — pricing + plan ids unchanged by WS4 — */

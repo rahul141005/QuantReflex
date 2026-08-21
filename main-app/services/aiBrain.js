@@ -515,20 +515,25 @@ async function explainBase(question, answer, category, uid, lang) {
     blocks.push(metric(aiStrings.s(lang, 'explain.yourAccuracy', { label: catLabel }), aiStrings.s(lang, 'metric.doneValue', { pct: Math.round(mastery.acc * 100), n: mastery.n }),
       mastery.tier === 'strong' ? 'up' : (mastery.tier === 'weak' ? 'down' : 'flat'), mastery.tier !== 'weak'));
   }
-  // Recommended next step (always visible) — from the mastery tier; reuses the focus-drill deep link.
-  var nextNote, nextTitle, nextWhy, nextMin;
+  /* Mastery-tier coaching note (always visible). Each string is a complete sentence that stands on its
+     own — "You've got this topic down.", "This is one of your focus areas — let's turn it around." — so
+     it is explanation CONTENT, not a lead-in to a control.
+
+     OWNER DECISION (2026-08-21): the large "Drill {topic} now" MISSION CARD that used to follow this note
+     is no longer emitted in the explain flow. It was a second, heavier copy of an action the sheet already
+     offers as the "⚡ Drill this" chip, and the chip is the better one: it runs the micro-drill IN PLACE
+     (ADR-045) instead of deep-linking away and tearing down the explanation the student is still reading.
+     The chip is untouched. Coach / Insights / Planner still emit mission blocks — there the card IS the
+     primary action and the deep-link is the point. */
+  var nextNote;
   if (!mastery || mastery.tier === 'weak') {
     nextNote = aiStrings.s(lang, mastery ? 'explain.nextWeak' : 'explain.nextBase');
-    nextTitle = aiStrings.s(lang, 'mission.drillNow', { label: catLabel }); nextWhy = aiStrings.s(lang, 'explain.whyWeak'); nextMin = 8;
   } else if (mastery.tier === 'strong') {
     nextNote = aiStrings.s(lang, struggledHint ? 'explain.nextStrongSlip' : 'explain.nextStrong');
-    nextTitle = aiStrings.s(lang, 'mission.quick5'); nextWhy = aiStrings.s(lang, 'explain.whyStrong'); nextMin = 5;
   } else {
     nextNote = aiStrings.s(lang, 'explain.nextDeveloping');
-    nextTitle = aiStrings.s(lang, 'mission.addToday', { label: catLabel }); nextWhy = aiStrings.s(lang, 'explain.whyDeveloping'); nextMin = 6;
   }
   blocks.push(callout('info', nextNote));
-  blocks.push(missionBlock(nextTitle, nextWhy, 'focus', category, catLabel, nextMin));
 
   return envelope('explain', blocks, [
     chipReply(aiStrings.s(lang, 'explain.chipGotIt'), 'helpful_yes'),

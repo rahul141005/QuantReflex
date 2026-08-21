@@ -126,7 +126,22 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
     mixed:  { count: 12, timeLimitSec: null, perQuestionSec: null, category: null, topics: _mixedAptitudeTopics(), mode: '🎨 ' + QRI18n.t('practice.mixedAptitude') }
   };
 
-  var config = Object.assign({}, modes[modeKey] || modes.quick);
+  /* The AI companion deep-links with SERVER-supplied mode strings (js/companion-ui.js deepLink →
+     mission cards and ⚡ chips). It emits exactly two: 'focus', a category drill, which is a key above;
+     and 'practice', a general session with no category, which was NOT — so it reached the `|| modes.quick`
+     default and ran a 5-question Quick Drill. That is the correct session for it, but it was correct by
+     accident: the default meant "practice" and "typo" alike, so a mode key that was genuinely wrong was
+     indistinguishable from one that was merely undeclared, and neither was visible.
+     Declaring the alias changes no behaviour for any input the server sends today; it just leaves the
+     default meaning only what it says — an unrecognised key — which is now logged instead of silently
+     becoming a Quick Drill. Still FALLS BACK rather than refusing: a dead CTA is worse than a small
+     session, and the premium/quota gates at the head of this function have already run regardless. */
+  var MODE_ALIASES = { practice: 'quick' };
+  var resolvedKey = MODE_ALIASES[modeKey] || modeKey;
+  if (!Object.prototype.hasOwnProperty.call(modes, resolvedKey)) {
+    console.warn('[Practice] unrecognised mode key "' + modeKey + '" — running Quick Drill');
+  }
+  var config = Object.assign({}, modes[resolvedKey] || modes.quick);
 
   /* ADR-167 — THE ADR-151 PROMISE APPLIES TO EVERY MODE, NOT JUST SETS.
      "Don't advertise questions the allowance can't cover" was implemented for DI/Reasoning sets

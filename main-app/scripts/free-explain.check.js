@@ -69,6 +69,36 @@ ok(refund(2.9) === 1, 'refund fractional → floored then decremented');
 // consume-then-refund round-trips to the original count (no credit gained or lost on a refunded error)
 ok(refund(decide(3, LIMIT).ok ? 4 : 3) === 3, 'consume (3→4) then refund → back to 3');
 
+/* ── the explain sheet offers no "Drill {topic} now" mission card (owner decision, 2026-08-21) ──
+
+   The card was a second, heavier copy of the "⚡ Drill this" chip, and the worse of the two: it
+   deep-linked away and tore down the explanation the student was still reading, where the chip runs
+   the micro-drill in place (ADR-045).
+
+   Asserted as SOURCE ratchets rather than behaviourally, because aiBrain.js cannot be require()d in
+   this environment (it pulls firebase-admin, a Vercel-only dependency). Both ends of the chain are
+   locked so the card cannot come back through either one:
+     · the server must not EMIT a mission block from the explain envelope;
+     · the client must not RENDER one in the explain sheet even if some other path emits it. */
+var fs = require('fs'), path = require('path');
+var brain = fs.readFileSync(path.join(__dirname, '..', 'services', 'aiBrain.js'), 'utf8');
+var explainFn = brain.slice(brain.indexOf('aiService.updateMemory(uid, { addExplainedTopic'),
+                            brain.indexOf('Conversational turn (explain follow-ups'));
+ok(explainFn.length > 500, 'the explain envelope builder was located in aiBrain.js');
+ok(explainFn.indexOf('missionBlock(') === -1,
+  'the explain envelope emits NO mission block ("Drill {topic} now" card)');
+ok(explainFn.indexOf("chipDrill(") !== -1,
+  '…while the "⚡ Drill this" CHIP is still offered (the card was removed, not the action)');
+/* Every other feature keeps its mission card — the block type is not being retired. */
+ok(brain.indexOf('function missionBlock(') !== -1 && (brain.match(/missionBlock\(/g) || []).length >= 8,
+  'Coach / Insights / Planner still emit mission blocks (removal is scoped to explain)');
+
+var companion = fs.readFileSync(path.join(__dirname, '..', 'js', 'companion-ui.js'), 'utf8');
+ok(/_state\.feature === 'explain'[\s\S]{0,220}b\.type === 'mission'/.test(companion),
+  'the client refuses to render a mission block in the explain sheet, whatever the server sent');
+ok(companion.indexOf("case 'mission'") !== -1,
+  '…and the mission renderer itself is intact for the features that do use it');
+
 console.log('\n──────────────────────────────');
 console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

@@ -297,7 +297,21 @@ var Companion = (function () {
   function renderEnvelope(bodyEl, env, append) {
     /* WCAG 3.1.2: AI responses are generated in the STUDY language — mark the thread body for screen readers. */
     try { bodyEl.setAttribute('lang', ((typeof QRI18n !== 'undefined' && QRI18n.studyLang) ? QRI18n.studyLang() : 'en')); } catch (_) {}
-    var blocksHTML = (env.blocks || []).map(blockHTML).join('');
+    /* The large "Drill {topic} now" mission card is not offered in the EXPLAIN sheet (owner decision,
+       2026-08-21) — the "⚡ Drill this" chip is the same action done better, in place, without tearing
+       down the explanation being read. `services/aiBrain.js` no longer emits one for this feature, so in
+       a matched deployment this filter removes nothing.
+       It is here because the server is not the only thing that can produce an envelope this sheet renders:
+       an API rollback, a cached response, or a future edit to a fallback path could each reintroduce the
+       card without touching this file. Filtering at the point of render is what makes "no user ever sees
+       it in the explain flow" a property of the app rather than of one deployment being current.
+       Scoped to `_state.feature` — the feature THIS sheet was opened as, not the envelope's self-report —
+       so Coach / Insights / Planner, where the mission card is the primary action, are untouched. */
+    var _blocks = env.blocks || [];
+    if (_state && _state.feature === 'explain') {
+      _blocks = _blocks.filter(function (b) { return !(b && b.type === 'mission'); });
+    }
+    var blocksHTML = _blocks.map(blockHTML).join('');
     var turn = el('<div class="companion-turn' + (append ? ' is-new' : '') + '">' + blocksHTML + '</div>');
     if (!append) bodyEl.innerHTML = '';
     // ADR-050: cascade the dashboard blocks in (each child gets a staggered animation-delay via --bi).
@@ -353,6 +367,16 @@ var Companion = (function () {
   }
   function startMicroDrill(category, label) {
     if (!_state) return;
+    /* The free daily cap applies here too. This serves five REAL generated questions, so without this
+       gate it was the one practice surface a free user could reach after the 20-question wall: answer
+       the last question, open the explanation, tap "Drill this", get five more. Bounded (a free account
+       has five lifetime explanations) but real, and the questions were invisible to statistics as well.
+       Same gate, same idiom, same paywall context the practice launchers use — a free user is stopped
+       here exactly as they are stopped on the Practice tab, and Premium is never gated. */
+    if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) {
+      if (typeof showPaywall === 'function') { try { showPaywall('daily_limit'); } catch (_) {} }
+      return;
+    }
     var feature = _state.feature, body = _state.body;
     // Generator missing? Fall back to the old navigation so the CTA is never dead.
     if (typeof generateQuestions !== 'function') { deepLink('focus', category, label); return; }
