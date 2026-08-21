@@ -50,7 +50,7 @@ function _getRazorpay() {
  * @returns {{ orderId: string, plan: string, amount: number }}
  */
 async function createOrder(plan, uid) {
-  var config = PLAN_CONFIG[plan];
+  var config = (typeof plan === 'string' && Object.prototype.hasOwnProperty.call(PLAN_CONFIG, plan)) ? PLAN_CONFIG[plan] : null;   /* ADR-175 */
   if (!config) {
     throw new Error('Invalid plan: "' + plan + '". Must be one of: premium_6m, premium_12m.');
   }
@@ -130,7 +130,7 @@ async function fetchOrder(orderId) {
 async function fetchOrderPlan(orderId) {
   var order = await fetchOrder(orderId);
   var plan = order.notes && order.notes.plan;
-  if (!plan || !PLAN_CONFIG[plan]) {
+  if (!plan || typeof plan !== 'string' || !Object.prototype.hasOwnProperty.call(PLAN_CONFIG, plan)) {   /* ADR-175 */
     throw new Error('Order plan mismatch or unknown plan: ' + plan + ' (id: ' + orderId + ')');
   }
   return plan;
@@ -140,7 +140,7 @@ async function fetchOrderPlan(orderId) {
  * Get plan config (used by server to compute expiry).
  */
 function getPlanConfig(plan) {
-  return PLAN_CONFIG[plan] || null;
+  return (typeof plan === 'string' && Object.prototype.hasOwnProperty.call(PLAN_CONFIG, plan)) ? PLAN_CONFIG[plan] : null;   /* ADR-175 */
 }
 
 module.exports = { createOrder, verifyPaymentSignature, fetchOrder, fetchOrderPlan, getPlanConfig, PLAN_CONFIG };

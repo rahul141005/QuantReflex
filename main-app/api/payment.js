@@ -62,7 +62,12 @@ async function _createOrder(req, res) {
     }
     var body = req.body || {};
     var plan = body.plan;
-    if (!plan || !paymentService.PLAN_CONFIG[plan]) {
+    /* ADR-175: hasOwnProperty, not truthiness — `__proto__`, `constructor`, `toString` and friends are
+       truthy on a plain object and used to pass this gate, reaching Razorpay with amount:undefined and
+       surfacing as a 500 rather than a clean 400. Same shape as the Play allowlist, which already got
+       this right (services/playBillingService.js planTypeForProduct). */
+    if (!plan || typeof plan !== 'string' ||
+        !Object.prototype.hasOwnProperty.call(paymentService.PLAN_CONFIG, plan)) {
       return res.status(400).json({
         error: { code: 'BAD_REQUEST', message: 'Invalid plan. Must be one of: premium_6m, premium_12m.', retryable: false }
       });
@@ -118,10 +123,18 @@ async function _verify(req, res) {
     /* audit H1: bind the order to the authenticated caller. The order notes
        carry the uid that created it; reject if a different account tries to
        claim someone else's payment. */
-    var orderUid = order.notes && order.notes.uid;
-    if (orderUid && orderUid !== req.userId) {
-      console.error('[PaymentFlow] PAYMENT_FAILED | order owner mismatch | orderUid: ' + orderUid + ' | caller: ' + req.userId + ' | orderId: ' + orderId);
-      _recordPaymentFailure('owner_mismatch', req.userId);
+    /* ADR-175: FAIL CLOSED. This used to read `if (orderUid && orderUid !== req.userId)`, so an order
+       whose notes carried no uid skipped the ownership check entirely and ANY authenticated caller
+       holding a valid (orderId, paymentId, signature) triple was granted the entitlement — and the
+       payments/{paymentId} row then bound the payment to that wrong account permanently, because a
+       later attempt by the real payer hits the PAYMENT_REPLAY branch in activatePremium. Every order
+       this app creates carries notes.uid (services/paymentService.js createOrder), so a missing one is
+       either not ours or malformed; neither is a reason to grant. */
+    var orderUid = (order.notes && typeof order.notes.uid === 'string') ? order.notes.uid : '';
+    if (!orderUid || orderUid !== req.userId) {
+      console.error('[PaymentFlow] PAYMENT_FAILED | order owner ' + (orderUid ? 'mismatch' : 'absent') +
+        ' | orderUid: ' + (orderUid || '(none)') + ' | caller: ' + req.userId + ' | orderId: ' + orderId);
+      _recordPaymentFailure(orderUid ? 'owner_mismatch' : 'owner_absent', req.userId);
       return res.status(403).json({
         error: { code: 'PAYMENT_OWNER_MISMATCH', message: 'This payment belongs to a different account.', retryable: false }
       });
@@ -726,7 +739,7 @@ var _authed = withAuth(async function (req, res) {
   if (action === 'play-config') return _playConfig(req, res);
   if (action === 'verify-play') return _verifyPlay(req, res);
   return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown payment action: ' + action, retryable: false } });
-});
+}, { rateLimitClass: 'payment' });   /* ADR-175: not the shared AI bucket — a 429 on ?action=verify is money captured with no client-side grant */
 
 /* `play-reconcile` is dispatched OUTSIDE withAuth because a cron has no user token — the same shape
    `api/duel.js` uses for its sweep. It authenticates on CRON_SECRET instead, so the two auth

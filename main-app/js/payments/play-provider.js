@@ -92,6 +92,24 @@
   var _lastReason = 'not_prepared';
   function lastReason() { return _lastReason; }
 
+  /* ADR-176 — HAS READINESS BEEN ESTABLISHED AT ALL YET?
+     Distinct from `_prepared`, which since ADR-169 means "this answer is FINAL". A retryable false —
+     the server flag off, a product not yet published, the ID token not yet available — leaves
+     `_prepared` false forever, so it cannot tell the UI whether a first probe has even run. The paywall
+     needs that difference: before the first probe completes, "no purchase control" is PENDING, not a
+     verdict, and rendering the permanent "not available in this version" copy at that moment is the
+     false state this ADR exists to remove. */
+  var _completedOnce = false;
+  function settled() { return _completedOnce; }
+
+  /* ADR-176 — IS A NEGATIVE ANSWER PERMANENT FOR THIS DOCUMENT?
+     `_prepared` already encodes exactly that (see _FINAL_FALSE), but nothing outside this file could
+     read it, so the paywall had only two renderings for "no": a spinner or the permanent
+     "not available in this version" copy. A retryable no — the operator flag off, a product not yet
+     published, the probe threw, auth not settled — was therefore reported with permanent copy, which
+     is the false state the owner saw on the Play build. Exposed so the UI can offer a retry instead. */
+  function isFinal() { return _prepared === true; }
+
   function _R() { return root.QRPayments ? root.QRPayments.RESULT : {}; }
   function _t(key) { return (typeof root.QRI18n !== 'undefined') ? root.QRI18n.t(key) : key; }
 
@@ -107,10 +125,14 @@
   }
 
   /** Ask the server whether it will honour a Play purchase at all. Fails CLOSED on any error. */
+  /* Resolves true / false / null, where null means "we could not even ask" — no ID token yet, because
+     auth has not settled or the user is signed out. ADR-176: that is NOT the operator having switched
+     Play billing off, and reporting it as `server_disabled` made an ordinary cold-start race look like
+     a configuration failure. */
   function _serverEnabled() {
     return new Promise(function (resolve) {
       _getIdToken(function (idToken) {
-        if (!idToken) { resolve(false); return; }
+        if (!idToken) { resolve(null); return; }
         var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken };
         if (root.Session && typeof root.Session.id === 'function') headers['X-Session-Id'] = root.Session.id();
         fetch('/api/payment?action=play-config', { method: 'POST', headers: headers, body: '{}' })
@@ -135,7 +157,7 @@
     if (!plat || typeof plat.canUsePlayBilling !== 'function') {
       /* No platform module ⇒ we cannot prove Play billing is usable ⇒ it is not. */
       _lastReason = 'no_platform_module';
-      _prepared = true; _ready = false;
+      _prepared = true; _ready = false; _completedOnce = true;
       return Promise.resolve(done(false));
     }
 
@@ -153,6 +175,11 @@
            it later against a catalogue that may have changed.
            Only now ask the server. Ordered this way so a web/PWA user never issues this call at all. */
         return _serverEnabled().then(function (enabled) {
+          if (enabled === null) {
+            _lastReason = 'awaiting_auth';
+            console.info('[PaymentFlow] PLAY_AWAITING_AUTH | no id token yet — not a verdict');
+            return { ready: false, final: false };
+          }
           _lastReason = enabled ? 'ok' : 'server_disabled';
           if (!enabled) console.info('[PaymentFlow] PLAY_SERVER_DISABLED | reader mode');
           /* An operator can switch `config/playBilling` on, and an ID token can start working, without
@@ -170,6 +197,7 @@
       .then(function (v) {
         _ready = !!(v && v.ready === true);
         _prepared = !!(v && v.final === true);
+        _completedOnce = true;
         _preparing = null;
         return _ready;
       });
@@ -299,6 +327,6 @@
   }
 
   root.QRPaymentsPlay = { id: 'play', isReady: isReady, prepare: prepare, purchase: purchase,
-                          lastReason: lastReason };
+                          lastReason: lastReason, settled: settled, isFinal: isFinal };
 
 })(typeof self !== 'undefined' ? self : this);

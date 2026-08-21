@@ -95,6 +95,13 @@
     var isCurrent = req.isCurrent || function () { return true; };
     var finished = false;
     function finish(result) { if (finished) return; finished = true; done(result); }
+    /* ADR-175: Razorpay's `payment.failed` is an ATTEMPT outcome, not a session outcome — the checkout
+       sheet stays open and the customer can pick another method and succeed. Finishing on it burned the
+       one-shot `finished` latch, so a subsequent success inside the SAME sheet still ran `handler`, still
+       called ?action=verify, and the server still granted — but the OK could never reach the UI, which
+       sat on the failure message while the account was already Premium. Remember the failure instead and
+       let the sheet's real end (success, or dismissal) decide. */
+    var _attemptFailed = false;
 
     console.info('[PaymentFlow] PAYMENT_INITIATED | plan: ' + planType + ' | uid: ' + req.userId);
 
@@ -140,7 +147,13 @@
               /* The customer-facing name on the checkout sheet. Falls back to the plan key rather
                  than to a hardcoded string, so a missing label is visible instead of silently wrong. */
               description: 'Premium · ' + (req.planLabel || planType),
-              modal: { ondismiss: function () { finish({ code: R.CANCELLED, provider: 'razorpay', message: _t('paywall.cancelled') }); } },
+              /* ADR-175: dismissing after a failed attempt is a FAILURE the user saw, not a cancellation
+                 they chose. Only an untouched sheet is CANCELLED. */
+              modal: { ondismiss: function () {
+                finish(_attemptFailed
+                  ? { code: R.FAILED, provider: 'razorpay', message: _t('paywall.failed') }
+                  : { code: R.CANCELLED, provider: 'razorpay', message: _t('paywall.cancelled') });
+              } },
               handler: function (response) {
                 if (!isCurrent()) return;
                 var paymentId = response.razorpay_payment_id;
@@ -182,7 +195,10 @@
               var rzp = new root.Razorpay(options);
               rzp.on('payment.failed', function (resp) {
                 console.error('[PaymentFlow] PAYMENT_FAILED | Razorpay error:', resp.error);
-                finish({ code: R.FAILED, provider: 'razorpay', message: _t('paywall.failed') });
+                /* NOT terminal — see the _attemptFailed note above. The sheet is still open; a retry
+                   inside it must still be able to report OK. The facade's 120s safety timer bounds the
+                   case where the sheet is neither dismissed nor completed. */
+                _attemptFailed = true;
               });
               console.info('[PaymentFlow] RAZORPAY_OPENED');
               rzp.open();

@@ -8,6 +8,111 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-176 — The Premium sheet told a Play user purchasing was unavailable because auth had not settled yet (v288) (2026-08-21)
+
+**Reported from the device, not from the code.** On the Play internal-testing build (version code 3) the
+Premium sheet said *"Purchasing isn't available in this version of the app yet"* — repeatedly, across
+reinstalls, on a device where Play Billing demonstrably worked. Version code 2 on the same phone had
+shown the button.
+
+**Measured cause.** `play-provider.js` `prepare()` asks the server whether it will honour a Play purchase
+(`?action=play-config`), and that call needs a Firebase ID token. Opening the paywall during a cold start
+— before auth resolves — means there is no token, so the probe cannot be sent at all. That absence was
+being reported as `server_disabled`: an operator-configuration **verdict**. `paywall.js` had exactly two
+renderings, a button or the permanent copy, so it rendered the permanent copy. Nothing was wrong with the
+build, the device, the products, or the flag.
+
+Three separate things had to be true for the user to see a false statement, and all three are fixed:
+
+1. **A missing ID token is not a verdict.** `_serverEnabled()` now resolves `true` / `false` / **`null`**,
+   where `null` means *we could not even ask*. `prepare()` maps `null` to reason `awaiting_auth` and a
+   non-final false, never to `server_disabled`.
+2. **"Not yet" is not "no".** The facade gained `readinessPending()` — has readiness answered at all? —
+   and `readinessFinal()` — is a negative answer permanent for this document? `_prepared` already encoded
+   the second (ADR-169's `_FINAL_FALSE`) but nothing outside the adapter could read it.
+3. **The paywall has four CTA states, not two.** Pending (a wordless spinner — the honest content of that
+   moment is *we don't know yet*), ready (the button), a **retryable** no (a short message plus a Try
+   again control that re-probes), and a **final** no (the permanent copy, reserved for a build that
+   genuinely has no purchase path — e.g. no Digital Goods API at all). A retryable no is additionally
+   re-probed automatically up to three times at 900 ms while the spinner stays up, so the ordinary
+   cold-start race resolves with no user action at all — measured in a headless TWA: pending at 500 ms,
+   pending at 1500 ms, **Start Premium at 2000 ms, in the same sheet, without reopening it.**
+
+**What did not change.** The purchase path still consults `canPurchase()` and nothing else; a false there
+is still a complete answer and still never reaches the Razorpay adapter. Re-probing can only ever turn a
+CTA **on**, and the server verifies every purchase token regardless — so none of this is a new trust
+surface. Razorpay has no `prepare()`, so `readinessPending()` is false and `readinessFinal()` is true for
+it: a web sheet never spins and never shows the retry control.
+
+**Why no test caught it.** `payment-facade.check.js` asserted the readiness *decision* thoroughly and
+asserted nothing about how the view *renders* it — and the failing input (no ID token) was not among the
+scenarios. Five assertions now cover it, each mutation-verified: reverting `resolve(null)` to
+`resolve(false)`, pinning `isFinal()` to true, pinning it to false, reverting the paywall to
+"any false ⇒ permanent copy", and pinning `readinessPending()` to false each turn the suite red.
+
+**Consequence.** The paywall may state a permanent verdict only when the facade says the answer is final.
+Any future provider with asynchronous readiness inherits this contract for free; one whose adapter omits
+`isFinal()` is treated as final, which is the pre-existing behaviour and the safe direction for a
+provider that does not know how to say "not yet".
+
+---
+
+## ADR-175 — Four defects on the Razorpay side, found by the track that survived the war-room (v288) (2026-08-21)
+
+**Context.** A nine-track parallel payment audit; seven tracks died on a session limit, two returned. The
+Razorpay track returned five executed findings. Four are fixed here; the fifth is the same root cause as
+ADR-174 and was already fixed.
+
+**1. `?action=verify` bound the order to the caller FAIL-OPEN.** `api/payment.js` read
+`if (orderUid && orderUid !== req.userId)`, so an order whose notes carried **no** uid skipped the
+ownership check entirely: any authenticated caller holding a valid `(orderId, paymentId, signature)`
+triple was granted the entitlement — and the `payments/{paymentId}` row then bound that payment to the
+wrong account **permanently**, because the real payer's later attempt hits `PAYMENT_REPLAY`. Every order
+this app creates carries `notes.uid`, so a missing one is either not ours or malformed; neither is a
+reason to grant. Now requires a non-empty string equal to `req.userId`, and logs `owner_absent`
+separately from `owner_mismatch` so the two are distinguishable in the security event stream.
+
+**2. The plan allowlist was a truthiness test on a plain object.** `__proto__`, `constructor`,
+`toString` and friends are truthy, so they passed validation in four places and reached the Razorpay API
+with `amount: undefined`, surfacing as a 500 rather than a clean 400. No grant was possible, so this is
+robustness rather than a hole — but the Play allowlist already used `hasOwnProperty`
+(`playBillingService.planTypeForProduct`) and there was no reason for the two to differ. All four sites
+now match it.
+
+**3. Payments shared the 20/hour AI rate-limit bucket.** `?action=verify` runs **after** Razorpay has
+captured the money, so a 429 there is money taken with no client-side grant — recoverable only via the
+webhook, which is a safety net and not a plan. A user who had spent their hour on AI explanations could
+pay and then be rate-limited out of their own verification. Payments get their own bucket at 60/hour,
+using the mechanism duels and reports already use (`rateLimitClass`).
+
+**4. A failed attempt burned the one-shot result latch.** Razorpay's `payment.failed` is an ATTEMPT
+outcome — the sheet stays open and the customer can pick another method and succeed. The adapter called
+`finish()` on it, so a retry inside the SAME sheet still ran `handler`, still called `?action=verify`,
+and the server still granted, while the OK could never reach the UI: the paywall kept showing a failure
+over an account that was already Premium. `payment.failed` now records `_attemptFailed` and does not
+finish; the sheet's real end decides, and dismissing after a failed attempt reports FAILED rather than
+CANCELLED, because that is what the user saw. The facade's 120 s safety timer still bounds a sheet that
+is neither completed nor dismissed.
+
+**Tests.** Six new assertions drive the real adapter through a Razorpay stub that captures `handler`,
+`modal.ondismiss` and the `payment.failed` listener: a failed attempt must not finish, a retry that
+succeeds must report OK with exactly one verify call, dismissal after a failure must be FAILED, and
+dismissal of an untouched sheet must still be CANCELLED. Mutation-tested by restoring the terminal
+`finish()` — two assertions fail. The suite's summary now settles the async probe before counting; it
+previously printed while the probe was still running, which is why the first version of these
+assertions silently did not execute.
+
+**Not fixed, recorded instead.** The `?src=play` latch survives its tab's whole remaining life and is
+cloned into `window.open` children — so a web user who lands once on a `?src=play` URL loses the
+purchase path for that tab. Reachability requires an operator handing out such a URL, which the guide
+already forbids. The comments in `js/platform.js` and `js/state/storage-registry.js` claiming it "can
+never leak into ordinary browsing of this origin" are wrong and are corrected; narrowing the behaviour
+would weaken Play detection, which is the more expensive direction to get wrong.
+
+**`APP_VERSION` v287 → v288.**
+
+---
+
 ## ADR-174 — An in-app relaunch dropped the Play marker, and a blocked-storage device turned the Play build into a Razorpay build (v287) (2026-08-21)
 
 **Context.** Payment-system war room. Re-deriving the Play verdict's lifetime from scratch rather than

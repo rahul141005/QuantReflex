@@ -345,11 +345,34 @@ function _buildPlansHTML(selected) {
    a second copy of this string is a second place for the "no CTA in a Play build" rule to be got
    wrong. `canBuy === false` renders an explanation: never a dead button, never a link to a website,
    and never a fallback to the other provider. */
-function _ctaHTML(canBuy) {
-  return canBuy
-    ? '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
-      '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>'
-    : '<p class="pw-cta-note pw-unavailable">' + QRI18n.t('paywall.purchaseUnavailable') + '</p>';
+/**
+ * ADR-176: THREE states, not two. `true` and `false` are verdicts; 'pending' is the window in which a
+ * provider whose readiness is asynchronous has not answered yet. Rendering the "not available in this
+ * version of the app" copy during that window asserts a verdict the code has not reached — which is the
+ * false state reported from the Play build, where a paywall opened before auth settled said purchasing
+ * was unavailable over a perfectly functional Play install.
+ *
+ * The pending state is deliberately wordless: a spinner needs no new string in three locales, and the
+ * honest content of that moment is "we don't know yet", which no sentence says better than a spinner.
+ */
+function _ctaHTML(state) {
+  if (state === true) {
+    return '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
+           '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>';
+  }
+  if (state === 'pending') {
+    return '<p class="pw-cta-note pw-cta-pending" role="status" aria-live="polite">' +
+           '<span class="pw-cta-spinner" aria-hidden="true"></span></p>';
+  }
+  /* ADR-176: a RETRYABLE no. The store could not be reached, or the backend has not been switched on
+     yet — neither is a property of this build, so the permanent copy below would be a false statement.
+     Keeps the user's own way forward (the whole point of §5's "recoverable error"). */
+  if (state === 'retry') {
+    return '<p class="pw-cta-note pw-cta-error" role="status" aria-live="polite">' +
+           QRI18n.t('paywall.purchaseCheckFailed') + '</p>' +
+           '<button class="pw-cta-retry" type="button">' + QRI18n.t('paywall.purchaseRetry') + '</button>';
+  }
+  return '<p class="pw-cta-note pw-unavailable">' + QRI18n.t('paywall.purchaseUnavailable') + '</p>';
 }
 
 function showPaywall(featureType) {
@@ -379,6 +402,10 @@ function showPaywall(featureType) {
      whether a purchase is possible. False in a Play build until WS5 — and false is a complete
      answer, never a cue to try the other provider. */
   var _canBuy = (typeof QRPayments !== 'undefined') && QRPayments.canPurchase();
+  /* ADR-176: not buyable YET is not the same as not buyable. */
+  var _ctaState = _canBuy ? true
+    : (((typeof QRPayments !== 'undefined') && typeof QRPayments.readinessPending === 'function'
+        && QRPayments.readinessPending()) ? 'pending' : false);
 
   var compareRows = _COMPARE_ROWS.map(function (r) {
     return '<tr><td class="pw-compare-feat">' + _esc(QRI18n.t(r[0])) + '</td>' +
@@ -414,7 +441,7 @@ function showPaywall(featureType) {
       /* ADR-144 (WS4): no purchase control unless the platform's provider can actually take money.
          In a Play build before WS5 this renders the explanation instead — never a dead button, never
          a link to a website, and never a fallback to the other provider. */
-      '<div class="pw-cta-slot">' + _ctaHTML(_canBuy) + '</div>' +
+      '<div class="pw-cta-slot">' + _ctaHTML(_ctaState) + '</div>' +
 
       '<div class="pw-compare-wrap">' +
         '<table class="pw-compare">' +
@@ -558,18 +585,65 @@ function showPaywall(featureType) {
      so there is nothing for a late NO to correct — while pulling a button out from under a tapping
      finger would be a bug in its own right. */
   if (!_canBuy && typeof QRPayments !== 'undefined' && typeof QRPayments.prepareProvider === 'function') {
-    try {
-      QRPayments.prepareProvider(function (ready) {
-        if (ready !== true || !_paywallModalOpen) return;
-        var slot = overlay.querySelector('.pw-cta-slot');
-        /* Re-check the facade rather than trusting the callback's word: canPurchase() is the one
-           predicate the purchase path itself consults, so the CTA must agree with IT, not with a
-           parallel answer that could have been computed differently. */
-        if (!slot || slot.querySelector('.pw-cta') || QRPayments.canPurchase() !== true) return;
-        slot.innerHTML = _ctaHTML(true);
-        _bindCta();
-      });
-    } catch (_) {}
+    /* ADR-176 — the cold-start race, measured. Play readiness needs an ID token to ask the server
+       whether it will honour a purchase, and on a cold app start the paywall can be opened before auth
+       has settled. The first probe then answers "no" for a reason that has nothing to do with this
+       device or this build, and the sheet said "purchasing isn't available in this version of the app"
+       — permanently, until the sheet was reopened. That is the false state the owner reported.
+       So a RETRYABLE no is not painted as a verdict. It is re-probed a bounded number of times while
+       the spinner stays up, and only if it is still saying no is the user given a retry control. A
+       FINAL no (this build genuinely has no purchase path) still gets the permanent copy immediately —
+       honesty runs in both directions. Bounded, so the spinner cannot hang forever either. */
+    var PROBE_RETRIES = 3;
+    var PROBE_RETRY_MS = 900;
+    var _probeAttempts = 0;
+    var _probeTimer = null;
+
+    function _probeAlive() {
+      return _paywallModalOpen && typeof document !== 'undefined' && document.body.contains(overlay);
+    }
+
+    function _probeReadiness() {
+      try {
+        QRPayments.prepareProvider(function (ready) {
+          if (!_probeAlive()) return;
+          var slot = overlay.querySelector('.pw-cta-slot');
+          if (!slot || slot.querySelector('.pw-cta')) return;
+          if (ready === true) {
+            /* Re-check the facade rather than trusting the callback's word: canPurchase() is the one
+               predicate the purchase path itself consults, so the CTA must agree with IT, not with a
+               parallel answer that could have been computed differently. */
+            if (QRPayments.canPurchase() !== true) return;
+            slot.innerHTML = _ctaHTML(true);
+            _bindCta();
+            return;
+          }
+          var isFinal = (typeof QRPayments.readinessFinal === 'function')
+            ? QRPayments.readinessFinal() === true : true;
+          if (!isFinal && _probeAttempts < PROBE_RETRIES) {
+            _probeAttempts++;
+            if (_probeTimer) clearTimeout(_probeTimer);
+            _probeTimer = setTimeout(function () { if (_probeAlive()) _probeReadiness(); }, PROBE_RETRY_MS);
+            return;
+          }
+          /* Readiness has answered as firmly as it is going to. Only NOW is copy a statement of fact.
+             Still one-directional in the sense that matters: this can never remove a CTA, because the
+             guard above returns early once one exists. */
+          slot.innerHTML = _ctaHTML(isFinal ? false : 'retry');
+          var retryBtn = slot.querySelector('.pw-cta-retry');
+          if (retryBtn) {
+            retryBtn.addEventListener('click', function () {
+              if (!_probeAlive()) return;
+              _probeAttempts = 0;
+              slot.innerHTML = _ctaHTML('pending');
+              _probeReadiness();
+            });
+          }
+        });
+      } catch (_) {}
+    }
+
+    _probeReadiness();
   }
 }
 

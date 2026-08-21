@@ -99,6 +99,13 @@ var DUEL_MAX_REQUESTS_PER_HOUR = 600;   /* a live duel legitimately POLLS room s
    (or vice-versa). The real cap is the domain limiter in report.js (15/hr, 60/day); this coarse middleware gate
    sits comfortably above it (offline-queue retries can legitimately re-POST) so the domain limiter is what bites. */
 var REPORT_MAX_REQUESTS_PER_HOUR = 40;
+/* ADR-175: payments get their OWN bucket. `?action=verify` runs AFTER Razorpay has captured the money,
+   so a 429 there is money taken with no entitlement written by the client path — recoverable only
+   because the webhook is a second, independent grant route, which is a safety net and not a plan. It
+   used to share the 20/hr AI bucket, so a user who had spent their hour on AI explanations could pay and
+   then be rate-limited out of their own verification. Low-volume by nature (create-order, verify, refund
+   eligibility/request/cancel, play-config, verify-play), so this is generous and still a cap. */
+var PAYMENT_MAX_REQUESTS_PER_HOUR = 60;
 var CLEANUP_INTERVAL = 50; /* purge stale entries every N checks */
 
 /* Parameterized per-user limiter. `max` defaults to the AI cap; `bucket` namespaces the counter so different
@@ -153,6 +160,7 @@ function withAuth(handler, opts) {
   var rlMax = MAX_REQUESTS_PER_HOUR, rlBucket = '';
   if (opts.rateLimitClass === 'duel') { rlMax = DUEL_MAX_REQUESTS_PER_HOUR; rlBucket = 'duel'; }
   else if (opts.rateLimitClass === 'report') { rlMax = REPORT_MAX_REQUESTS_PER_HOUR; rlBucket = 'report'; }
+  else if (opts.rateLimitClass === 'payment') { rlMax = PAYMENT_MAX_REQUESTS_PER_HOUR; rlBucket = 'payment'; }
   return async function (req, res) {
     /* Handle CORS preflight — required for POST with Authorization header */
     if (req.method === 'OPTIONS') {

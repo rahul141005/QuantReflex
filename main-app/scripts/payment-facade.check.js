@@ -296,7 +296,9 @@ ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVID
     var fetches = [];
     var sb = {
       console: { info: function () {}, warn: function () {}, error: function () {}, log: function () {} },
-      document: { referrer: 'android-app://com.quantreflex.app',
+      /* `web` boots the same modules in an ordinary browser tab: no Play referrer, no ?src=play and
+         (below) no Digital Goods API — the platform's verdict then routes to Razorpay. */
+      document: { referrer: o.web === true ? '' : 'android-app://com.quantreflex.app',
         documentElement: { classList: { add: function () {}, remove: function () {}, contains: function () { return false; } } },
         body: { classList: { add: function () {}, remove: function () {}, contains: function () { return false; } }, appendChild: function () {} },
         getElementById: function () { return null; },
@@ -306,7 +308,12 @@ ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVID
       sessionStorage: { _d: {}, getItem: function (k) { return this._d[k] || null; }, setItem: function () {} },
       setTimeout: function (f) { return f && 0; }, clearTimeout: function () {}, Promise: Promise,
       QRI18n: { t: function (k) { return k; } },
-      Auth: { getCurrentUser: function () { return { getIdToken: function () { return Promise.resolve('tok'); } }; } },
+      Auth: { getCurrentUser: function () {
+        /* ADR-176: `noAuth` reproduces a COLD START — the paywall opened before Firebase auth
+           resolved, so there is no ID token to authenticate the play-config probe with. */
+        if (o.noAuth === true) return null;
+        return { getIdToken: function () { return Promise.resolve('tok'); } };
+      } },
       fetch: function (url) {
         fetches.push(url);
         return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ enabled: o.serverEnabled === true, skus: [] }); } });
@@ -407,6 +414,51 @@ ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVID
                 'fetches=' + b.fetches.length);
             });
         });
+    }).then(function () {
+      /* ADR-176 — THE FALSE "NOT AVAILABLE IN THIS VERSION", REPRODUCED AND FIXED.
+         Reported from a Play internal-testing build: the Premium sheet said purchasing was not
+         available in this version of the app, on a device where it demonstrably was. The chain is
+         entirely benign and entirely invisible: the sheet is opened before Firebase auth has settled,
+         so there is no ID token, so the play-config probe cannot be sent — and that absence was
+         reported as `server_disabled`, i.e. as a configuration VERDICT, which the paywall rendered as
+         permanent copy. Three separate things had to be true for the user to see a false statement,
+         and each is asserted here so none can come back alone. */
+      var b = bootPlay({ catalogue: true, serverEnabled: true, noAuth: true });
+      ok('★★ before any probe runs, readiness is PENDING — not a verdict the UI may render',
+        b.sb.QRPayments.readinessPending() === true && b.sb.QRPayments.canPurchase() === false);
+      return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); })
+        .then(function (first) {
+          ok('★★★ no ID token yet is reported as awaiting_auth — NEVER as the server being disabled',
+            first === false && b.sb.QRPaymentsPlay.lastReason() === 'awaiting_auth',
+            'reason=' + b.sb.QRPaymentsPlay.lastReason());
+          ok('★★ …and the server was never even asked, so nothing could have answered for it',
+            b.fetches.length === 0, 'fetches=' + b.fetches.join(','));
+          ok('★★★ that "no" is NOT final — so the UI owes the user a retry, not a permanent verdict',
+            b.sb.QRPayments.readinessFinal() === false);
+          /* auth settles, exactly as it does a beat later on a real cold start */
+          b.sb.Auth.getCurrentUser = function () { return { getIdToken: function () { return Promise.resolve('tok'); } }; };
+          return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); });
+        })
+        .then(function (second) {
+          ok('★★★ once auth settles, the SAME document becomes purchasable with no relaunch',
+            second === true && b.sb.QRPayments.canPurchase() === true, 'second=' + second);
+        });
+    }).then(function () {
+      /* The opposite direction, so "not final" cannot be hardcoded: a build with no Digital Goods API
+         genuinely has no purchase path, and the permanent copy is the honest thing to show. */
+      var b = bootPlay({ catalogue: false, serverEnabled: true });
+      return new Promise(function (res) { b.sb.QRPayments.prepareProvider(res); })
+        .then(function () {
+          ok('★★ a build with no Play Billing at all reports readiness as FINAL — permanent copy is honest there',
+            b.sb.QRPayments.readinessFinal() === true && b.sb.QRPayments.readinessPending() === false);
+        });
+    }).then(function () {
+      /* Razorpay has no asynchronous readiness at all, so the web paywall must never spin. */
+      var w = bootPlay({ web: true }).sb;
+      ok('Razorpay readiness is decided at load — a web sheet never renders the pending state',
+        w.QRPayments.providerId() === 'razorpay' && w.QRPayments.readinessPending() === false
+          && w.QRPayments.readinessFinal() === true,
+        'provider=' + w.QRPayments.providerId());
     });
   });
 })();
@@ -427,6 +479,15 @@ ok('PROVIDER_UNAVAILABLE exists as a first-class outcome', codes.indexOf('PROVID
   /* The behavioural label probe below hands `planLabel` to the facade itself, so it cannot see the
      view failing to supply one. This closes that end of the chain. */
   ok('the paywall supplies its display label to the facade', /planLabel\s*:/.test(pwCode));
+
+  /* ADR-176 — the permanent copy is gated on FINALITY, in source. The behavioural probes above prove
+     the facade answers correctly; this proves the view actually asks. Without it, a future edit could
+     restore the old "any false ⇒ permanent copy" shape and every behavioural assertion would still
+     pass, because none of them render the paywall. */
+  ok('★★ the paywall consults readinessFinal() before it may state a permanent verdict',
+    /readinessFinal\s*\(/.test(pwCode));
+  ok('★★ the paywall has a pending state and a retryable-error state, not just yes/no',
+    /'pending'/.test(pwCode) && /'retry'/.test(pwCode));
 }
 
 /* — pricing + plan ids unchanged by WS4 — */
@@ -464,6 +525,91 @@ var labelProbe = (function () {
 
 Promise.all([labelProbe, playReadiness]).then(function () {
   console.log('\n──────────────────────────────');
+  /* ── ADR-175 — A FAILED ATTEMPT MUST NOT BURN THE ONE-SHOT RESULT LATCH ──────────────────────────
+     Razorpay's `payment.failed` is an ATTEMPT outcome: the checkout sheet stays open and the customer
+     can pick another method and succeed. The adapter used to call finish() on it, burning `finished`,
+     so a retry inside the SAME sheet still ran `handler`, still called ?action=verify, and the server
+     still granted — while the OK was swallowed and the UI kept showing the failure over an account
+     that was already Premium. Drive the real adapter with a Razorpay stub that captures the handlers. */
+  var rzpRetryProbe = (function () {
+    function bootRzp() {
+      var spy = { verifyCalls: 0 }, hooks = {};
+      var sandbox = {
+        console: { info: function () {}, warn: function () {}, error: function () {}, log: function () {} },
+        document: { referrer: '', documentElement: { classList: { add: function () {}, remove: function () {}, contains: function () { return false; } } },
+                    body: { classList: { add: function () {}, remove: function () {}, contains: function () { return false; } }, appendChild: function () {} },
+                    getElementById: function () { return null; },
+                    createElement: function () { return { setAttribute: function () {}, addEventListener: function (t, f) { if (t === 'load') setTimeout(f, 0); } }; },
+                    head: { appendChild: function () {} } },
+        location: { search: '' }, navigator: { standalone: false },
+        matchMedia: function () { return { matches: false }; },
+        sessionStorage: { _d: {}, getItem: function (k) { return this._d[k] || null; }, setItem: function () {} },
+        setTimeout: setTimeout, clearTimeout: clearTimeout, Promise: Promise,
+        QRI18n: { t: function (k) { return k; } },
+        Auth: { getCurrentUser: function () { return { getIdToken: function () { return Promise.resolve('tok'); } }; } },
+        fetch: function (url) {
+          if (String(url).indexOf('create-order') !== -1) {
+            return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ orderId: 'ord_1', keyId: 'rzp_test_x', amount: 29900, currency: 'INR' }); } });
+          }
+          if (String(url).indexOf('action=verify') !== -1) {
+            spy.verifyCalls++;
+            return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ success: true, plan: 'premium_6m', expiry: '2027-01-01T00:00:00.000Z' }); } });
+          }
+          return Promise.resolve({ ok: false, json: function () { return Promise.resolve({}); } });
+        }
+      };
+      sandbox.Razorpay = function (options) {
+        hooks.handler = options.handler;
+        hooks.ondismiss = options.modal && options.modal.ondismiss;
+        return { on: function (evt, cb) { if (evt === 'payment.failed') hooks.failed = cb; }, open: function () { hooks.opened = true; } };
+      };
+      sandbox.self = sandbox; sandbox.window = sandbox;
+      vm.createContext(sandbox);
+      vm.runInContext(SRC.platform, sandbox, { filename: 'platform.js' });
+      vm.runInContext(SRC.gateway, sandbox, { filename: 'gateway.js' });
+      vm.runInContext(SRC.razorpay, sandbox, { filename: 'razorpay-provider.js' });
+      return { sb: sandbox, hooks: hooks, spy: spy };
+    }
+    var tick = function () { return new Promise(function (r) { setTimeout(r, 12); }); };
+
+    return bootRzp0(); function bootRzp0() {
+      var A = bootRzp(), outA = [];
+      A.sb.QRPayments.purchase('premium_6m', 'u1', { onDone: function (r) { outA.push(r.code); } });
+      return tick().then(tick).then(tick).then(function () {
+        ok('★ the checkout sheet actually opened', A.hooks.opened === true);
+        A.hooks.failed({ error: { description: 'card declined' } });
+        ok('★★★ a failed ATTEMPT does not finish the purchase — the sheet is still open',
+          outA.length === 0, 'got ' + JSON.stringify(outA));
+        A.hooks.handler({ razorpay_payment_id: 'pay_1', razorpay_order_id: 'ord_1', razorpay_signature: 'sig' });
+        return tick().then(tick).then(tick);
+      }).then(function () {
+        ok('★★★ …so a retry that SUCCEEDS in the same sheet still reports OK',
+          outA.length === 1 && outA[0] === 'OK', 'got ' + JSON.stringify(outA));
+        ok('★ …and the server was asked to verify exactly once', A.spy.verifyCalls === 1, 'verify calls: ' + A.spy.verifyCalls);
+
+        var B = bootRzp(), outB = [];
+        B.sb.QRPayments.purchase('premium_6m', 'u2', { onDone: function (r) { outB.push(r.code); } });
+        return tick().then(tick).then(tick).then(function () {
+          B.hooks.failed({ error: { description: 'declined' } });
+          B.hooks.ondismiss();
+          ok('★★ dismissing AFTER a failed attempt reports FAILED, not CANCELLED',
+            outB.length === 1 && outB[0] === 'FAILED', 'got ' + JSON.stringify(outB));
+
+          var C = bootRzp(), outC = [];
+          C.sb.QRPayments.purchase('premium_6m', 'u3', { onDone: function (r) { outC.push(r.code); } });
+          return tick().then(tick).then(tick).then(function () {
+            C.hooks.ondismiss();
+            ok('★★ dismissing an UNTOUCHED sheet is still CANCELLED',
+              outC.length === 1 && outC[0] === 'CANCELLED', 'got ' + JSON.stringify(outC));
+          });
+        });
+      });
+    }
+  })();
+
+  /* the Razorpay retry probe above is async — let it settle before we count. */
+  return rzpRetryProbe;
+}).then(function () {
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);
 });

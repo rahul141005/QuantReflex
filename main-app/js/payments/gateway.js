@@ -145,6 +145,41 @@
     });
   }
 
+  /**
+   * ADR-176 — is the active provider's readiness still being established?
+   *
+   * `canPurchase()` answers "can money be taken right now", and false is a complete answer for the
+   * PURCHASE path. It is NOT a complete answer for the UI, which has a third state: a provider whose
+   * readiness is asynchronous and has not resolved yet. Rendering "purchasing isn't available in this
+   * version of the app" during that window states a verdict the code has not reached — the false state
+   * the owner reported from the Play build.
+   *
+   * Razorpay has no `prepare`, so it is decided the moment it loads and this is always false for it.
+   */
+  function readinessPending() {
+    var a = _adapter(providerId());
+    if (!a || typeof a.prepare !== 'function') return false;
+    return (typeof a.settled === 'function') ? a.settled() !== true : false;
+  }
+
+  /**
+   * ADR-176 — is a NEGATIVE readiness answer permanent for this document?
+   *
+   * The third piece of the UI's three-state problem. `readinessPending()` separates "no answer yet"
+   * from "answered"; this separates an answered no that CANNOT change while the page lives (this
+   * build simply has no purchase path) from one that can (a backend that was unreachable, an operator
+   * switch, an ID token that had not arrived). The first deserves the permanent explanation; the
+   * second deserves a retry, and telling a user the second is the first is a false statement about
+   * their app.
+   *
+   * A provider with no `prepare` is decided at load, so its answer is always final.
+   */
+  function readinessFinal() {
+    var a = _adapter(providerId());
+    if (!a || typeof a.prepare !== 'function') return true;
+    return (typeof a.isFinal === 'function') ? a.isFinal() === true : true;
+  }
+
   /** Warm the ACTIVE provider's SDK, if it has one. Named neutrally so the paywall never learns which
       provider it is warming — and a no-op for a provider that cannot purchase. */
   function preloadProvider() {
@@ -201,6 +236,8 @@
     RESULT: RESULT,
     providerId: providerId,
     canPurchase: canPurchase,
+    readinessPending: readinessPending,
+    readinessFinal: readinessFinal,
     preloadProvider: preloadProvider,
     prepareProvider: prepareProvider,
     purchase: purchase,

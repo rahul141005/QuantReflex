@@ -1924,6 +1924,8 @@
       cmpYes: '✓',
       trustSecure: 'Secure Payments',
       trustRefund: '24-Hour Refund',
+      purchaseCheckFailed: 'We couldn\u2019t reach the store just now.',
+      purchaseRetry: 'Try again',
       purchaseUnavailable: 'Purchasing isn\u2019t available in this version of the app yet. If you already have Premium, use Restore access below.',
       trustInstant: 'Instant Activation',
       restore: 'Already purchased? Restore access',

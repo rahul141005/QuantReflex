@@ -10294,3 +10294,23 @@ body.reduced-motion .qr-lang-morph-in { animation: none !important; opacity: 1 !
   transform: translate(-50%, -50%);
   /* no paint of any kind — this exists purely to be tapped */
 }
+
+/* ADR-176: the paywall's third CTA state — readiness not yet answered. Wordless on purpose (no new
+   string in three locales); the honest content of that moment is "we don't know yet". */
+.pw-cta-pending { display: flex; justify-content: center; align-items: center; min-height: 3rem; }
+.pw-cta-spinner { width: 1.25rem; height: 1.25rem; border-radius: 50%;
+  border: 2px solid var(--qr-border); border-top-color: var(--qr-primary);
+  animation: pw-cta-spin var(--qr-dur-pulse) linear infinite; }
+@keyframes pw-cta-spin { to { transform: rotate(360deg); } }
+/* Reduced motion: the border-only spinner is already low-amplitude; slow it to the same token the
+   rest of the app uses for calm motion rather than inventing a duration. */
+@media (prefers-reduced-motion: reduce) { .pw-cta-spinner { animation-duration: var(--qr-dur-pulse); animation-iteration-count: infinite; } }
+
+/* ADR-176: the fourth CTA state — readiness answered no, but a RETRYABLE no. Styled as a secondary
+   control, deliberately not as the primary purchase button: it starts a re-check, not a purchase. */
+.pw-cta-error { color: var(--qr-text-dim); }
+.pw-cta-retry { display: block; width: 100%; margin: 0 0 .5rem; padding: .7rem 1rem;
+  border: 1px solid var(--qr-border); border-radius: var(--qr-btn-radius);
+  background: var(--qr-surface-2); color: var(--qr-text); font-weight: 700;
+  font-size: var(--fs-body); cursor: pointer; }
+.pw-cta-retry:active { transform: scale(var(--qr-press-lg)); }

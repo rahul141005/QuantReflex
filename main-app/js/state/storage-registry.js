@@ -63,7 +63,9 @@
        marker remains, isPlayDistribution() answers false and js/payments/gateway.js selects RAZORPAY
        inside the Play app. That is the one unrecoverable Play-policy violation in this program.
        Registering it changes nothing about WHERE it is stored: platform.js still writes sessionStorage
-       only, so it still dies with the tab and still cannot leak into ordinary browsing of this origin.
+       only, so it cannot outlive the tab. (ADR-175: it does survive that tab's whole remaining life and
+       is cloned into opener-linked child windows — see the note in platform.js. It never reaches
+       localStorage, which is the property this registration is about.)
        It only stops the account purge from taking it. */
     'qr_src_play'
   ];
