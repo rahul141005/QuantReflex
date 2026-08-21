@@ -200,7 +200,18 @@
     var done = function () {
       _set(_updatingKey(), 'true');
       var pathname = (root.location && root.location.pathname) || '/';
-      try { root.location.href = pathname; } catch (_) {}
+      /* ADR-174: this navigation drops the query string, and in the main app one of those parameters is
+         the Play-distribution marker. Losing it leaves the verdict resting on a sessionStorage latch
+         alone — which a browser with site data blocked does not provide, at which point the Play build
+         relaunches as a web build and offers Razorpay. Ask the platform module for the marker it needs
+         carried; it answers '' outside a Play build, and the admin/coaching apps have no QRPlatform at
+         all, so for them this is byte-for-byte the old behaviour. Deliberately NOT the whole of
+         location.search: ?duel=CODE is a one-shot deep link and replaying it would re-join a duel. */
+      var q = '';
+      try {
+        if (root.QRPlatform && typeof root.QRPlatform.launchQuery === 'function') q = root.QRPlatform.launchQuery();
+      } catch (_) { q = ''; }
+      try { root.location.href = pathname + q; } catch (_) {}
     };
     if (root.caches && root.caches.keys) {
       return root.caches.keys().then(function (keys) {

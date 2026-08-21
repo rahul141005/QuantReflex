@@ -108,7 +108,13 @@ function boot(opts) {
     matchMedia: function (q) {
       return { matches: !!(o.displayMode && q.indexOf('display-mode: ' + o.displayMode) !== -1) };
     },
-    sessionStorage: {
+    sessionStorage: o.storageThrows
+      /* A browser with site data blocked does not hand back a no-op Storage — the property access
+         itself throws. platform.js wraps every access in _safe(), so the latch is simply never
+         written, which is the condition ADR-174 exists for. */
+      ? (function () { var t = {}; Object.defineProperty(t, 'getItem', { get: function () { throw new Error('SecurityError'); } });
+                       Object.defineProperty(t, 'setItem', { get: function () { throw new Error('SecurityError'); } }); return t; })()
+      : {
       getItem: function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
       setItem: function (k, v) { store[k] = String(v); }
     },
@@ -251,6 +257,32 @@ ok('★ referrer android-app://<our package> alone ⇒ Play distribution',
     'purge removed ' + JSON.stringify(removed));
   ok('…while still purging genuinely user-scoped keys around it',
     area.getItem('qr_progress') === null && area.getItem('foreign') === 'keep');
+})();
+
+/* ADR-174 — AN IN-APP RELAUNCH MUST CARRY THE MARKER, NOT JUST HOPE THE LATCH SURVIVED.
+   Two places navigate the app to `location.pathname`, dropping the query: the Update App button
+   (shared/update/update-manager.js) and its fallback (js/settings.js). After either, the Play verdict
+   rests on the sessionStorage latch alone — and a browser with site data blocked makes that access
+   THROW, so `_safe()` swallows it and nothing is latched. Measured in a browser against the real
+   modules before the fix: launch answered `play`, the post-update document answered `razorpay`.
+   launchQuery() is what those two call sites now append. It must be the marker inside a Play build,
+   INCLUDING when storage is unavailable, and empty everywhere else. */
+(function () {
+  ok('★★★ launchQuery() carries the marker in a Play build',
+    boot({ search: '?src=play' }).P.launchQuery() === '?src=play');
+  ok('★★★ …even when sessionStorage THROWS, so the latch was never written',
+    boot({ search: '?src=play', storageThrows: true }).P.launchQuery() === '?src=play',
+    'this is the exact condition that turned a Play build into a Razorpay build after Update App');
+  ok('★★★ …and it is EMPTY on the web, so a browser relaunch is unchanged',
+    boot({}).P.launchQuery() === '');
+  ok('★★ …empty for an installed PWA too — a PWA is not a Play build',
+    boot({ displayMode: 'standalone' }).P.launchQuery() === '');
+  ok('★★ …and carries the marker when the referrer established the verdict',
+    boot({ referrer: 'android-app://com.quantreflex.app' }).P.launchQuery() === '?src=play');
+  /* It must return a marker the code that consumes it actually recognises — a literal typo here would
+     be invisible to every other assertion. Feed the output straight back in. */
+  ok('★★★ …and what it returns is a query _srcSignal() itself accepts (no typo can slip through)',
+    boot({ search: boot({ search: '?src=play' }).P.launchQuery() }).P.isPlayDistribution() === true);
 })();
 
 /* ...but the latch is SESSION scope, so it can never leak into ordinary browsing of this origin later. */

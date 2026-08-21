@@ -198,6 +198,24 @@
   function isInstalledApp() { return isStandalone() || isPlayDistribution(); }
 
   /**
+   * ADR-174 — the query an IN-APP RELAUNCH must carry to stay inside the Play container.
+   *
+   * Two places navigate the app to `location.pathname`, dropping the query: the Update App button
+   * (shared/update/update-manager.js) and its fallback (js/settings.js). After either, the Play marker
+   * survives only in the sessionStorage latch — and `_safe()` swallows a sessionStorage that THROWS,
+   * which is what a browser with site data blocked does. Measured in a browser against these modules:
+   * with storage unavailable, launch answered `play` and the post-update document answered `razorpay`.
+   * Razorpay inside a Play app is the one unrecoverable Play-policy violation in this program.
+   *
+   * Returns the marker rather than the whole of `location.search` on purpose: `?duel=CODE` is a
+   * one-shot deep link (js/duel-manager.js reads it into `_pendingDeepLink`), and replaying it through
+   * an app update would re-join a duel the user already left.
+   *
+   * Empty string outside a Play build, so a browser relaunch is byte-for-byte what it was before.
+   */
+  function launchQuery() { return isPlayDistribution() ? '?src=play' : ''; }
+
+  /**
    * Strong-evidence AND. Resolves the Digital Goods service against the Play billing backend and
    * confirms both SKUs are actually purchasable. Async because every part of it is.
    *
@@ -263,6 +281,7 @@
     isStandalone: isStandalone,
     isPlayDistribution: isPlayDistribution,
     isInstalledApp: isInstalledApp,
+    launchQuery: launchQuery,
     canUsePlayBilling: canUsePlayBilling,
     mode: mode,
     applyModeClasses: applyModeClasses

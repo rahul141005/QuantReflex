@@ -124,5 +124,29 @@ APPS.forEach(function (a) {
   });
 })();
 
+/* ADR-174 — THE RELAUNCH MUST CARRY THE PLAY MARKER.
+   `applyUpdate()` navigates to `location.pathname`, which drops the query string. In the main app one of
+   those parameters is the Play-distribution marker, and losing it leaves the verdict resting on a
+   sessionStorage latch that a browser with site data blocked never writes — at which point the Play build
+   relaunches as a web build and offers Razorpay. platform.check.js proves launchQuery() returns the right
+   thing; this proves the relaunch actually CALLS it, which a unit test of launchQuery alone cannot.
+   Asserted on the canonical source, since the three copies are already pinned byte-identical above. */
+(function () {
+  var src = fs.readFileSync(path.join(ROOT, 'shared/update/update-manager.js'), 'utf8');
+  var done = src.slice(src.indexOf('var done = function ()'), src.indexOf('if (root.caches'));
+  ok('** the relaunch asks QRPlatform for the query it must carry (ADR-174)',
+    /QRPlatform\s*&&\s*typeof\s+root\.QRPlatform\.launchQuery === 'function'/.test(done) &&
+    /launchQuery\(\)/.test(done));
+  ok('** ...and appends it to the pathname rather than navigating to a bare pathname',
+    /location\.href = pathname \+ q/.test(done) && !/location\.href = pathname;/.test(done));
+  ok('** ...and degrades to the old behaviour when QRPlatform is absent (admin + coaching apps)',
+    /var q = '';/.test(done) && /catch \(_\) \{ q = ''; \}/.test(done));
+
+  var settings = fs.readFileSync(path.join(ROOT, 'main-app/js/settings.js'), 'utf8');
+  ok('** the settings fallback relaunch carries it too',
+    /window\.location\.href = window\.location\.pathname \+ _q;/.test(settings) &&
+    !/window\.location\.href = window\.location\.pathname;/.test(settings));
+})();
+
 console.log('\nupdate.check.js: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

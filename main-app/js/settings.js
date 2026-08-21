@@ -705,7 +705,14 @@ function initSettingsView() {
           }
         }, function () { /* a rejection still means the page is on its way out — leave the button as is */ });
       } else {
-        window.location.href = window.location.pathname;
+        /* ADR-174: same reasoning as the update-manager path above — carry the Play marker across the
+           relaunch so a Play build cannot come back as a web build and offer Razorpay. Empty outside a
+           Play build. */
+        var _q = '';
+        try {
+          if (window.QRPlatform && typeof window.QRPlatform.launchQuery === 'function') _q = window.QRPlatform.launchQuery();
+        } catch (_) { _q = ''; }
+        window.location.href = window.location.pathname + _q;
       }
     });
   }

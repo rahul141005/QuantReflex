@@ -8,6 +8,56 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-174 — An in-app relaunch dropped the Play marker, and a blocked-storage device turned the Play build into a Razorpay build (v287) (2026-08-21)
+
+**Context.** Payment-system war room. Re-deriving the Play verdict's lifetime from scratch rather than
+from the previous ADRs.
+
+**Finding.** Two places navigate the app to `location.pathname`, discarding the query string:
+`shared/update/update-manager.js` (the Update App button) and its fallback in `js/settings.js`. After
+either, the Play-distribution verdict rests on the `qr_src_play` sessionStorage latch alone — ADR-169
+made that latch survive the account purge, but it cannot survive **never being written**. A browser with
+site data blocked does not hand back a no-op Storage: the property access itself **throws**, `_safe()`
+swallows it, and nothing is latched.
+
+Measured in a browser against the real `platform.js`, `storage-registry.js` and `gateway.js`:
+
+| scenario | at launch | after the in-app update |
+|---|---|---|
+| sessionStorage works, query dropped | play | play |
+| sessionStorage works, query kept | play | play |
+| **sessionStorage throws, query dropped** | play | **RAZORPAY** |
+| sessionStorage throws, query kept | play | play |
+
+Razorpay inside a Play app is the one unrecoverable Play-policy violation in this program, and it took a
+storage setting plus one tap on a button that is always visible in Settings.
+
+**Decision.** `js/platform.js` gains `launchQuery()` — the query an in-app relaunch must carry: the
+marker inside a Play build, `''` everywhere else. Both call sites append it.
+
+Three details are deliberate:
+
+- **The marker, not `location.search`.** `?duel=CODE` is a one-shot deep link (`js/duel-manager.js`
+  reads it into `_pendingDeepLink`); replaying the whole query through an app update would re-join a
+  duel the user had already left.
+- **Feature-detected, not imported.** `update-manager.js` is one canonical file with three
+  byte-identical copies, and the admin and coaching apps have no `QRPlatform`. It asks
+  `root.QRPlatform && typeof root.QRPlatform.launchQuery === 'function'` and falls back to `''`, so for
+  those two apps the relaunch is byte-for-byte what it was.
+- **Empty on the web.** An ordinary browser relaunch is unchanged; verified.
+
+**Tests.** `platform.check.js` gains six assertions, including a boot whose `sessionStorage` **throws**
+— the exact condition — and one that feeds `launchQuery()`'s output straight back into
+`isPlayDistribution()`, so a typo in the literal cannot slip through. Mutation-tested three ways: fix
+removed, marker misspelled, marker leaked to the web; each is caught. `update.check.js` gains four
+assertions proving the two call sites actually *call* it — a unit test of `launchQuery()` alone would
+pass with the calls deleted, and that mutation is checked too.
+
+**`APP_VERSION` v286 → v287**, because payment-routing code changed and the service worker keys its
+cache on it.
+
+---
+
 ## ADR-173 — The splash drew a hard square, and "no purchase button" had six causes that all looked the same (v286) (2026-08-21)
 
 **Context.** Two internal-testing builds were handed over as APKs and unpacked. That turned several
