@@ -8,6 +8,71 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-178 — Three layout defects measured rather than eyeballed, and a "bug" that was a stale deployment (v290) (2026-08-21)
+
+**The headline finding is that one of the four reported problems had no code defect at all.**
+
+**1. "Purchasing isn't available in this version of the app yet" — ALREADY FIXED, NEVER DEPLOYED.**
+Reported as a live bug with screenshots. Probed production directly:
+`https://quantreflex.app/service-worker.js` → `APP_VERSION = 'v287'`; the deployed `js/paywall.js` and
+`js/payments/gateway.js` contain **zero** occurrences of `pw-cta-pending` / `_ctaState` /
+`readinessPending` / `readinessFinal`, against 5 each in the repo. The three-state CTA that removes
+exactly this false state landed in **v288** (ADR-176). The screenshots are of a build that predates the
+fix. **No source change was made** — the correct action is to deploy. Re-verified the v289 behaviour
+unchanged: headless TWA shows `pending → pending → Start Premium` in the same sheet with auth settling
+at 1500 ms, and the nine-row provider matrix still routes web→Razorpay / Play→Play with no fallback.
+
+**2. The AI Coach / Study Planner twins disagreed by one line of text.** Measured at 390px before
+touching anything: card heights already matched (207/207) and the CTAs already shared a baseline — but
+the title blocks were **37px against 52px**, which put the two PRO badges and the two descriptions 15px
+out of step. Cause: the icon sits beside the title, leaving it ~77px, and "Study Planner" needs two
+lines there where "AI Coach" needs one. Fixed by stacking the badge onto its own row and reserving two
+text lines for the name in both twins (`min-height` in `em`, so it tracks the clamped font size and a
+longer string grows rather than clips). Now identical across 5 widths × en/hi/mr: header 53/53,
+descriptions, badges and buttons all sharing baselines.
+Separately, `renderStudyPlanCard` emitted a bare `<button>` while `renderAICoachCard` wrapped its CTA in
+`.ai-coach-body` — and `css/style.css` had been styling **`.ai-study-plan-body`**, a class the renderer
+never produced. That is the twin-card contract that regressed; the wrapper is restored rather than a
+parallel one invented, and the containers are now flex columns so the `flex: 1; justify-content:
+flex-end` those bodies already declared has something to act on.
+
+**3. The "Set target" card put its button beside the text.** `.exam-nudge-banner` was a centred flex
+ROW and `.exam-nudge-btn` carried `white-space: nowrap`, so the button claimed its width first and the
+sentence wrapped into whatever remained — "Preparing / for an / exam?" in four lines beside the CTA.
+Now a column: text above, button full-width below, dismiss × absolutely positioned so it neither
+stretches with the button nor insets the text. Touch target raised 40px → 44px, matching the twin-card
+CTA and the platform minimum — the one measured spacing inconsistency in scope.
+
+**4. Tab headings are centred.** `header { justify-content: space-between; text-align: left }` put the
+titles 105–124px off-centre (measured). All four `<header>` elements in this document are exactly the
+Practice/Learn/Stats/Settings headings and each contains only its `<h1>`, so there are no sibling
+controls to push off-centre; `css/style.css` is loaded by main-app alone (ADR-099), so the bare element
+selector cannot reach another app. Offset is now 0px at every width in both themes. **Home is
+deliberately untouched** — its greeting hero is a different component, not a tab heading.
+
+**5. The thin blue line: cause NOT determinable from this repository, and nothing was changed.**
+Measured rather than guessed: rendering the app at 390×844 and enumerating every element with
+`top ≤ 8px, height ≤ 8px, width ≥ 300px` returns `[]` — no such element exists in the DOM, so it is not
+app markup and a CSS overlay would be hiding a symptom. `html`/`body` compute to `rgb(15,23,42)` dark /
+`rgb(248,250,252)` light — no blue. The runtime `<meta name="theme-color">` sync is already correct for
+light/dark/**system**, including a live `prefers-color-scheme` listener (`index.html` pre-paint +
+`settings.js` `_syncThemeColor`). `find` for `twa-manifest*` / `bubblewrap*` / `AndroidManifest*` /
+`build.gradle*` returns nothing: the AAB is generated externally by PWABuilder, so the Android theme
+that owns the status bar is not in this repository. The only in-repo input is `manifest.json`
+`theme_color: #2563eb`, and changing it would trade correct light-mode behaviour for dark — so on the
+owner's instruction it was left alone pending a device-side diagnostic (recorded in the handoff).
+
+**Verification.** `npm test` exit 0. `design-lint.check` 22/22 — it rejected an earlier revision of the
+nudge card for introducing a 19th distinct spacing value, which is why the padding stayed on existing
+tokens. Layout asserted by measurement, not screenshots: 6 widths × 2 themes for the nudge and headings,
+5 widths × 3 languages for the twins, with a guard that the header measurement is non-vacuous (widths
+280–860px) after an earlier revision reported a perfect 0px offset from elements that were simply not
+laid out. Free and premium branches of both cards re-checked: `showPaywall('ai_coach')` /
+`showPaywall('ai_study_plan')` still fire for free users, premium still renders `ai-insights-btn` /
+`sp-open-btn`, zero page errors.
+
+---
+
 ## ADR-177 — The explanation stopped selling a drill it was already offering, and three quieter gaps (v289) (2026-08-21)
 
 Implementation pass over the consolidated audit blueprint. Every item below was re-verified against

@@ -509,12 +509,20 @@ body.drill-session-active .spa-view-active { animation: none; }
 
 /* App bar (blueprint §7-global): left-aligned neutral title + dimmed leading icon + optional action slot.
    Replaces the old centered-blue emoji headers used by Practice / Learn / Stats / Settings. */
+/* The four tab headings (Practice / Learn / Stats / Settings) are centred. Every <header> in this
+   document is one of those four and contains only its <h1> — there are no sibling controls to be
+   pushed off-centre, and this stylesheet is loaded by main-app alone (ADR-099: separate deploy roots),
+   so the bare element selector cannot reach another app's chrome.
+   The heading icon lives INSIDE the h1, so icon and title centre together as one unit rather than the
+   text drifting off-centre by the icon's width. `justify-content` centres the h1 box; `text-align`
+   handles the wrapped case on very narrow screens. Home is deliberately untouched — its greeting hero
+   is a different component, not a tab heading. */
 header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: .5rem;
-  text-align: left;
+  text-align: center;
   padding: 1rem 0 .5rem; /* tighter — reduces Practice tab vertical waste */
 }
 header h1 {
@@ -7228,16 +7236,29 @@ html.dark-mode .hero-stat-divider { background: rgba(71,85,105,0.5); }
 html.dark-mode .hero-exam-chip { background: rgba(30,41,59,.8); color: var(--qr-accent); }
 
 /* One-time target-exam nudge for pre-existing users */
+/* Text ABOVE a full-width button, not beside it. As a single centred row the button's `nowrap` claimed
+   its width first and the sentence was left to wrap inside whatever remained — on a 390px screen that
+   collapsed "Preparing for an exam?" into a four-line column beside the CTA. A column costs nothing at
+   any width and removes the competition for horizontal space entirely.
+   The dismiss × stays out of the flow (absolutely positioned) so it cannot stretch to full width with
+   the button, and so the text keeps the full content width instead of being inset by a third control. */
 .exam-nudge-banner {
+  position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: .75rem;
   padding: .75rem 1rem;
   margin: 0 0 .75rem;
 }
-.exam-nudge-text { flex: 1; font-size: var(--fs-sub); color: var(--qr-text-dim); font-weight: 600; }
-.exam-nudge-btn { min-height: 40px; padding: .5rem .75rem; font-size: var(--fs-caption); white-space: nowrap; }
+.exam-nudge-text {
+  font-size: var(--fs-sub); color: var(--qr-text-dim); font-weight: 600;
+  padding-right: 1.75rem;   /* clears the dismiss × */
+}
+/* 44px matches the twin-card CTA and the platform minimum touch target; this control was 40px. */
+.exam-nudge-btn { width: 100%; min-height: 44px; padding: .5rem 1rem; font-size: var(--fs-caption); }
 .exam-nudge-dismiss {
+  position: absolute; top: .25rem; right: .5rem;
   background: none; border: none; color: var(--qr-text-mut);
   font-size: var(--fs-h2); line-height: 1; padding: .5rem .25rem; cursor: pointer;
 }
@@ -7697,8 +7718,41 @@ html.dark-mode .home-bento-action-btn:hover {
    ─────────────────────────────────────────────────────────────────────── */
 .home-twin-card { align-items: stretch; }
 /* CTA pinned to the bottom; identical box for both twins. */
+/* The two CTA containers must GROW, or the twins cannot align. `.ai-coach-body` / `.ai-study-plan-body`
+   already declare `flex: 1; justify-content: flex-end` to bottom-align their button — but flex-grow is
+   measured against the parent, and these containers were plain auto-height divs, so that instruction had
+   nothing to act on and each button simply sat wherever its description left it. Making the containers
+   flex columns that fill the remaining card height is what turns the existing rule into the intended
+   result: both CTAs land on one baseline no matter how differently the two descriptions wrap. */
 .home-twin-card #aiCoachContainer,
-.home-twin-card #aiStudyPlanContainer { padding-top: 0.5rem; }
+.home-twin-card #aiStudyPlanContainer {
+  padding-top: 0.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+/* Give the PRO badge its own row in BOTH twins. The title is a wrapping flex row of [text][badge], and
+   the two titles are different lengths: "AI Coach" fits beside its badge, "Study Planner" does not, so
+   at phone widths one card's badge wrapped to a second line and the other's did not — measured at 390px,
+   a 37px title block against a 52px one, which put the two PRO badges and the two descriptions 15px out
+   of step. Stacking the badge makes the block [text-row][badge-row] in both cards, so the twins agree by
+   construction instead of by coincidence of string length — which also means a longer hi/mr translation
+   cannot reintroduce the mismatch the way a fixed min-height would. */
+.home-twin-card .home-bento-title {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .25rem;
+}
+/* …and reserve two text lines for the name itself. The icon sits BESIDE the title, leaving it about
+   77px on a 390px phone — enough for "AI Coach" on one line but not "Study Planner", which wrapped to
+   two. That one-line difference was the whole 37px-vs-52px mismatch. Reserving the taller state for
+   both makes the badges and descriptions line up by construction.
+   `min-height` in `em` so it follows the title's clamp() size and a longer string still grows rather
+   than clips. A translation long enough to need a THIRD line in only one of the two cards would
+   reintroduce a smaller version of this — noted rather than over-engineered, since the twins are also
+   equal-height overall and their CTAs are pinned to a shared baseline regardless. */
+.home-twin-card .home-bento-title > span:first-child { min-height: 2.4em; }
+
 .home-twin-card .home-bento-action-btn {
   min-height: 44px;
   display: flex; align-items: center; justify-content: center;

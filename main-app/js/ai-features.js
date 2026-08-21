@@ -69,8 +69,17 @@ var AIFeatures = (function () {
     if (!container) return;
 
     if (!_isPremium()) {
+      /* The `.ai-study-plan-body` wrapper is what makes this card the TWIN of the AI Coach card: both
+         CTAs then sit in an identical flex box that grows to fill the card and bottom-aligns its button,
+         so the two buttons share a baseline however differently the two descriptions wrap.
+         css/style.css has styled `.ai-study-plan-body` alongside `.ai-coach-body` all along — this
+         renderer had been simplified to a bare <button>, which left that rule matching nothing and the
+         pair visibly unequal. Restoring the element restores the contract rather than inventing a
+         parallel one. */
       container.innerHTML =
-        '<button class="home-bento-action-btn sp-unlock-btn" type="button">' + _esc(_t('ai.unlockPremium')) + '</button>';
+        '<div class="ai-study-plan-body">' +
+          '<button class="home-bento-action-btn sp-unlock-btn" type="button">' + _esc(_t('ai.unlockPremium')) + '</button>' +
+        '</div>';
       container.querySelector('.sp-unlock-btn').addEventListener('click', function () {
         if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
       });
@@ -78,7 +87,9 @@ var AIFeatures = (function () {
     }
 
     container.innerHTML =
-      '<button class="home-bento-action-btn sp-open-btn" type="button">' + _esc(_t('ai.openPlanner')) + '</button>';
+      '<div class="ai-study-plan-body">' +
+        '<button class="home-bento-action-btn sp-open-btn" type="button">' + _esc(_t('ai.openPlanner')) + '</button>' +
+      '</div>';
 
     container.querySelector('.sp-open-btn').addEventListener('click', function () {
       // QuanAI Planner (ADR-046) via the unified Companion. Prefer the full calendar view if it's loaded.

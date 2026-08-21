@@ -357,5 +357,27 @@ if (tokensPresent) {
   console.log('  note: M1 foundation tokens not yet present (pre-M1 state) — not enforced');
 }
 
+/* ADR-178 — the three layout contracts, as source ratchets. Each replaced a rule that looked reasonable
+   and measured wrong, so the thing worth locking is the specific property that was inverted. */
+{
+  var _c = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  var _hdr = (_c.match(/\nheader \{[^}]*\}/) || [''])[0];
+  ok('tab headings are centred (header is not space-between/left)',
+    /justify-content:\s*center/.test(_hdr) && !/justify-content:\s*space-between/.test(_hdr));
+  var _nudge = (_c.match(/\.exam-nudge-banner \{[^}]*\}/) || [''])[0];
+  ok('the Set-target card stacks (text above a full-width button, not a row)',
+    /flex-direction:\s*column/.test(_nudge));
+  ok('…and its CTA is full-width with a 44px touch target',
+    /\.exam-nudge-btn \{[^}]*width:\s*100%/.test(_c) && /\.exam-nudge-btn \{[^}]*min-height:\s*44px/.test(_c) &&
+    !/\.exam-nudge-btn \{[^}]*white-space:\s*nowrap/.test(_c));
+  ok('the twin cards reserve equal title height so their descriptions and badges align',
+    /\.home-twin-card \.home-bento-title > span:first-child \{[^}]*min-height/.test(_c));
+  var _af = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-features.js'), 'utf8');
+  ok('both twin CTAs render inside a body wrapper (the styled contract, not a bare button)',
+    /* the EMITTED markup, not the prose — both class names are also named in the comment above them */
+    (_af.match(/<div class="ai-study-plan-body">/g) || []).length === 2 &&
+    (_af.match(/<div class="ai-coach-body">/g) || []).length === 2);
+}
+
 console.log('design-lint.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
