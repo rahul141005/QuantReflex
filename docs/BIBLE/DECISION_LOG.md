@@ -8,6 +8,49 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-179 — Three versions sat undeployed because the commit author email was not a GitHub account (v290) (2026-08-22)
+
+**Symptom.** Production served **v287** while `main` was at **v290**. `main` was fully pushed and the
+working tree clean, so nothing looked wrong from the repository side — the ADR-176 Premium-CTA fix, the
+ADR-177 explanation change and the ADR-178 layout work had all been committed, pushed, and were reaching
+nobody.
+
+**Cause, from the Vercel deployment page:** *"The deployment was blocked because the commit email
+`imkrishnabajaj@gmail.com` could not be matched to a GitHub account."* Vercel resolves the HEAD commit's
+author to a GitHub identity before it will build; an unmatched address blocks the deployment outright
+rather than failing it, which is why nothing appeared in the build logs to investigate.
+
+The boundary is exact:
+
+| Commit | Version | Author email | Outcome |
+|---|---|---|---|
+| `b4fd8b8` | v287 | `noreply@anthropic.com` | deployed — what production was serving |
+| `27d1315` | v288 | `imkrishnabajaj@gmail.com` | blocked |
+| `d619c29` | v289 | `imkrishnabajaj@gmail.com` | blocked |
+| `eea34a6` | v290 | `imkrishnabajaj@gmail.com` | blocked |
+
+Commits up to `b4fd8b8` used the environment's default identity. From `27d1315` the author was set
+per-commit with inline `-c user.email=…` flags using an address taken from session context that is not
+registered on the repository owner's GitHub account. Three releases were lost to it.
+
+**Decision.** The commit identity is configured ONCE in git config and never overridden per-commit, and
+it must be an address verified on the GitHub account that owns the repository —
+`imkrrishna12@gmail.com`, which matches the Vercel org `imkrrishna12-8368s-projects`. Inline `-c`
+identity flags are not to be used: they bypass the configured identity silently, and the failure they
+cause appears three layers away, in a hosting dashboard, with no signal in git, GitHub or CI.
+
+**Not fixed by rewriting history.** The three blocked commits keep their original author. Vercel
+evaluates each deployment against its own HEAD commit, so a new correctly-authored commit on top
+produces a deployable HEAD and ships the accumulated v288–v290 content; force-rewriting three pushed
+commits to repair a stale dashboard record would be the larger and more dangerous change.
+
+**Detection for next time:** the repository being clean and pushed is NOT evidence that users have the
+code. The check that matters is comparing the live build against the repo —
+`curl -s https://quantreflex.app/service-worker.js | grep APP_VERSION` against the local value, and for
+a specific fix, grepping the deployed asset for a marker unique to it. That is how this was found.
+
+---
+
 ## ADR-178 — Three layout defects measured rather than eyeballed, and a "bug" that was a stale deployment (v290) (2026-08-21)
 
 **The headline finding is that one of the four reported problems had no code defect at all.**
