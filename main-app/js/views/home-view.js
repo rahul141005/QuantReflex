@@ -583,10 +583,16 @@ function initHomeView() {
       if (isPP) {
         AIFeatures.renderAICoachCard('aiCoachContainer', p);
       } else {
+        /* Same `.ai-coach-body` wrapper the premium renderer uses (js/ai-features.js). This FREE branch
+           is the one most users see, and it was emitting a bare <button> — so the twin-card contract
+           that ADR-178 restored applied only to premium accounts. Structure now matches in both
+           states; only the badge and the CTA wording differ, which is the intended difference. */
         coachContainer.innerHTML =
-          '<button class="home-bento-action-btn" type="button" id="coachUnlockBtn">' +
-            QRI18n.t('home.unlockAiCoach') +
-          '</button>';
+          '<div class="ai-coach-body">' +
+            '<button class="home-bento-action-btn" type="button" id="coachUnlockBtn">' +
+              QRI18n.t('home.unlockAiCoach') +
+            '</button>' +
+          '</div>';
         var coachUnlockBtn = document.getElementById('coachUnlockBtn');
         if (coachUnlockBtn) {
           coachUnlockBtn.addEventListener('click', function () {
@@ -602,10 +608,13 @@ function initHomeView() {
       if (isPP && typeof AIFeatures !== 'undefined' && typeof AIFeatures.renderStudyPlanCard === 'function') {
         AIFeatures.renderStudyPlanCard('aiStudyPlanContainer');
       } else {
+        /* Twin of the coach branch above — same wrapper, same reason. */
         spContainer.innerHTML =
-          '<button class="home-bento-action-btn" type="button" id="timetableUnlockBtn">' +
-            QRI18n.t('home.createStudyPlan') +
-          '</button>';
+          '<div class="ai-study-plan-body">' +
+            '<button class="home-bento-action-btn" type="button" id="timetableUnlockBtn">' +
+              QRI18n.t('home.createStudyPlan') +
+            '</button>' +
+          '</div>';
         var timetableUnlockBtn = document.getElementById('timetableUnlockBtn');
         if (timetableUnlockBtn) {
           timetableUnlockBtn.addEventListener('click', function () {

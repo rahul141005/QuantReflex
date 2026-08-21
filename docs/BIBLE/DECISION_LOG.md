@@ -8,6 +8,51 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-180 — The twins measured identical and still read as mismatched (v291) (2026-08-22)
+
+ADR-178 equalised the twin cards' GEOMETRY and I verified it by measurement — but the measurement was of
+box heights, and both the title (a reserved `min-height`) and the description (`flex: 1`) grow
+independently of the text inside them. So the boxes agreed while the text did not: re-measured with
+`Range.getClientRects()`, which returns one rect per rendered line, **"AI Coach" was ONE line inside a
+two-line box while "Study Planner" filled both**, and at 360px the coach description ran to three lines
+against the planner's two. A card can be pixel-identical to its twin and still look nothing like it.
+
+**A second path was missed entirely.** ADR-178 wrapped the CTA in `js/ai-features.js`, and I verified it
+by calling `AIFeatures.renderAICoachCard()` / `renderStudyPlanCard()` directly. `js/views/home-view.js`
+only calls those when `isPP` — `hasPremiumAccess()` — is true; for a FREE account it renders its own bare
+`<button>` for both cards. The wrapper fix therefore applied only to paying users, and my verification had
+exercised a path free users never take. Both free branches now emit the same wrapper. (The twins were at
+least symmetric *with each other* in that state, which is why the earlier geometry check still passed.)
+
+**Two lines by construction, not by coincidence.** The titles and descriptions carry an explicit newline
+in the catalog and render under `white-space: pre-line`, so each language picks its own break point and
+the result is two lines at every width — rather than two lines only where the box happens to be narrow
+enough. English also carries the break in `index.html`, because `applyDom` leaves English nodes on their
+inline text. Descriptions were rewritten to a parallel two-line pair — "Personalized exam / guidance" and
+"AI-powered study / planning" — since the old copy could not fit two lines at 360px.
+
+**One more asymmetry, found only at tablet width.** `.sp-open-btn` carries `max-width: 280px` from the
+standalone study-plan CTA and the coach's `.ai-insights-btn` does not, so at 768px the planner's button
+stopped growing and the coach's did not — 290px against 280px. The cap is cleared inside twin cards
+rather than deleted from the base rule, which still governs the non-twin uses.
+
+**Verified** across 5 widths × light/dark × free/premium (20 configurations) and 3 widths × en/hi/mr ×
+free/premium: exactly two title lines and two description lines, identical card size, description
+baseline, badge position and CTA box, no overflow, no page errors. The language pass initially reported
+green while rendering English three times — `QRI18n.setLang` does not exist; the API is `setLanguages`.
+Printing the rendered strings is what exposed it, and the hi/mr numbers above are from the corrected run.
+Four ratchets added to `design-lint.check.js`, each mutation-verified — and two of those mutations at
+first appeared uncaught because the mutation itself had not applied (`replace(…, 1)` hit an earlier
+`max-width: none` elsewhere in the stylesheet), which is its own reminder that a passing mutation test
+proves nothing unless the mutation is confirmed to have landed.
+
+**Premium and Free still differ in card HEIGHT** (191px vs 208px at 390px) because the free card carries
+the PRO badge row. The structure, alignment and rhythm are identical; only that row is present or absent.
+Reserving an empty badge row for premium users would trade a real difference in content for a permanent
+gap, so it was not done — noted here rather than silently accepted.
+
+---
+
 ## ADR-179 — Three versions sat undeployed because the commit author email was not a GitHub account (v290) (2026-08-22)
 
 **Symptom.** Production served **v287** while `main` was at **v290**. `main` was fully pushed and the

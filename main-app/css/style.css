@@ -7753,10 +7753,31 @@ html.dark-mode .home-bento-action-btn:hover {
    equal-height overall and their CTAs are pinned to a shared baseline regardless. */
 .home-twin-card .home-bento-title > span:first-child { min-height: 2.4em; }
 
+/* EXACT two lines for the name and the description in BOTH twins, rather than "however this particular
+   string happens to wrap". Reserving a two-line BOX (above) equalised the geometry, but "AI Coach" still
+   rendered as one line of text with an empty line under it while "Study Planner" filled both — so the
+   pair measured identical and still read as mismatched.
+   `pre-line` honours a newline written into the string itself, so each language chooses its own break
+   point instead of depending on the box width, and the result is two lines at every width rather than
+   two lines only where the box happens to be narrow enough. Whitespace is still collapsed otherwise, so
+   the surrounding markup indentation does not leak into the rendering. */
+.home-twin-card .home-bento-title > span:first-child,
+.home-twin-card .home-bento-desc { white-space: pre-line; }
+/* The description reserves its two lines too, so a future one-line translation cannot pull the CTA up
+   in one card and not the other. */
+.home-twin-card .home-bento-desc { min-height: 2.8em; }
+
 .home-twin-card .home-bento-action-btn {
   min-height: 44px;
   display: flex; align-items: center; justify-content: center;
   width: 100%;
+  /* `.sp-open-btn` / `.sp-unlock-btn` carry `max-width: 280px` from the standalone study-plan CTA, and
+     the coach's `.ai-insights-btn` does not — so on a tablet, where a twin card is wide enough to pass
+     280px, the planner's button stopped growing and the coach's did not: 290px against 280px, measured
+     at 768px. Inside a twin the CTA is a full-width element of a paired card, so the cap does not apply
+     to either of them. It is cleared here rather than deleted from the base rule, which still governs
+     the card's non-twin uses. */
+  max-width: none;
   font-size: var(--fs-caption); line-height: 1.2; padding: 0 0.75rem;
 }
 

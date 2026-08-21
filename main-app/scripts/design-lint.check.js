@@ -372,6 +372,19 @@ if (tokensPresent) {
     !/\.exam-nudge-btn \{[^}]*white-space:\s*nowrap/.test(_c));
   ok('the twin cards reserve equal title height so their descriptions and badges align',
     /\.home-twin-card \.home-bento-title > span:first-child \{[^}]*min-height/.test(_c));
+  /* ADR-180 — the twins are two lines by CONSTRUCTION, not by how a string happens to wrap. */
+  ok('twin titles and descriptions honour an explicit line break (pre-line)',
+    /\.home-twin-card[^{}]*\{[^}]*white-space:\s*pre-line/.test(_c.replace(/\n/g, ' ')));
+  ok('the twin CTA is not capped by the standalone study-plan max-width',
+    /\.home-twin-card \.home-bento-action-btn \{[^}]*max-width:\s*none/.test(_c));
+  var _hv = fs.readFileSync(path.join(__dirname, '..', 'js', 'views', 'home-view.js'), 'utf8');
+  ok('★ the FREE render path wraps BOTH twins (it is the path most users see)',
+    /ai-coach-body/.test(_hv) && /ai-study-plan-body/.test(_hv));
+  var _lc = fs.readFileSync(path.join(__dirname, '..', 'locales', 'en.js'), 'utf8');
+  ok('both twin titles and both descriptions carry their line break in the catalog',
+    (_lc.match(/aiCoachTitle: 'AI\\nCoach'/) ? 1 : 0) + (_lc.match(/plannerTitle: 'Study\\nPlanner'/) ? 1 : 0) +
+    (/aiCoachDesc: '[^']*\\n/.test(_lc) ? 1 : 0) + (/plannerDesc: '[^']*\\n/.test(_lc) ? 1 : 0) === 4);
+
   var _af = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-features.js'), 'utf8');
   ok('both twin CTAs render inside a body wrapper (the styled contract, not a bare button)',
     /* the EMITTED markup, not the prose — both class names are also named in the comment above them */
