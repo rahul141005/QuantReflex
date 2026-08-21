@@ -848,6 +848,39 @@ same as your own tax position on the earnings — take that to an accountant rat
 
 ---
 
+## STEP 17c — Seller verification (India: carried out by a third party, not by Google directly)
+
+**[YOU — EXTERNAL]** Before Play will pay out, the seller behind the payments profile has to be
+verified. In India that is handled by partners rather than inside Play Console itself — this account
+was taken through **`connect.billdesk.com`**, with an eSign step alongside it. The exact partner and
+screen order can differ; the substance below does not.
+
+**No code involvement whatsoever.** This is identity and business verification for the payouts in
+STEP 17b. `js/payments/gateway.js` has exactly two adapters, `razorpay` and `play`, and none of this
+adds a third.
+
+**The one form worth getting right** asks for the website and app you want payments enabled on:
+
+| Field | What to enter |
+|---|---|
+| Website URL | `https://quantreflex.app` — apex, no `www`, and **no `?src=play`** |
+| APP Name | `QuantReflex` |
+| Mobile App APK URL | The public listing `https://play.google.com/store/apps/details?id=com.quantreflex.app` **only once production is live** — it 404s while the app is in internal testing. If the field is mandatory before then, give the internal-testing opt-in link (*Testing → Internal testing → Testers → Copy link*) and say the app is pending production review. A dead link is worse than a blank field. |
+
+🔴 **Never put `?src=play` in a URL you hand to a third party.** It is the marker that makes
+`js/platform.js` classify the document as a Play build, which suppresses Razorpay by design — so a
+reviewer opening `https://quantreflex.app/?src=play` sees *"Purchasing isn't available in this version
+of the app yet"* and no checkout at all. That marker belongs in exactly one place: the TWA launch URL
+inside the Android build.
+
+**A reviewer seeing Razorpay on the website is fine.** Play's requirement is that digital purchases
+*inside the Android app* go through Play Billing; selling the same product on your own site with your
+own processor is permitted. The violation would be an alternative billing path reachable from inside
+the Play app, and there is none — `payment-facade.check.js` asserts that no code path leads from a Play
+verdict to the Razorpay adapter.
+
+---
+
 ## STEP 18 — After launch
 
 **[YOU — PLAY CONSOLE]**, check weekly at first:
