@@ -719,9 +719,40 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }, 8000);
 
+    /* AUTH-UNKNOWN IS NOT AUTH-ABSENT.
+       Firebase 10.x keeps the signed-in user in IndexedDB, so restoring a session is an asynchronous
+       read and a `null` emission is ambiguous: it means "signed out" OR "not restored yet". This gate
+       treated both as signed out and rendered the login screen at once — so a returning user could see
+       the login screen and then be thrown into the app when the real emission landed a moment later.
+       On the FIRST resolution only, a null is now checked against Firebase's own persisted record
+       (Auth.hasPersistedSession) before the login screen is committed to. A device with a stored
+       session keeps the splash and waits for the emission that is already coming; a device without one
+       goes straight to the login screen exactly as before. The probe is bounded (1.5s) and the existing
+       8s auth timeout below is still the backstop, so neither path can hang.
+       Deliberately first-resolution only: once auth has resolved once, a later null is a real sign-out
+       (logout, session displacement) and must show the login screen immediately, with no delay. */
+    var _authResolvedOnce = false;
+
     /* Bind to the single source of truth observer */
     Auth.onStateChange(function (user) {
+      if (!user && !_authResolvedOnce && _currentAppState === 'initializing'
+          && typeof Auth.hasPersistedSession === 'function') {
+        /* NOTE: the 8s auth timeout is deliberately NOT cleared on this branch. Clearing it here and
+           then waiting produced an unreleasable splash when the restored user never arrived — the hold
+           had disarmed its own backstop. It stays armed until auth actually resolves. */
+        Auth.hasPersistedSession(function (hasSession) {
+          /* A real emission may have landed while the probe ran — it wins, always. */
+          if (_authResolvedOnce || _currentAppState !== 'initializing') return;
+          if (hasSession) return;                 /* keep the splash; the restored user is coming */
+          clearTimeout(_authTimeoutId);
+          _authResolvedOnce = true;
+          if (typeof QRIdentity !== 'undefined') QRIdentity.clear();
+          setAppState('unauthenticated');
+        });
+        return;
+      }
       clearTimeout(_authTimeoutId);
+      _authResolvedOnce = true;
       if (user) {
         /* ADR-119: pass the uid so an A→B boundary re-enters the full lifecycle instead of being
            swallowed by the "already rendered" short-circuit. */
@@ -738,13 +769,21 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    /* Initial state check */
+    /* Initial state check. This fires from the SAME observer emission as onStateChange above (see
+       _finishAuthReady in js/auth.js), and listeners run first — so on a first null it would commit the
+       login screen a tick after the handler above deliberately chose to wait, defeating the probe.
+       It defers instead: while the first resolution is still undecided, the handler above owns it. */
     Auth.onAuthReady(function (user) {
-      clearTimeout(_authTimeoutId);
       if (user) {
+        clearTimeout(_authTimeoutId);
+        _authResolvedOnce = true;
         startHydrationAndShowApp(user.uid);
+        return;
       }
-      else setAppState('unauthenticated');
+      /* Same rule as above: while the first resolution is undecided, leave the backstop armed. */
+      if (!_authResolvedOnce && _currentAppState === 'initializing') return;
+      clearTimeout(_authTimeoutId);
+      setAppState('unauthenticated');
     });
   } else {
     _hideAppLoader();

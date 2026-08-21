@@ -141,6 +141,53 @@ var Auth = (function () {
     });
   }
 
+  /**
+   * Is there a persisted Firebase session on this device that has NOT been applied yet?
+   *
+   * Firebase 10.x compat keeps the signed-in user in IndexedDB (`firebaseLocalStorageDb`, object store
+   * `firebaseLocalStorage`, keys prefixed `firebase:authUser:`), so restoring a session is an
+   * ASYNCHRONOUS read. Nothing the auth gate can call synchronously knows whether one is pending —
+   * which is why a `null` observer emission is ambiguous: it means "signed out" OR "not restored yet",
+   * and rendering the login screen on the second reading is the flash this exists to prevent.
+   *
+   * This asks Firebase's OWN storage rather than introducing a parallel record of who is logged in;
+   * it is a hint used only to decide whether to keep the splash up a moment longer, never to grant
+   * access. Entitlement and identity still come from the observer and the server, unchanged.
+   *
+   * Fails to `false` on every error, on a browser without `indexedDB.databases()`, and on a missing
+   * database — i.e. it degrades to exactly today's behaviour (show the login screen at once). It never
+   * CREATES the database: absence is read via `databases()`, so a signed-out device is untouched.
+   */
+  function hasPersistedSession(callback) {
+    var done = false;
+    function answer(v) { if (done) return; done = true; try { callback(!!v); } catch (_) {} }
+    /* Bounded: a wedged IndexedDB must not hold the splash on its own — the caller's own timeout is a
+       backstop, but this keeps the probe itself short. */
+    setTimeout(function () { answer(false); }, 1500);
+    try {
+      if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') { answer(false); return; }
+      indexedDB.databases().then(function (dbs) {
+        var present = (dbs || []).some(function (d) { return d && d.name === 'firebaseLocalStorageDb'; });
+        if (!present) { answer(false); return; }
+        var req = indexedDB.open('firebaseLocalStorageDb');
+        req.onerror = function () { answer(false); };
+        req.onsuccess = function () {
+          var db = req.result;
+          try {
+            if (!db.objectStoreNames.contains('firebaseLocalStorage')) { db.close(); answer(false); return; }
+            var keys = db.transaction('firebaseLocalStorage', 'readonly')
+                         .objectStore('firebaseLocalStorage').getAllKeys();
+            keys.onsuccess = function () {
+              var found = (keys.result || []).some(function (k) { return String(k).indexOf('firebase:authUser:') === 0; });
+              db.close(); answer(found);
+            };
+            keys.onerror = function () { db.close(); answer(false); };
+          } catch (_) { try { db.close(); } catch (_e) {} answer(false); }
+        };
+      }).catch(function () { answer(false); });
+    } catch (_) { answer(false); }
+  }
+
   function _notifyListeners(user, tokenResult) {
     if (_appStateChangeListener) {
       try { _appStateChangeListener(user, tokenResult); } catch (e) { console.warn('Auth state listener error:', e); }
@@ -235,16 +282,40 @@ var Auth = (function () {
     }
     var provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+
+    /* Codes that mean "this environment could not run the popup", as opposed to "the sign-in itself
+       failed". Every one of them is recoverable by the redirect flow, so none may reach the user as an
+       error: painting one and then navigating away is what produced the sub-second error flash before
+       the user landed signed in anyway. `auth/internal-error` is included because that is what an
+       Android WebView commonly reports when it refuses to open the popup window. */
+    var POPUP_UNAVAILABLE = {
+      'auth/popup-blocked': 1,
+      'auth/operation-not-supported-in-this-environment': 1,
+      'auth/internal-error': 1,
+      'auth/web-storage-unsupported': 1,
+      'auth/popup-closed-by-user': 0   /* listed for clarity: a real user cancellation, NOT retried */
+    };
+
+    function _viaRedirect() {
+      try { sessionStorage.setItem('qr_google_redirect', '1'); } catch (_) {}
+      /* Only a failure to even START the redirect is terminal and worth showing. */
+      _auth.signInWithRedirect(provider).catch(function (e2) { callback(getReadableError(e2), null); });
+      /* page navigates away; init() surfaces any redirect error on return */
+    }
+
+    /* Deliberately NOT branching on QRPlatform.isPlayDistribution() here. `payment-facade.check.js`
+       asserts that the platform verdict is read in exactly ONE place — the payment gateway — so that
+       nothing else can start routing behaviour by platform, and that invariant is worth more than the
+       one failed popup this would have saved. The popup attempt below fails fast in an Android WebView
+       and falls straight through to the redirect with NO error painted, which is what the user actually
+       experiences; the wasted attempt is invisible. */
+
     _auth.signInWithPopup(provider)
       .then(function () {
         callback(null, _currentUser);
       })
       .catch(function (err) {
-        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
-          try { sessionStorage.setItem('qr_google_redirect', '1'); } catch (_) {}
-          _auth.signInWithRedirect(provider).catch(function (e2) { callback(getReadableError(e2), null); });
-          return; /* page navigates away; init() surfaces any redirect error on return */
-        }
+        if (err && POPUP_UNAVAILABLE[err.code] === 1) { _viaRedirect(); return; }
         var cancelled = err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request');
         if (!cancelled && typeof SecurityEvents !== 'undefined') {
           SecurityEvents.record('failed_login', { errorCode: err && err.code, reason: 'google_login_failed' });
@@ -406,6 +477,7 @@ var Auth = (function () {
   return {
     init: init,
     onAuthReady: onAuthReady,
+    hasPersistedSession: hasPersistedSession,
     onStateChange: onStateChange,
     signup: signup,
     login: login,

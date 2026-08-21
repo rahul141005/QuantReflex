@@ -134,5 +134,34 @@ ok(gateConsumers === 1, '6 exactly ONE Auth.onStateChange consumer (found ' + ga
 ok(!/queueUpdate\(\s*'plan'/.test(sync), '7 plan is never queued as a client update');
 ok(!/queueUpdate\(\s*'planExpiry'/.test(sync), '7 planExpiry is never queued as a client update');
 
+/* ── 8. ADR-182 — auth-unknown is not auth-absent ─────────────────────────────────────────────────
+   Firebase 10.x persists the signed-in user in IndexedDB, so a `null` observer emission is ambiguous:
+   signed out, OR not restored yet. The gate used to render the login screen on either, which is the
+   flash a returning user saw. These lock the three properties the fix depends on — and in particular
+   that the 8s backstop stays ARMED while the gate defers, because clearing it there produced an
+   unreleasable splash (caught in review, not in production). */
+var appSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
+var authSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'auth.js'), 'utf8');
+ok(/hasPersistedSession/.test(authSrc) && /hasPersistedSession:\s*hasPersistedSession/.test(authSrc),
+  '8 Auth exposes hasPersistedSession (Firebase IndexedDB, not a parallel auth record)');
+ok(/firebase:authUser:/.test(authSrc) && /firebaseLocalStorageDb/.test(authSrc),
+  '8 …and it reads FIREBASE\'s own store rather than inventing one');
+ok(/_authResolvedOnce/.test(appSrc) && /Auth\.hasPersistedSession\(/.test(appSrc),
+  '8 the gate consults it on the FIRST null emission only');
+/* The defer branch must return WITHOUT clearing the timeout. */
+var deferStart = appSrc.indexOf('if (!user && !_authResolvedOnce');
+var deferEnd = appSrc.indexOf('clearTimeout(_authTimeoutId);\n      _authResolvedOnce = true;');
+var deferBranch = (deferStart >= 0 && deferEnd > deferStart) ? appSrc.slice(deferStart, deferEnd) : '';
+/* inside the branch, the ONLY clearTimeout allowed is the one on the committed-signed-out path */
+var clearsInDefer = (deferBranch.match(/clearTimeout\(_authTimeoutId\)/g) || []).length;
+ok(deferBranch.length > 200 && clearsInDefer === 1 && /if \(hasSession\) return;/.test(deferBranch),
+  '8 ★ the defer branch leaves the 8s backstop ARMED (never an unreleasable splash)');
+/* Google: a failure that is about to be retried by redirect must not paint an error. */
+ok(/POPUP_UNAVAILABLE/.test(authSrc) && /'auth\/internal-error':\s*1/.test(authSrc),
+  '8 popup-unavailable codes fall through to redirect instead of showing an error');
+var authCode = authSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+ok(!/isPlayDistribution/.test(authCode),
+  '8 auth does NOT read the platform verdict (payment-facade.check owns that single-reader rule)');
+
 console.log('\nsession-integrity.check: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

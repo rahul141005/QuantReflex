@@ -8,6 +8,64 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-182 — Auth-unknown was rendered as auth-absent, and a recoverable popup failure was rendered as an error (v293) (2026-08-22)
+
+**Firebase 10.x persists the signed-in user in IndexedDB** (`firebaseLocalStorageDb`, keys prefixed
+`firebase:authUser:`), so restoring a session is an ASYNCHRONOUS read and a `null` observer emission is
+ambiguous: it means *signed out* OR *not restored yet*. The auth gate in `js/app.js` treated both the
+same — `else { QRIdentity.clear(); setAppState('unauthenticated'); }` — and `onAuthReady` did likewise a
+tick later. A returning user could therefore be shown the login screen and then thrown into the app when
+the real emission landed. Nothing synchronous can disambiguate it, which is why the state existed but was
+never represented.
+
+**Fix.** `Auth.hasPersistedSession()` asks FIREBASE'S OWN store (via `indexedDB.databases()`, so it never
+creates the database on a signed-out device) whether a session record exists. On the FIRST resolution
+only, a `null` now consults it: a record present keeps the splash and waits for the emission already on
+its way; no record shows the login screen immediately, exactly as before. Any later `null` — a real
+logout or a session displacement — is committed instantly, with no probe and no delay. The probe is a
+hint used only to decide whether to wait; it never grants access, and Firebase remains the sole
+authority. It is not a parallel auth record and not a "remember me" flag.
+
+**The fix's first version shipped an infinite splash, and the test caught it.** `clearTimeout` ran at the
+top of the observer, so deferring disarmed the very 8s backstop that was supposed to release the splash —
+measured: seeded session, unresolvable, splash forever. The backstop now stays armed across the defer and
+fires at ~7.75s. That property is ratcheted explicitly, because it is invisible on every happy path.
+
+**Google sign-in: a failure about to be retried must not be shown as an error.** `loginWithGoogle` fell
+back to `signInWithRedirect` for exactly two error codes; every other popup failure painted
+`getReadableError(err)` on the login screen — and then, where a redirect did occur, navigated away. That
+is the sub-second error flash the owner reported before landing signed in anyway. Android WebViews
+commonly report `auth/internal-error` when refusing to open a popup, so the recoverable set now covers
+`popup-blocked`, `operation-not-supported-in-this-environment`, `internal-error` and
+`web-storage-unsupported`; a genuine cancellation or a real failure still shows an error and does not
+redirect. Verified per-code: 4 redirect silently, 2 report.
+
+**Rejected: branching the auth flow on `QRPlatform.isPlayDistribution()`** to skip the doomed popup in a
+TWA. `payment-facade.check.js` asserts the platform verdict is read in exactly ONE place — the payment
+gateway — so nothing else can start routing behaviour by platform, and the check failed the moment
+`auth.js` became a second reader. The invariant is worth more than one wasted popup attempt the user
+cannot see; the widened recoverable set fixes the symptom without it. (An earlier draft also referenced
+`root.QRPlatform` in a module with no `root` binding — the `try/catch` would have swallowed the
+ReferenceError and left the path silently dead.)
+
+**§1 URL bar — EXTERNAL.** `https://quantreflex.app/.well-known/assetlinks.json` serves HTTP 200,
+`application/json`, byte-identical to the repo, with 4 SHA-256 fingerprints for `com.quantreflex.app`.
+The web half is correct. Whether Chrome shows the URL bar depends on the INSTALLED APK's signing
+certificate being one of those four, which lives in the AAB/Play signing and is not in this repository
+(no `twa-manifest` / `bubblewrap` / `AndroidManifest` / `build.gradle`). Nothing was changed for it.
+
+**§2 "site data" — not a defect.** That is Android's normal wording for a TWA's web storage. What matters
+is the behaviour, and it is correct: with no persisted record the gate goes straight to the login screen
+(measured), so cleared data yields a genuinely unauthenticated start.
+
+**Verified:** persisted record → splash, no login flash; no record → login immediately; backstop fires at
+7.75s so the splash is always released; 6 Google error codes routed correctly. `npm test` exit 0,
+`session-integrity` 45/45 (6 new, 3 mutation-verified), `account-isolation` 121/121 untouched.
+**Not verified — requires the real Play build:** the TWA launch/URL-bar behaviour, a live Google sign-in
+against production Firebase, and Android's clear-data dialog.
+
+---
+
 ## ADR-181 — The tab headings were spaced twice, and only Practice escaped it (v292) (2026-08-22)
 
 ADR-178 centred the four tab headings horizontally. Their VERTICAL positions still disagreed: measured
