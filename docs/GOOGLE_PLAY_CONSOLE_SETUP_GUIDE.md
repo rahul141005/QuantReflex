@@ -873,6 +873,29 @@ reviewer opening `https://quantreflex.app/?src=play` sees *"Purchasing isn't ava
 of the app yet"* and no checkout at all. That marker belongs in exactly one place: the TWA launch URL
 inside the Android build.
 
+**The Business/Financial Details form.** Several answers are fixed by the code, so pin them here rather
+than re-deriving them under time pressure:
+
+| Field | Answer | Where it comes from |
+|---|---|---|
+| Brand Name | `QuantReflex` | — |
+| Category | the Education / e-learning / test-preparation option | — |
+| Description of products/service sold | *"Time-limited premium access to QuantReflex, a speed-aptitude practice app for Quant, Data Interpretation and Logical Reasoning, aimed at CAT, MAH-CET, IBPS and SSC aspirants."* | mirrors `manifest.json` `description` |
+| Payment gateway to be used for | *"Collecting one-time payments for premium access to the QuantReflex app."* | — |
+| **Minimum transaction ticket size (INR)** | **299** | `PREMIUM_PRICE_PAISE.premium_6m = 29900` |
+| **Maximum transaction ticket size (INR)** | **399** | `PREMIUM_PRICE_PAISE.premium_12m = 39900` |
+| Annual income, PEP declaration | **only the owner can answer** — factual/legal declarations, not derivable from anything here | — |
+
+Two accuracy points that matter more than they look:
+
+- **It is a ONE-TIME purchase, not a subscription.** `PLAY_SKUS` are one-time managed products,
+  `api/payment/play-rtdn.js` explicitly ignores `subscriptionNotification`, and the paywall says *"One-time
+  payment · No auto-renewal"*. Declaring "subscriptions" on a KYC form describes a rail this app does not
+  use, and the mismatch surfaces later as a reconciliation query.
+- **299 and 399 are the only amounts QuantReflex can ever charge** — those two constants are the whole
+  catalogue. If a ticket-size range is enforced as a hard limit and pricing later changes, this
+  declaration has to be updated first or transactions outside the range are declined.
+
 **A reviewer seeing Razorpay on the website is fine.** Play's requirement is that digital purchases
 *inside the Android app* go through Play Billing; selling the same product on your own site with your
 own processor is permitted. The violation would be an alternative billing path reachable from inside
