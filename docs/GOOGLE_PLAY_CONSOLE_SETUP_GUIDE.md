@@ -410,16 +410,52 @@ nothing and is set once at build time. Set it.
 With both in place either one is sufficient, they are independent, and neither can be forged by a web
 page.
 
-**Edge-to-edge on Android 15.** Your console's *For your next release* panel shows ✅:
+### Edge-to-edge on Android 15 — two console warnings, and neither is yours to fix
 
-> *"Edge-to-edge may not display for all users — From Android 15, apps targeting SDK 35 will display
-> edge-to-edge by default. Apps targeting SDK 35 should handle…"*
+*For your next release* raises two items against the QuantReflex V2 release:
 
-For a TWA the web content is what has to cope, and it already does: `css/style.css` uses
-`env(safe-area-inset-*)` throughout, including the fixed drill chrome that would otherwise sit under
-the status bar (`body.drill-session-active .drill-report-btn` and its neighbours).
-After the next upload, install it on an Android 15 device and confirm nothing important hides behind
-the status or navigation bars.
+> *"Edge-to-edge may not display for all users"* — apps targeting SDK 35+ display edge-to-edge by default
+> and must handle insets.
+>
+> *"Your app uses deprecated APIs or parameters for edge-to-edge"*.
+
+**They are live, not hypothetical.** Parsing the shipped `AndroidManifest.xml` out of the uploaded APKs:
+`targetSdk=36`, `compileSdk=36`, `minSdk=23` (version codes 2 and 3 respectively). Above SDK 35, so
+edge-to-edge is enforced.
+
+**Warning 1 is already satisfied by the web app.** Measured, not assumed:
+
+- `index.html` carries `viewport-fit=cover`, without which `env(safe-area-inset-*)` is always zero;
+- `css/style.css` has **23** `env(safe-area-inset-*)` declarations;
+- a differential occlusion test — render every surface twice, once with insets resolving to 0 and once
+  with them forced to 48px, then walk `elementFromPoint` across both bar regions looking for interactive
+  controls — finds **zero** controls under either system bar on Home, Practice, Stats, Learn, Settings,
+  a live drill with the numpad up, the pause overlay, the results card, the paywall sheet and a
+  full-screen info modal;
+- `<meta name="theme-color">` exists and is rewritten on theme change, which is the modern mechanism
+  Chrome uses to tint the system bars.
+
+**Warning 2 cannot be fixed from this repository.** The deprecated calls are `setStatusBarColor`,
+`setNavigationBarColor` and `getStatusBarColor`, and they are in `com.google.androidbrowserhelper.trusted.*`
+— Google's own TWA support library, which PWABuilder bundles. The only Android classes carrying our
+package name are the three bubblewrap generates from templates (`Application`, `DelegationService`,
+`LauncherActivity`); we author no Android code at all. Confirmed by scanning `classes.dex` in both APKs:
+identical findings in each.
+
+**Neither blocks a release.** Both sit in *For your next release*, which is advisory. The practical
+effect on Android 15+ is that the deprecated colour calls are ignored, so the system bars go transparent
+and the page shows through behind them — and because the CSS insets its content, nothing important is
+hidden; the bar area simply paints the page background instead of the theme colour.
+
+**If you want the second warning gone**, the only route is to tick *Include source code* in PWABuilder,
+raise the `com.google.androidbrowserhelper` dependency in `app/build.gradle` to a version that has
+migrated off those APIs, and rebuild with Gradle rather than PWABuilder — then re-test on a device.
+Otherwise wait for PWABuilder to ship a newer helper. Do not lower `targetSdk` to silence it: Play
+requires 35+ for new apps, so that trades an advisory warning for a rejected upload.
+
+**Still worth doing on a device:** open a drill and the results card on an Android 15+ phone and confirm
+nothing hides behind the status or navigation bars. The test above is strong evidence, but it runs in
+desktop Chromium with synthetic insets, not on a real device.
 
 ---
 
