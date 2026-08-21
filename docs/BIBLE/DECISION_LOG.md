@@ -8,6 +8,42 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-181 — The tab headings were spaced twice, and only Practice escaped it (v292) (2026-08-22)
+
+ADR-178 centred the four tab headings horizontally. Their VERTICAL positions still disagreed: measured
+at 390px, Practice's `<h1>` sat at **24px** and Learn / Stats / Settings at **44px** — a 20px step, plainly
+visible when the four screens are compared side by side.
+
+**Cause.** `.container` carried `padding: 1.25rem …` — 20px of top padding for every view. The four tab
+views each open with their own `<header>`, which already supplies the space above the heading, so those
+three were being spaced twice. Practice escaped it for an unrelated reason:
+`body.view-practice-active > .container` zeroes that padding because Practice is a fixed-height flex
+shell that owns its own scrolling (ADR-011). Practice was therefore the only view spaced once — and the
+only one that looked right. Nothing was wrong with Practice; the container was wrong for everyone else.
+
+**Decision.** The top spacing moves off the shared container and onto the views that actually need it.
+`.container` becomes `padding: 0 1.25rem 1rem`, and the two views with no header of their own — Home's
+greeting hero and Duel — take `padding-top: 1.25rem` directly. All four tab headings then derive their
+position from one source, their own `<header>`, instead of from a container rule plus a per-view
+exception. Practice is unchanged and remains the reference.
+
+Rejected: adding `view-stats-active` / `view-settings-active` body classes and zeroing the padding per
+view. That would have reproduced Practice's exception three more times — four rules for one intention,
+each free to drift — and required a router change to express a purely presentational fact.
+
+**Verified by measurement, before and after.** All four headings now sit at h1Top **24** — Practice's
+original value — across 5 widths × light/dark, with a horizontal centre offset of 0px. A direct
+before/after against the previous commit confirms nothing else moved: Home's first child, hero, CTA,
+goal card and bento grid, Duel's first child, and Practice's own `h1` are all pixel-identical. The
+ADR-180 twin cards were re-verified unchanged (20 configurations plus en/hi/mr). `npm test` exit 0,
+design-lint 33/33 with two new mutation-verified ratchets.
+
+**Not verified here:** `env(safe-area-inset-top)` resolves to 0 in headless Chromium, so the notch/status
+-bar contribution is identical for all four views in this measurement and cannot mask a difference — but
+the absolute position under a real Android notch is a device observation, not one this harness can make.
+
+---
+
 ## ADR-180 — The twins measured identical and still read as mismatched (v291) (2026-08-22)
 
 ADR-178 equalised the twin cards' GEOMETRY and I verified it by measurement — but the measurement was of

@@ -377,6 +377,14 @@ if (tokensPresent) {
     /\.home-twin-card[^{}]*\{[^}]*white-space:\s*pre-line/.test(_c.replace(/\n/g, ' ')));
   ok('the twin CTA is not capped by the standalone study-plan max-width',
     /\.home-twin-card \.home-bento-action-btn \{[^}]*max-width:\s*none/.test(_c));
+  /* ADR-181 — the four tab headings share ONE top position. The container must not add top padding on
+     top of the <header>'s own spacing, or Practice (which zeroes that padding for its flex shell) sits
+     higher than the other three. The header-less views carry the spacing instead. */
+  ok('★ .container adds no top padding (the tab headers own their spacing)',
+    /\.container \{[^}]*padding:\s*0 1\.25rem 1rem/.test(_c));
+  ok('…and the two header-less views (Home, Duel) keep it themselves',
+    /#view-home\.spa-view-active,[\s]*#view-duel\.spa-view-active \{[^}]*padding-top:\s*1\.25rem/.test(_c));
+
   var _hv = fs.readFileSync(path.join(__dirname, '..', 'js', 'views', 'home-view.js'), 'utf8');
   ok('★ the FREE render path wraps BOTH twins (it is the path most users see)',
     /ai-coach-body/.test(_hv) && /ai-study-plan-body/.test(_hv));

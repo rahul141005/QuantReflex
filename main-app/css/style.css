@@ -497,7 +497,14 @@ body.drill-session-active .spa-view-active { animation: none; }
 .container {
   width: 100%;
   max-width: 480px;
-  padding: 1.25rem 1.25rem 1rem; /* bottom padding gives breathing room above nav */
+  /* NO top padding here. The four tab views (Practice / Learn / Stats / Settings) each open with their
+     own <header>, which already carries the spacing above the heading — so a container top padding was
+     spacing them a second time. Practice never showed it because `body.view-practice-active > .container`
+     zeroes this padding (Practice is a fixed-height flex shell that owns its own scrolling, ADR-011),
+     which is exactly why its heading sat 20px higher than the other three: 1.25rem, measured.
+     The views that have no header of their own — Home's hero and Duel — take the spacing directly
+     instead, so their layout is unchanged. */
+  padding: 0 1.25rem 1rem; /* bottom padding gives breathing room above nav */
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
@@ -4151,6 +4158,10 @@ html.dark-mode .correct-flash {
   header h1 { font-size: var(--fs-h3); }
 }
 
+
+/* The two views without a <header> keep the top spacing the container used to provide for everyone. */
+#view-home.spa-view-active,
+#view-duel.spa-view-active { padding-top: 1.25rem; }
 
 /* Smooth scrolling for content area */
 .container {
