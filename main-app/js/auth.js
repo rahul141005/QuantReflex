@@ -178,7 +178,14 @@ var Auth = (function () {
             var keys = db.transaction('firebaseLocalStorage', 'readonly')
                          .objectStore('firebaseLocalStorage').getAllKeys();
             keys.onsuccess = function () {
-              var found = (keys.result || []).some(function (k) { return String(k).indexOf('firebase:authUser:') === 0; });
+              /* Match THIS project's key, not merely the `firebase:authUser:` prefix. The record is
+                 `firebase:authUser:<apiKey>:[DEFAULT]`, so a record left behind by a different Firebase
+                 project — or by a previous apiKey for this one — would otherwise read as "a session is
+                 restoring" and hold the splash for a user who is genuinely signed out. Falls back to the
+                 prefix only if the apiKey cannot be read, which is the pre-existing behaviour. */
+              var want = 'firebase:authUser:';
+              try { var ak = firebase.app().options.apiKey; if (ak) want += ak + ':'; } catch (_) {}
+              var found = (keys.result || []).some(function (k) { return String(k).indexOf(want) === 0; });
               db.close(); answer(found);
             };
             keys.onerror = function () { db.close(); answer(false); };

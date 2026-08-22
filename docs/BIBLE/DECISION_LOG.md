@@ -58,6 +58,25 @@ certificate being one of those four, which lives in the AAB/Play signing and is 
 is the behaviour, and it is correct: with no persisted record the gate goes straight to the login screen
 (measured), so cleared data yields a genuinely unauthenticated start.
 
+**Post-implementation audit (v294) — one correction and one improvement.**
+
+*Correction, to the record.* Auditing this change I measured a signed-out device carrying an orphaned
+`firebase:authUser:` record sitting on the splash for **8.16s**, and concluded the hold had introduced a
+regression. It had not. Measured against the previous commit, the same fixture took **8336ms before** the
+change and **8171ms after**: a corrupt record makes Firebase throw `auth/internal-error` and never emit at
+all, so the pre-existing 8s backstop is what fires, with or without the hold. My first response to the bad
+diagnosis was a 2.5s bound on the hold — which solved nothing and actively endangered the fix, because a
+slow cold start on a real device can exceed 2.5s and would have reintroduced the very login-screen flash
+this ADR exists to remove. **The bound was reverted.** The 8s backstop remains the only bound, and a
+ratchet now forbids a second competing timeout.
+
+*Improvement, kept.* The probe matched the bare `firebase:authUser:` prefix, so a record belonging to a
+DIFFERENT Firebase project — or to a previous apiKey for this one — would have read as "a session is
+restoring" and held the splash for a genuinely signed-out user. It now matches
+`firebase:authUser:<this project's apiKey>:`, read from `firebase.app().options.apiKey`, falling back to
+the prefix only if the key cannot be read. Measured: a foreign-project record now resolves to the login
+screen in **212ms** instead of holding.
+
 **Verified:** persisted record → splash, no login flash; no record → login immediately; backstop fires at
 7.75s so the splash is always released; 6 Google error codes routed correctly. `npm test` exit 0,
 `session-integrity` 45/45 (6 new, 3 mutation-verified), `account-isolation` 121/121 untouched.

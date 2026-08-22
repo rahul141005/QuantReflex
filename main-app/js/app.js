@@ -743,7 +743,15 @@ document.addEventListener('DOMContentLoaded', function () {
         Auth.hasPersistedSession(function (hasSession) {
           /* A real emission may have landed while the probe ran — it wins, always. */
           if (_authResolvedOnce || _currentAppState !== 'initializing') return;
-          if (hasSession) return;                 /* keep the splash; the restored user is coming */
+          /* Keep the splash; the restored user is coming. No second, shorter timeout is armed here on
+             purpose. A slow cold start on a real device can take longer than any short bound would
+             allow, and cutting the wait early would reintroduce exactly the login-screen flash this
+             branch exists to prevent. The 8s backstop above already bounds it.
+             (An earlier revision added a 2.5s bound believing a stale record was a regression this
+             change had introduced. Measured against the previous commit, it was not: a corrupt record
+             makes Firebase throw auth/internal-error and never emit, so the 8s backstop fires — 8336ms
+             before this change, 8171ms after. The bound solved nothing and endangered the real fix.) */
+          if (hasSession) return;
           clearTimeout(_authTimeoutId);
           _authResolvedOnce = true;
           if (typeof QRIdentity !== 'undefined') QRIdentity.clear();

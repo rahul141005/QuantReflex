@@ -148,6 +148,12 @@ ok(/firebase:authUser:/.test(authSrc) && /firebaseLocalStorageDb/.test(authSrc),
   '8 …and it reads FIREBASE\'s own store rather than inventing one');
 ok(/_authResolvedOnce/.test(appSrc) && /Auth\.hasPersistedSession\(/.test(appSrc),
   '8 the gate consults it on the FIRST null emission only');
+ok(/options\.apiKey/.test(authSrc),
+  '8 the probe matches THIS project\'s auth record, not any firebase:authUser: key');
+/* No second, shorter timeout may be armed while holding: a slow real-device restore would trip it and
+   reintroduce the very flash this fix removes. The 8s backstop is the only bound. */
+ok((appSrc.match(/setTimeout\(function \(\) \{\s*\n\s*if \(_authResolvedOnce/g) || []).length === 0,
+  '8 ★ no extra short timeout races the restore (only the 8s backstop bounds the hold)');
 /* The defer branch must return WITHOUT clearing the timeout. */
 var deferStart = appSrc.indexOf('if (!user && !_authResolvedOnce');
 var deferEnd = appSrc.indexOf('clearTimeout(_authTimeoutId);\n      _authResolvedOnce = true;');
