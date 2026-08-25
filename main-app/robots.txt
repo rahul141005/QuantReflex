@@ -1,4 +1,4 @@
-User-agent: GPTBot
+User-agent: gptbot
 Disallow: /
 
 User-agent: OAI-SearchBot
