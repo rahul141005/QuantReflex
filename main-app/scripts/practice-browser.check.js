@@ -194,8 +194,8 @@ ok(sandbox.loadProgress().todayAttempted === 0,
 /* BUG A precondition — both old guards are down here, which is why a repaint used to nuke this screen. */
 ok(sandbox.FirestoreSync.isDrillActive() === false,
   'BUG A: `_drillActive` is FALSE on the pre-session screen (old guard #1 does not cover it)');
-ok(body.classList.contains('drill-session-active') === false,
-  'BUG A: the `drill-session-active` body class is ABSENT here (old guard #2 does not cover it)');
+ok(body.classList.contains('drill-session-active') === true,
+  'BUG A: the `drill-session-active` body class IS present here (for layout), but `_drillActive` is not');
 ok(!!sandbox._activeDrillEngine,
   'BUG A: `_activeDrillEngine` IS set here — the signal the new guard keys on');
 /* And the trigger itself is gone: with nothing charged at launch there is no queued write, so no 2s

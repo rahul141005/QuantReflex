@@ -276,7 +276,10 @@ function createDrillEngine(container, opts) {
         '<button id="startBackBtn" class="btn-secondary drill-start-back">' + QRI18n.t('drill.backToModes') + '</button>' +
       '</div>';
     hideCustomNumpad();
-    _exitDrillSession();
+    document.body.classList.add('drill-session-active');
+    document.documentElement.classList.add('drill-session-active');
+    var nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.display = 'none';
     container.querySelector('#startBtn').addEventListener('click', begin);
     container.querySelector('#startBackBtn').addEventListener('click', function () {
       cleanup();
@@ -1354,7 +1357,8 @@ function createDrillEngine(container, opts) {
     /* Self-trend: this Speed Score vs the user's own last session — the only comparison the product
        can honestly make. (The old "Faster than N% of users" percentile was simulated — speed score
        scaled plus random jitter, no cohort — and was removed on principle.) */
-    var lastSpeed = ScoringService.loadLastSpeedScore();
+    var lastSpeed = null;
+    try { lastSpeed = ScoringService.loadLastSpeedScore(); } catch (_) {}
     var deltaHtml = '';
     if (_attempted && lastSpeed !== null && lastSpeed > 0) {
       var delta = speedScore - lastSpeed;
@@ -1386,7 +1390,10 @@ function createDrillEngine(container, opts) {
     else { badgeText = QRI18n.t('drill.badgeNeedsReview'); badgeClass = 'badge-review'; }
 
     /* Rule-based post-session insight (always visible, no AI call) */
-    var _insightText = _computeSessionInsight(accNum, sessionWrongCategories);
+    var _insightText = '';
+    try { _insightText = _computeSessionInsight(accNum, sessionWrongCategories); } catch (_) {
+      _insightText = (typeof QRI18n !== 'undefined') ? QRI18n.t('drill.insightDefault') : 'Session complete.';
+    }
 
     /* ── ADR-086 P6 dashboard signals ──────────────────────────────────────────────────────────────────────
        Strongest & weakest topic from the per-category session tally; a "mistakes to review" count; the within-
