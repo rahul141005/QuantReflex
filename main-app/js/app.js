@@ -1296,21 +1296,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var _onLearnSubRoute = (view === 'learn' && window.location.hash.indexOf('#learn/') === 0);
       if (this.classList.contains('active') && !_drillSessionActive && !_hasStaleResults && !_onLearnSubRoute) return;
       /* Cleanup any active drill engine when navigating away */
-      if (_activeDrillEngine) {
-        _activeDrillEngine.cleanup();
-        _activeDrillEngine = null;
-      }
-      /* Clear stale drill results overlay (fullscreen fixed z-index layer) */
-      var _dc = document.getElementById('drillContainer');
-      if (_dc) {
-        _dc.classList.remove('drill-results-active');
-        _dc.style.display = 'none';
-      }
-      /* End any active Firestore batch */
-      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') {
-        FirestoreSync.endDrillBatch();
-      }
-      _exitDrillSession();
+      _disposeActiveDrillSession();
       /* Close any open info modals */
       _closeAllInfoModals();
       SoundEngine.play('tabSwitch');

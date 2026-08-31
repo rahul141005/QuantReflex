@@ -1460,6 +1460,7 @@ function createDrillEngine(container, opts) {
 
     /* Activate fullscreen scrollable results mode on the container */
     container.classList.add('drill-results-active');
+    container.style.display = 'block';
 
     /* Resolve user display name for share card */
     var _shareDisplayName = '';

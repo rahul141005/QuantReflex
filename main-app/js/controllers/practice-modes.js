@@ -194,20 +194,7 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
   if (opts.skipStartScreen === true) config.skipStartScreen = true;
 
   config.onFinish = function (view) {
-    if (_activeDrillEngine) {
-      _activeDrillEngine.cleanup();
-      _activeDrillEngine = null;
-    }
-    /* Remove fullscreen results overlay before navigating */
-    var _dc = document.getElementById('drillContainer');
-    if (_dc) {
-      _dc.classList.remove('drill-results-active');
-      _dc.style.display = 'none';
-    }
-    if (_drillSessionActive && typeof FirestoreSync !== 'undefined') {
-      FirestoreSync.endDrillBatch();
-    }
-    _exitDrillSession();
+    _disposeActiveDrillSession();
     if (view === 'practice') {
       _resetPracticeUiToModes();
     }
@@ -281,11 +268,7 @@ function startMockFromPractice(examId) {
       if (card) card.insertBefore(el, card.firstChild); else container.appendChild(el);
     },
     onFinish: function (view) {
-      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
-      var _dc = document.getElementById('drillContainer');
-      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
-      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
-      _exitDrillSession();
+      _disposeActiveDrillSession();
       if (view === 'practice') _resetPracticeUiToModes();
       Router.showView(view);
     }
@@ -425,11 +408,7 @@ function startDiSet(category) {
       if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('di');
     },
     onFinish: function (view) {
-      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
-      var _dc = document.getElementById('drillContainer');
-      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
-      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
-      _exitDrillSession();
+      _disposeActiveDrillSession();
       if (view === 'practice') _resetPracticeUiToModes();
       Router.showView(view);
     }
@@ -575,19 +554,7 @@ function _renderDailyQuota(progress) {
  */
 function initPracticeView() {
   Router.onShow('practice', function () {
-    if (_activeDrillEngine) {
-      _activeDrillEngine.cleanup();
-      _activeDrillEngine = null;
-    }
-    if (_drillSessionActive && typeof FirestoreSync !== 'undefined') {
-      FirestoreSync.endDrillBatch();
-    }
-    _exitDrillSession();
-    /* Remove fullscreen results overlay if still present */
-    var _dc = document.getElementById('drillContainer');
-    if (_dc) {
-      _dc.classList.remove('drill-results-active');
-    }
+    _disposeActiveDrillSession();
 
     /* Daily quota indicator (free users only) */
     if (typeof _renderDailyQuota === 'function') {
@@ -762,7 +729,7 @@ function initPracticeView() {
     var backToModesBtn = document.getElementById('backToModes');
     if (backToModesBtn) {
       backToModesBtn.addEventListener('click', function () {
-        _exitDrillSession();
+        _disposeActiveDrillSession();
         _resetPracticeUiToModes();
       });
     }

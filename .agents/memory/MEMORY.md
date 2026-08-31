@@ -1,0 +1,1 @@
+- [Drill overlay lifecycle](drill-overlay-lifecycle.md) — results outlive the active-session flag and require explicit engine disposal before Practice resets.

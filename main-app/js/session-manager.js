@@ -24,6 +24,32 @@ var _exitDialogShowing = false;
 var _exitDialogHandle = null;
 
 /**
+ * Dispose the current drill engine and its screen ownership.
+ *
+ * The engine remains referenced after finish() so it can own the results card. A
+ * real exit must release that reference before any route/show hook runs;
+ * otherwise the router sees a stale engine, while the session flag says the
+ * session is over. Keep this idempotent because several exit surfaces can
+ * converge on the same Practice refresh.
+ */
+function _disposeActiveDrillSession() {
+  var engine = _activeDrillEngine;
+  _activeDrillEngine = null;
+  if (engine && typeof engine.cleanup === 'function') {
+    try { engine.cleanup(); } catch (_) {}
+  }
+  if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.endDrillBatch === 'function') {
+    try { FirestoreSync.endDrillBatch(); } catch (_) {}
+  }
+  _exitDrillSession();
+  var container = document.getElementById('drillContainer');
+  if (container) {
+    container.classList.remove('drill-results-active');
+    container.style.display = 'none';
+  }
+}
+
+/**
  * Enter drill session mode:
  * - set session active flag
  * - hide bottom navigation bar for immersive experience

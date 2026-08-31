@@ -64,8 +64,14 @@ var Router = (function () {
 
     var _drillContainer = document.getElementById('drillContainer');
     if (_drillContainer) {
-      _drillContainer.classList.remove('drill-results-active');
-      if (typeof _drillSessionActive === 'undefined' || !_drillSessionActive) {
+      /* Results intentionally run after _exitDrillSession() and are still
+         owned by _activeDrillEngine. Do not hide that screen based on the
+         session flag alone. */
+      var _drillOwnsScreen = (typeof _engineOwnsScreen === 'function')
+        ? _engineOwnsScreen()
+        : (typeof _drillSessionActive !== 'undefined' && _drillSessionActive);
+      if (!_drillOwnsScreen) {
+        _drillContainer.classList.remove('drill-results-active');
         _drillContainer.style.display = 'none';
       }
     }
@@ -262,19 +268,9 @@ var Router = (function () {
 
         if (typeof showExitSessionDialog === 'function') {
           showExitSessionDialog(function () {
-            if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine) {
-              _activeDrillEngine.cleanup();
-              _activeDrillEngine = null;
+            if (typeof _disposeActiveDrillSession === 'function') {
+              _disposeActiveDrillSession();
             }
-            var _dc = document.getElementById('drillContainer');
-            if (_dc) {
-              _dc.classList.remove('drill-results-active');
-              _dc.style.display = 'none';
-            }
-            if (typeof FirestoreSync !== 'undefined') {
-              FirestoreSync.endDrillBatch();
-            }
-            if (typeof _exitDrillSession === 'function') _exitDrillSession();
             showView('practice');
           });
         }
@@ -282,16 +278,7 @@ var Router = (function () {
       }
 
       /* Non-session popstate: clean up any stale drill state */
-      if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine) {
-        _activeDrillEngine.cleanup();
-        _activeDrillEngine = null;
-      }
-      var _dc2 = document.getElementById('drillContainer');
-      if (_dc2) {
-        _dc2.classList.remove('drill-results-active');
-        _dc2.style.display = 'none';
-      }
-      if (typeof _exitDrillSession === 'function') _exitDrillSession();
+      if (typeof _disposeActiveDrillSession === 'function') _disposeActiveDrillSession();
 
       var parsed = _parseHash(window.location.hash);
       _navigatingFromPopstate = true;
