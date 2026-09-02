@@ -309,11 +309,7 @@ function startSessionReview(wrongQuestions) {
     skipStartScreen: true,
     mode: '🔄 ' + QRI18n.t('practice.sessionReview'),
     onFinish: function (view) {
-      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
-      var _dc = document.getElementById('drillContainer');
-      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
-      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
-      _exitDrillSession();
+      _disposeActiveDrillSession();
       if (view === 'practice') _resetPracticeUiToModes();
       Router.showView(view);
     }
@@ -458,11 +454,7 @@ function startLrSet(category) {
       if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('lr');
     },
     onFinish: function (view) {
-      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
-      var _dc = document.getElementById('drillContainer');
-      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
-      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
-      _exitDrillSession();
+      _disposeActiveDrillSession();
       if (view === 'practice') _resetPracticeUiToModes();
       Router.showView(view);
     }
