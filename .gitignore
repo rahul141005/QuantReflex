@@ -36,3 +36,5 @@ _research_*/
 
 # Scratch files
 scratch/
+.ideavo/project
+*.log
